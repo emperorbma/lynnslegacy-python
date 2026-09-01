@@ -148,18 +148,7 @@ def draw_map_demo(canvas: pygame.Surface, demo: MapDemo, room_i: int, cam_x: int
     canvas.fill((0, 0, 0))
     blit_room_tiles(canvas, room, demo.tile_surfs, cam_x, cam_y, para, layers=(0, 1))
     save_open = demo.hero is not None and demo.hero.menu_sel != 0
-    if room_i < len(demo.objects_by_room):
-        for obj in demo.objects_by_room[room_i]:
-            if save_open and obj.unique_id == u_savepoint:
-                continue
-            anims = demo.obj_anim_surfs.get(obj.id)
-            if not anims or obj.current_anim >= len(anims):
-                continue
-            blit_object(canvas, obj, cam_x, cam_y, anims[obj.current_anim])
-    if demo.hero is not None and demo.hero_surfs:
-        anim_i = demo.hero.current_anim
-        if anim_i < len(demo.hero_surfs):
-            blit_object(canvas, demo.hero, cam_x, cam_y, demo.hero_surfs[anim_i])
+    _blit_y_sorted(canvas, demo, room_i, cam_x, cam_y, save_open)
     blit_room_tiles(canvas, room, demo.tile_surfs, cam_x, cam_y, layers=(2,))
     if room_i < len(demo.objects_by_room) and demo.drop_surfs:
         blit_enemy_loot(
@@ -170,6 +159,11 @@ def draw_map_demo(canvas: pygame.Surface, demo: MapDemo, room_i: int, cam_x: int
             cam_y,
             demo.drop_surfs,
         )
+    if events.fade_white:
+        fade = pygame.Surface((SCREEN_W, SCREEN_H))
+        fade.fill((255, 255, 255))
+        fade.set_alpha(max(0, min(255, int(events.fade_white))))
+        canvas.blit(fade, (0, 0))
     if demo.do_hud != 0 and demo.hud is not None and demo.hero is not None and demo.hero_only is not None:
         blit_hud(canvas, demo.hero, demo.hero_only, demo.hud)
     if save_open and events.box_entity is not None:
@@ -179,6 +173,37 @@ def draw_map_demo(canvas: pygame.Surface, demo: MapDemo, room_i: int, cam_x: int
         blit_save_menu(canvas, sp, demo.obj_anim_surfs.get(sp.id, []), demo.hud)
     if demo.box is not None:
         blit_box(canvas, demo.box)
+
+
+def _sort_y(obj) -> tuple:
+    """FB mergesort_placed then y: placed first, then mid-y."""
+    placed = int(getattr(obj, "placed", 0) or 0)
+    mid_y = int(obj.coords_y) + (int(obj.perimeter_y) >> 1)
+    return (placed, mid_y)
+
+
+def _blit_y_sorted(canvas, demo: MapDemo, room_i: int, cam_x: int, cam_y: int, save_open: bool) -> None:
+    """FB blit_y_sorted: room enemies + hero, by placed then y-mid."""
+    sprites = []
+    if 0 <= room_i < len(demo.objects_by_room):
+        for obj in demo.objects_by_room[room_i]:
+            if save_open and obj.unique_id == u_savepoint:
+                continue
+            sprites.append(obj)
+    if demo.hero is not None:
+        sprites.append(demo.hero)
+    sprites.sort(key=_sort_y)
+    for obj in sprites:
+        if obj is demo.hero:
+            anims = demo.hero_surfs
+        else:
+            anims = demo.obj_anim_surfs.get(obj.id)
+        if not anims:
+            continue
+        anim_i = obj.current_anim
+        if anim_i < 0 or anim_i >= len(anims) or not anims[anim_i]:
+            continue
+        blit_object(canvas, obj, cam_x, cam_y, anims[anim_i])
 
 
 def load_palette_demo() -> tuple[LLPalette, list]:

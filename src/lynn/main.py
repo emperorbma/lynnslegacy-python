@@ -298,6 +298,7 @@ def _run_map(canvas, frame_clock, scale_option: int, with_objects: bool, map_pat
             )
             if demo.seq is None:
                 demo.do_hud = TRUE
+                events.do_hud = TRUE
             for obj in others:
                 LLObject_CheckSpawn(obj)
         if demo.menu_open == 0:

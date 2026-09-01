@@ -15,6 +15,7 @@ do_hud = TRUE
 box_entity = None
 map_filename = ""
 hero_room = 0
+fade_white = 0
 
 
 @dataclass
@@ -30,7 +31,7 @@ keys = KeyState()
 
 
 def reset_events() -> None:
-    global hero_only, hero, current_room, current_others, do_hud, box_entity, map_filename, hero_room
+    global hero_only, hero, current_room, current_others, do_hud, box_entity, map_filename, hero_room, fade_white
     for i in range(len(now)):
         now[i] = 0
     hero_only = None
@@ -41,6 +42,7 @@ def reset_events() -> None:
     box_entity = None
     map_filename = ""
     hero_room = 0
+    fade_white = 0
     keys.up = keys.down = keys.enter = keys.escape = keys.enter_pulse = 0
 
 

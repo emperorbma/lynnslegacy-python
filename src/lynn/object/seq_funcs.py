@@ -99,11 +99,34 @@ def __eat_lynn_action(this: CharType) -> int:
 
 
 def __fade_to_white(this: CharType) -> int:
-    return 1
+    """FB object--gfx_palette.bas: wash toward white. Overlay stands in for palette."""
+    step = 4
+    if this.fade_timer == 0:
+        events.fade_white = min(255, int(events.fade_white) + step)
+        this.fade_timer = clock.timer + (this.fade_time or 0.01)
+    if clock.timer >= this.fade_timer:
+        this.fade_timer = 0
+    if events.fade_white >= 250:
+        events.fade_white = 255
+        this.fade_timer = 0
+        return 1
+    return 0
 
 
 def __fade_down_to_color(this: CharType) -> int:
-    return 1
+    """FB: 64 steps from white back to the room palette."""
+    if this.fade_timer == 0:
+        events.fade_white = max(0, int(events.fade_white) - 4)
+        this.fade_count += 1
+        this.fade_timer = clock.timer + (this.fade_time or 0.01)
+    if clock.timer >= this.fade_timer:
+        this.fade_timer = 0
+    if this.fade_count >= 64 or events.fade_white <= 0:
+        events.fade_white = 0
+        this.fade_count = 0
+        this.fade_timer = 0
+        return 1
+    return 0
 
 
 def __fade_to_red(this: CharType) -> int:

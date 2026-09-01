@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import lynn.events as events
 from lynn.constants import FALSE, TRUE
 from lynn.gfx.box import BoxControl, make_box, tick_box
 from lynn.map.collision import check_bounds
@@ -98,6 +99,8 @@ def _assign(char: CharType, cmd, hero_only) -> None:
         char.coords_y = cmd.abs_y
     if cmd.fadeTime:
         char.fade_time = cmd.fadeTime
+    if cmd.display_hud != 0:
+        events.do_hud = TRUE
     char.dest_x = cmd.dest_x
     char.dest_y = cmd.dest_y
     if cmd.jump_count != 0:
@@ -136,7 +139,9 @@ def play_sequence(seq: SequenceType | None, box: BoxControl, hero_only, palette=
     if seq is None or seq.current_command >= seq.commands:
         if seq is not None:
             sequence_FullReset(seq, hero_only)
+        events.do_hud = TRUE
         return None
+    events.do_hud = 0
     cmd = seq.Command[seq.current_command]
     for ent in cmd.ent:
         if ent.active_ent == SF_BOX:
@@ -173,5 +178,6 @@ def play_sequence(seq: SequenceType | None, box: BoxControl, hero_only, palette=
             break
     if seq.current_command >= seq.commands:
         sequence_FullReset(seq, hero_only)
+        events.do_hud = TRUE
         return None
     return seq

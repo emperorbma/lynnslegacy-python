@@ -103,6 +103,9 @@ class CharType:
     mod_lock: int = 0
     jump_count: int = 0
     fade_time: float = 0.0
+    fade_timer: float = 0.0
+    fade_count: int = 0
+    placed: int = 0
     state_shift: int = 0
     attack_state: int = 0
     hit_state: int = 0

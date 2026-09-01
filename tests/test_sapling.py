@@ -3,6 +3,7 @@ import lynn.object  # noqa: F401  registers seq funcs
 from lynn import clock
 from lynn.constants import TRUE
 from lynn.events import bind_hero_only, now, reset_events
+import lynn.events as events
 from lynn.gfx.box import BoxControl
 from lynn.hero import DIR_UP, ctor_hero, ctor_hero_only
 from lynn.map.loader import load_mapV
@@ -98,3 +99,33 @@ def test_sapling_seq_gives_weapon_and_happen_3():
     assert only.has_weapon == 0
     assert only.weapon == 0
     assert now[3] != 0
+    assert events.do_hud != 0
+
+
+def test_y_sort_puts_south_sprite_on_top():
+    from lynn.demos import _sort_y
+    from lynn.object.char import CharType
+
+    north = CharType()
+    north.coords_y = 240
+    north.perimeter_y = 8
+    south = CharType()
+    south.coords_y = 247
+    south.perimeter_y = 16
+    assert _sort_y(north) < _sort_y(south)
+
+
+def test_fade_to_white_reaches_full():
+    from lynn.object.seq_funcs import __fade_to_white
+    from lynn.object.char import CharType
+    from lynn import clock
+
+    reset_events()
+    o = CharType()
+    o.fade_time = 0.01
+    clock.timer = 0.0
+    for i in range(200):
+        clock.timer = i * 0.02
+        if __fade_to_white(o) == 1:
+            break
+    assert events.fade_white == 255
