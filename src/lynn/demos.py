@@ -9,6 +9,7 @@ import pygame
 from lynn.constants import SCREEN_H, SCREEN_W, TRUE
 from lynn.gfx.blit import blit_object, blit_room_tiles
 from lynn.gfx.hud import blit_hud, load_hud
+from lynn.gfx.menu import load_menu
 from lynn.gfx.image import LLSystem_ImageLoad, frame_surface, frame_surfaces
 from lynn.gfx.palette import LLPalette, load_pal
 import lynn.object  # registers __idle_animate / __return_idle / __reset_frame
@@ -61,6 +62,9 @@ class MapDemo:
     hero_only: object | None = None
     hud: object | None = None
     do_hud: int = 0
+    menu: object | None = None
+    menu_open: int = 0
+    menu_backdrop: object | None = None
 
 
 def load_map_demo(with_objects: bool = True, map_path: str | None = None) -> MapDemo:
@@ -95,6 +99,7 @@ def load_map_demo(with_objects: bool = True, map_path: str | None = None) -> Map
     demo.hero_only = ctor_hero_only()
     demo.hud = load_hud(palette)
     demo.do_hud = TRUE
+    demo.menu = load_menu(palette)
     demo.hero_surfs = [
         frame_surfaces(anim, palette) if anim.frames else []
         for anim in hero.anim

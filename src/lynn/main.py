@@ -8,7 +8,7 @@ import time
 import pygame
 
 from lynn import clock as ll_clock
-from lynn.constants import SCREEN_H, SCREEN_W
+from lynn.constants import SCREEN_H, SCREEN_W, TRUE
 from lynn.demos import (
     MODES,
     draw_map_demo,
@@ -17,6 +17,7 @@ from lynn.demos import (
     load_palette_demo,
     tick_map_demo,
 )
+from lynn.gfx.menu import handleKeybSelected, keyboardSelected, menu_Blit
 from lynn.hero import (
     DIR_DOWN,
     DIR_LEFT,
@@ -127,62 +128,101 @@ def _run_map(canvas, frame_clock, scale_option: int, with_objects: bool, map_pat
     shown = None
     running = True
     while running:
+        menu_up = menu_right = menu_down = menu_left = 0
+        menu_confirm = False
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
-                    running = False
+                    if with_objects and demo.hero is not None and demo.menu is not None:
+                        if demo.menu_open != 0:
+                            demo.menu_open = 0
+                            demo.menu_backdrop = None
+                        else:
+                            demo.menu_open = TRUE
+                            demo.menu.selectedItem = 18
+                            demo.menu_backdrop = None
+                    else:
+                        running = False
                 elif event.key == pygame.K_F11 or (
                     event.key == pygame.K_RETURN and (event.mod & pygame.KMOD_ALT)
                 ):
                     pygame.display.toggle_fullscreen()
                 elif event.key == pygame.K_F12:
                     scale_option = (scale_option + 1) % 7
+                elif demo.menu_open != 0:
+                    if event.key == pygame.K_UP:
+                        menu_up = TRUE
+                    elif event.key == pygame.K_RIGHT:
+                        menu_right = TRUE
+                    elif event.key == pygame.K_DOWN:
+                        menu_down = TRUE
+                    elif event.key == pygame.K_LEFT:
+                        menu_left = TRUE
+                    elif event.key in (pygame.K_RETURN, pygame.K_SPACE) and not (
+                        event.mod & pygame.KMOD_ALT
+                    ):
+                        menu_confirm = True
                 elif event.key in (pygame.K_LEFTBRACKET, pygame.K_PAGEUP):
                     room_i = (room_i - 1) % demo.game_map.rooms
                     cam_x, cam_y = _cam_for_room(demo.game_map, room_i)
                 elif event.key in (pygame.K_RIGHTBRACKET, pygame.K_PAGEDOWN):
                     room_i = (room_i + 1) % demo.game_map.rooms
                     cam_x, cam_y = _cam_for_room(demo.game_map, room_i)
+        if demo.menu_open != 0 and demo.menu is not None and demo.hero_only is not None:
+            keyboardSelected(demo.menu, menu_up, menu_right, menu_down, menu_left)
+            if menu_confirm and handleKeybSelected(demo.menu, demo.hero_only) != 0:
+                demo.menu_open = 0
+                demo.menu_backdrop = None
         room = demo.game_map.room[room_i]
         keys = pygame.key.get_pressed()
-        if demo.hero is not None:
-            keys_dir = None
-            if keys[pygame.K_LEFT] or keys[pygame.K_a]:
-                keys_dir = DIR_LEFT
-            if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
-                keys_dir = DIR_RIGHT
-            if keys[pygame.K_DOWN] or keys[pygame.K_s]:
-                keys_dir = DIR_DOWN
-            if keys[pygame.K_UP] or keys[pygame.K_w]:
-                keys_dir = DIR_UP
-            others = demo.objects_by_room[room_i] if room_i < len(demo.objects_by_room) else []
-            hero_walk_step(demo.hero, room, keys_dir, others)
-            demo.hero_room = try_same_map_room_teleport(
-                demo.hero, demo.game_map, demo.hero_room
-            )
-            room_i = demo.hero_room
-            room = demo.game_map.room[room_i]
-            cam_x, cam_y = update_cam(demo.hero, room)
-        else:
-            if keys[pygame.K_LEFT] or keys[pygame.K_a]:
-                cam_x -= PAN_SPEED
-            if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
-                cam_x += PAN_SPEED
-            if keys[pygame.K_UP] or keys[pygame.K_w]:
-                cam_y -= PAN_SPEED
-            if keys[pygame.K_DOWN] or keys[pygame.K_s]:
-                cam_y += PAN_SPEED
-            cam_x, cam_y = _clamp_cam(room, cam_x, cam_y)
+        if demo.menu_open == 0:
+            if demo.hero is not None:
+                keys_dir = None
+                if keys[pygame.K_LEFT] or keys[pygame.K_a]:
+                    keys_dir = DIR_LEFT
+                if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
+                    keys_dir = DIR_RIGHT
+                if keys[pygame.K_DOWN] or keys[pygame.K_s]:
+                    keys_dir = DIR_DOWN
+                if keys[pygame.K_UP] or keys[pygame.K_w]:
+                    keys_dir = DIR_UP
+                others = demo.objects_by_room[room_i] if room_i < len(demo.objects_by_room) else []
+                hero_walk_step(demo.hero, room, keys_dir, others)
+                demo.hero_room = try_same_map_room_teleport(
+                    demo.hero, demo.game_map, demo.hero_room
+                )
+                room_i = demo.hero_room
+                room = demo.game_map.room[room_i]
+                cam_x, cam_y = update_cam(demo.hero, room)
+            else:
+                if keys[pygame.K_LEFT] or keys[pygame.K_a]:
+                    cam_x -= PAN_SPEED
+                if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
+                    cam_x += PAN_SPEED
+                if keys[pygame.K_UP] or keys[pygame.K_w]:
+                    cam_y -= PAN_SPEED
+                if keys[pygame.K_DOWN] or keys[pygame.K_s]:
+                    cam_y += PAN_SPEED
+                cam_x, cam_y = _clamp_cam(room, cam_x, cam_y)
         shown = _map_caption(
             demo.game_map.filename, room_i, demo.game_map.rooms, cam_x, cam_y, shown,
             demo.objects_by_room[room_i] if room_i < len(demo.objects_by_room) else (),
             demo.hero,
         )
         ll_clock.timer = time.perf_counter()
-        tick_map_demo(demo, room_i)
-        draw_map_demo(canvas, demo, room_i, cam_x, cam_y)
+        if demo.menu_open == 0:
+            tick_map_demo(demo, room_i)
+            draw_map_demo(canvas, demo, room_i, cam_x, cam_y)
+            demo.menu_backdrop = None
+        else:
+            if demo.menu_backdrop is None:
+                draw_map_demo(canvas, demo, room_i, cam_x, cam_y)
+                demo.menu_backdrop = canvas.copy()
+            canvas.blit(demo.menu_backdrop, (0, 0))
+            if demo.menu is not None and demo.hero_only is not None:
+                menu_Blit(canvas, demo.menu, demo.hero_only)
         _present(canvas, scale_option)
         frame_clock.tick(60)
     return 0

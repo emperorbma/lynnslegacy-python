@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from lynn import clock
-from lynn.constants import SCREEN_H, SCREEN_W
+from lynn.constants import SCREEN_H, SCREEN_W, TRUE
 from lynn.map.collision import check_against_teles, move_object
 from lynn.map.types import MapType, RoomType
 from lynn.object.char import CharType
@@ -22,6 +22,8 @@ class MainCharType:
     has_weapon: int = -1
     selected_item: int = 0
     weapon: int = -1
+    hasCostume: list[int] = field(default_factory=lambda: [0] * 9)
+    isWearing: int = 0
 
 DIR_UP = 0
 DIR_RIGHT = 1
@@ -50,6 +52,9 @@ def ctor_hero_only() -> MainCharType:
     only.has_weapon = -1
     only.hasItem = [0] * 6
     only.selected_item = 0
+    only.hasCostume = [0] * 9
+    only.hasCostume[0] = TRUE
+    only.isWearing = 0
     return only
 
 
