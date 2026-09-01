@@ -121,12 +121,38 @@ def _set_fly_from(h: CharType, origin_x: float, origin_y: float) -> None:
     h.fly_y = 1 if dy > 0 else (-1 if dy < 0 else 0)
 
 
+def _play_hurt_sound(h: CharType) -> None:
+    from lynn.audio import play_sample, sound_lynn_hurt_1
+    from lynn.constants import u_lynn
+    import random
+
+    if h.unique_id == u_lynn:
+        play_sample(sound_lynn_hurt_1 + int(random.random() * 3), 50)
+        return
+    if h.hit_sound != 0:
+        vol = h.hit_sound_vol if h.hit_sound_vol != 0 else 100
+        play_sample(h.hit_sound, vol)
+
+
+def _play_dead_sound(h: CharType) -> None:
+    from lynn.audio import play_sample
+    from lynn.constants import u_lynn
+
+    if h.dead_sound == 0:
+        return
+    if h.unique_id == u_lynn:
+        play_sample(h.dead_sound, 30)
+    else:
+        play_sample(h.dead_sound)
+
+
 def LLObject_ProcessHurt(h: CharType) -> None:
     h.hp -= h.hurt
     if h.hurt < 0:
         LLObject_ClearDamage(h)
         return
     if h.hp > 0:
+        _play_hurt_sound(h)
         if h.dmg_id == DF_MAIN_CHAR:
             LLObject_ShiftState(h, h.hit_state)
         elif h.dmg_id in (DF_ROOM_ENEMY, DF_TEMP_ENEMY):
@@ -135,6 +161,7 @@ def LLObject_ProcessHurt(h: CharType) -> None:
                 _set_fly_from(h, enemy.coords_x, enemy.coords_y)
         return
     if h.dead == 0:
+        _play_dead_sound(h)
         LLObject_ShiftState(h, h.death_state)
         h.dead = 1
     LLObject_ClearDamage(h)

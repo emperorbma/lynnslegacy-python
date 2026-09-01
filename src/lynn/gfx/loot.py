@@ -43,8 +43,17 @@ def blit_enemy_loot(canvas, enemies: list[CharType], hero: CharType | None, cam_
         if kind == 1:
             if hero.hp < hero.maxhp:
                 hero.hp += 1
+            from lynn.audio import play_sample, sound_healthgrab
+
+            play_sample(sound_healthgrab)
         elif kind == 2:
             hero.money += int(obj.n_gold) * 5
+            from lynn.audio import play_sample, sound_cashget
+
+            play_sample(sound_cashget)
         elif kind == 3:
             hero.money += int(obj.n_silver)
+            from lynn.audio import play_sample, sound_cashget
+
+            play_sample(sound_cashget)
         obj.dropped = 0

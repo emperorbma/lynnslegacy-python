@@ -135,6 +135,10 @@ class CharType:
     d_silver: int = 0
     n_gold: int = 0
     n_silver: int = 0
+    hit_sound: int = 0
+    dead_sound: int = 0
+    hit_sound_vol: int = 0
+    dead_sound_vol: int = 0
     froggy: int = 0
     vision_field: int = 0
     jump_state: int = 0

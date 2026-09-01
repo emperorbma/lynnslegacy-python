@@ -57,7 +57,12 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     chdir_project_root()
+    from lynn.audio import init_mixer, init_snd
+
+    pygame.mixer.pre_init(44100, -16, 2, 512)
     pygame.init()
+    init_mixer()
+    init_snd()
     pygame.mouse.set_visible(False)
     pygame.display.set_caption(_caption_for(mode, map_spec))
     _open_window()

@@ -52,6 +52,14 @@ def test_lynn_walk_sprite():
     assert obj.animControl[0].rate == pytest.approx(0.08)
 
 
+def test_bush_dead_sound_name_resolves():
+    from lynn.audio import sound_bush, sound_null
+
+    obj = _load("bush.xml")
+    assert obj.dead_sound == sound_bush
+    assert obj.hit_sound == sound_null
+
+
 def test_unknown_func_returns_zero():
     fn = lookup_func("__definitely_missing_func")
     dummy = CharType()

@@ -44,6 +44,9 @@ def ctor_hero(load_images: bool = True) -> CharType:
     hero.maxhp = 6
     hero.money = 0
     hero.switch_room = -1
+    from lynn.audio import sound_lynn_die
+
+    hero.dead_sound = sound_lynn_die
     if not hero.walk_speed:
         hero.walk_speed = 0.009
     return hero

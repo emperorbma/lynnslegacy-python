@@ -149,6 +149,9 @@ def __do_menu_save(this: CharType) -> int:
 
     if events.keys.enter_pulse != 0:
         LLSystem_WriteSaveFile(f"ll_save{this.menu_sel + 1}.sav", this.chap)
+        from lynn.audio import play_sample, sound_switch
+
+        play_sample(sound_switch)
         this.read_lock = 0
 
     if events.keys.escape != 0:

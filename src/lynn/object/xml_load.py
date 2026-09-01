@@ -5,6 +5,7 @@ from __future__ import annotations
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
+from lynn.audio import sound_enemyhit, sound_enemykill, sound_from_name
 from lynn.gfx.image import LLSystem_ImageHeader, LLSystem_ImageLoad
 from lynn.object.char import CharType, LLObject_FrameControl, LLObject_ImageHeader
 from lynn.object.dispatch import BLOCK_MACROS, lookup_func
@@ -71,6 +72,8 @@ def LLSystem_ObjectFromXML(obj: CharType, load_images: bool = True) -> CharType:
     xml_text = get_object_xml(obj.id)
     root = ET.fromstring(xml_text)
     path: list[str] = []
+    obj.hit_sound = sound_enemyhit
+    obj.dead_sound = sound_enemykill
 
     def start(elem: ET.Element) -> None:
         path.append(elem.tag.lower())
@@ -102,7 +105,10 @@ def LLSystem_ObjectFromXML(obj: CharType, load_images: bool = True) -> CharType:
         elif len(path) == 2:
             converted = _xml_number(text)
             if converted is None:
-                setattr(obj, path[1], text)
+                if text.lower().startswith("sound_"):
+                    setattr(obj, path[1], sound_from_name(text))
+                else:
+                    setattr(obj, path[1], text)
             else:
                 setattr(obj, path[1], converted)
 
@@ -161,13 +167,14 @@ def _assign_unique_id(obj: CharType) -> None:
 
 
 def _sprite_text(obj: CharType, path: list[str], text: str, load_images: bool) -> None:
-    anim = obj.anim[obj.current_anim]
     ctrl = obj.animControl[obj.current_anim]
     if len(path) == 3 and path[2] == "filename":
         header = get_image_header(text, load_pixels=load_images)
         obj.anim[obj.current_anim] = header
         ctrl.frame = [LLObject_FrameControl() for _ in range(max(header.frames, 1))]
-    elif len(path) == 3 and path[2] == "dir_frames":
+        return
+    anim = obj.anim[obj.current_anim]
+    if len(path) == 3 and path[2] == "dir_frames":
         ctrl.dir_frames = int(_xml_number(text) or 0)
     elif len(path) == 3 and path[2] == "rate":
         ctrl.rate = float(_xml_number(text) or 0)
@@ -184,8 +191,16 @@ def _sprite_text(obj: CharType, path: list[str], text: str, load_images: bool) -
             obj.proj_anim = obj.current_anim
         elif text == "expl_anim":
             obj.expl_anim = obj.current_anim
-    elif len(path) >= 4 and path[2] == "sound" and path[3] == "frame":
-        obj.frame_sound = int(_xml_number(text) or 0)
+    elif len(path) >= 4 and path[2] == "sound":
+        kind = path[3]
+        if kind == "frame":
+            obj.frame_sound = int(_xml_number(text) or 0)
+        elif kind == "uni_sound":
+            _stamp_frame_sound(anim, ctrl, obj.frame_sound, "uni_sound", int(_xml_number(text) or 0), uni=False)
+        elif kind == "index":
+            _stamp_frame_sound(anim, ctrl, obj.frame_sound, "sound", sound_from_name(text), uni=True)
+        elif kind == "vol":
+            _stamp_frame_sound(anim, ctrl, obj.frame_sound, "vol", int(_xml_number(text) or 0), uni=True)
 
 
 def _fp_text(obj: CharType, path: list[str], text: str) -> None:
@@ -203,6 +218,23 @@ def _fp_text(obj: CharType, path: list[str], text: str) -> None:
         obj.funcs.func_count[state] += len(names)
         for name in names:
             _install(obj, name)
+
+
+def _stamp_frame_sound(anim, ctrl, start_frame: int, field: str, value, uni: bool) -> None:
+    """FB FrameSoundLoad: if uni_sound, copy onto each direction's first frame."""
+    if start_frame < 0:
+        return
+    steps = 0
+    if uni and 0 <= start_frame < len(anim.frame) and anim.frame[start_frame].uni_sound != 0:
+        steps = 3
+    fi = start_frame
+    stride = int(ctrl.dir_frames) if ctrl.dir_frames else 0
+    for _ in range(steps + 1):
+        if 0 <= fi < len(anim.frame):
+            setattr(anim.frame[fi], field, value)
+        if stride <= 0:
+            break
+        fi += stride
 
 
 def LLSystem_CopyNewObject(obj: CharType, load_images: bool = True) -> CharType:

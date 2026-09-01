@@ -59,8 +59,36 @@ def blit_room_tiles(
         blit_layer(canvas, room, layer, tile_surfs, cam_x, cam_y)
 
 
+def _play_frame_sound(obj) -> None:
+    """FB blit_object: first time a frame is shown, play its XML sample."""
+    from lynn.audio import play_sample
+    from lynn.macros import LLObject_CalculateFrame
+
+    if not obj.anim or obj.current_anim >= len(obj.anim):
+        return
+    anim = obj.anim[obj.current_anim]
+    fi = LLObject_CalculateFrame(obj)
+    if fi < 0 or fi >= len(anim.frame):
+        return
+    shell = anim.frame[fi]
+    if shell.sound == 0:
+        return
+    ctrl = obj.animControl[obj.current_anim] if obj.animControl else None
+    lock_slot = None
+    if ctrl is not None and 0 <= fi < len(ctrl.frame):
+        lock_slot = ctrl.frame[fi]
+        if lock_slot.sound_lock != 0:
+            return
+    import random
+
+    vol = shell.vol if shell.vol != 0 else int(random.random() * 30) + 70
+    play_sample(shell.sound, vol)
+    if lock_slot is not None:
+        lock_slot.sound_lock = -1
+
+
 def blit_object(canvas: pygame.Surface, obj, cam_x: int, cam_y: int, tile_surfs_for_anim) -> None:
-    """FB blit_object_ex. tile_surfs_for_anim is the current anim's frame surfaces."""
+    """FB blit_object (frame sound) + blit_object_ex."""
     from lynn.macros import LLObject_CalculateFrame
 
     if not tile_surfs_for_anim:
@@ -71,6 +99,7 @@ def blit_object(canvas: pygame.Surface, obj, cam_x: int, cam_y: int, tile_surfs_
         return
     if getattr(obj, "invisible", 0) != 0:
         return
+    _play_frame_sound(obj)
     ctrl = obj.animControl[obj.current_anim] if obj.animControl else None
     x_off = ctrl.x_off if ctrl else 0
     y_off = ctrl.y_off if ctrl else 0
