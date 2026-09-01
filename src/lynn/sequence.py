@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import lynn.events as events
-from lynn.constants import FALSE, TRUE
+from lynn.constants import FALSE, TRUE, conf_Box, u_healthguy
 from lynn.gfx.box import BoxControl, make_box, tick_box
 from lynn.map.collision import check_bounds
 from lynn.map.types import SequenceType
@@ -75,6 +75,10 @@ def try_action_sequence(hero: CharType, hero_only, room_objs: list[CharType]) ->
             continue
         if not obj.seq:
             continue
+        if obj.unique_id == u_healthguy:
+            from lynn.object.seq_funcs import __healthguy_branch
+
+            __healthguy_branch(obj)
         sel = obj.sel_seq if 0 <= obj.sel_seq < len(obj.seq) else 0
         seq = obj.seq[sel]
         seq.current_command = 0
@@ -140,13 +144,17 @@ def play_sequence(seq: SequenceType | None, box: BoxControl, hero_only, palette=
         if seq is not None:
             sequence_FullReset(seq, hero_only)
         events.do_hud = TRUE
+        events.current_seq = None
+        events.seq_box = None
         return None
     events.do_hud = 0
+    events.current_seq = seq
+    events.seq_box = box
     cmd = seq.Command[seq.current_command]
     for ent in cmd.ent:
         if ent.active_ent == SF_BOX:
             if box.box_IsInited == 0:
-                make_box(box, ent.text, palette, menu)
+                make_box(box, ent.text, palette, menu, conf=ent.water_align)
             tick_box(box, hero_only.action)
         else:
             if not (0 <= ent.active_ent < len(seq.ent)):
@@ -167,6 +175,19 @@ def play_sequence(seq: SequenceType | None, box: BoxControl, hero_only, palette=
                 ent.ent_func += result
                 if ent.ent_func >= (funcs.func_count[state] if state < len(funcs.func_count) else len(block)):
                     ent.ent_func = 0
+                if hero_only.dropoutSequence != 0:
+                    hero_only.dropoutSequence = 0
+                    nxt = events.pending_seq
+                    events.pending_seq = None
+                    if nxt is not None:
+                        bind_sequence_ents(nxt, events.hero, events.current_others or [])
+                        nxt.current_command = 0
+                        box.box_IsInited = 0
+                        box.activated = 0
+                        return nxt
+                    sequence_FullReset(seq, hero_only)
+                    events.do_hud = TRUE
+                    return None
         if _command_progressing(seq, box) != 0:
             for e2 in cmd.ent:
                 if e2.active_ent != SF_BOX and 0 <= e2.active_ent < len(seq.ent):

@@ -20,6 +20,18 @@ def __return_reset(this: CharType) -> int:
     return 0
 
 
+def __return_jump_npc(this: CharType) -> int:
+    this.funcs.current_func[this.funcs.active_state] = 0
+    this.funcs.active_state = this.jump_state
+    return 1
+
+
+def __return_reset_npc(this: CharType) -> int:
+    this.funcs.current_func[this.funcs.active_state] = 0
+    this.funcs.active_state = this.reset_state
+    return 1
+
+
 def __poll_action(this: CharType) -> int:
     import lynn.events as events
 
@@ -53,6 +65,8 @@ def __half_second_pause(this: CharType) -> int:
 
 register_func("__return_idle", __return_idle)
 register_func("__return_reset", __return_reset)
+register_func("__return_jump_npc", __return_jump_npc)
+register_func("__return_reset_npc", __return_reset_npc)
 register_func("__poll_action", __poll_action)
 register_func("__second_pause", __second_pause)
 register_func("__half_second_pause", __half_second_pause)

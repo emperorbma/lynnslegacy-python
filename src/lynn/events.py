@@ -16,12 +16,17 @@ box_entity = None
 map_filename = ""
 hero_room = 0
 fade_white = 0
+pending_seq = None
+current_seq = None
+seq_box = None
 
 
 @dataclass
 class KeyState:
     up: int = 0
     down: int = 0
+    left: int = 0
+    right: int = 0
     enter: int = 0
     escape: int = 0
     enter_pulse: int = 0
@@ -31,7 +36,7 @@ keys = KeyState()
 
 
 def reset_events() -> None:
-    global hero_only, hero, current_room, current_others, do_hud, box_entity, map_filename, hero_room, fade_white
+    global hero_only, hero, current_room, current_others, do_hud, box_entity, map_filename, hero_room, fade_white, pending_seq, current_seq, seq_box
     for i in range(len(now)):
         now[i] = 0
     hero_only = None
@@ -43,7 +48,11 @@ def reset_events() -> None:
     map_filename = ""
     hero_room = 0
     fade_white = 0
+    pending_seq = None
+    current_seq = None
+    seq_box = None
     keys.up = keys.down = keys.enter = keys.escape = keys.enter_pulse = 0
+    keys.left = keys.right = 0
 
 
 def bind_hero_only(only) -> None:

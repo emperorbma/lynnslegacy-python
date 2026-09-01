@@ -32,4 +32,5 @@ u_ghut = 33
 u_hotrock = 34
 u_coldrock = 35
 u_greyrock = 36
+u_healthguy = 70
 u_lynn = 77

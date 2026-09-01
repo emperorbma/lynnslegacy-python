@@ -17,6 +17,61 @@ def __return_trig(this: CharType) -> int:
     return 1
 
 
+def __do_nothing(this: CharType) -> int:
+    return 1
+
+
+def health_formula(maxhp: int) -> int:
+    """FB healthFormula: 50 + (maxhp - 6) * 5."""
+    return 50 + (int(maxhp) - 6) * 5
+
+
+def __healthguy_branch(this: CharType) -> int:
+    hero = events.hero
+    if hero is None:
+        return 1
+    if hero.money < health_formula(hero.maxhp):
+        this.sel_seq = 2
+    if hero.maxhp == 30:
+        this.sel_seq = 1
+    return 1
+
+
+def __buy_health(this: CharType) -> int:
+    hero = events.hero
+    if hero is None:
+        return 1
+    hero.money -= health_formula(hero.maxhp)
+    if hero.money < 0:
+        hero.money = 0
+    hero.maxhp += 1
+    return 1
+
+
+def __translate_result(this: CharType) -> int:
+    from lynn.sequence import sequence_FullReset
+
+    seq = events.current_seq
+    box = events.seq_box
+    only = events.hero_only
+    if seq is not None and only is not None:
+        sequence_FullReset(seq, only)
+    sel = box.selected if box is not None else 0
+    idx = int(this.dest_x if sel == 0 else this.dest_y)
+    this.dest_x = 0
+    this.dest_y = 0
+    if 0 <= idx < len(this.seq):
+        nxt = this.seq[idx]
+        nxt.current_command = 0
+        for cmd in nxt.Command:
+            for ent in cmd.ent:
+                ent.ent_func = 0
+        events.pending_seq = nxt
+    if only is not None:
+        only.dropoutSequence = TRUE
+    return 0
+
+
 def __give_weapon(this: CharType) -> int:
     only = events.hero_only
     if only is None:

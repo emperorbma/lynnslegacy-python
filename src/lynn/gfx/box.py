@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from lynn import clock
+import lynn.events as events
 from lynn.constants import FALSE, TRUE
 from lynn.gfx.image import LLSystem_ImageLoad, frame_surface
 from lynn.gfx.menu import graphicalString
@@ -42,6 +43,8 @@ class BoxControl:
     jump_switch: int = 0
     flashbox: int = 0
     flashhook: float = 0.0
+    confBox: int = 0
+    selected: int = 0
 
 
 def parse_text(text: str) -> str:
@@ -61,6 +64,16 @@ def parse_text(text: str) -> str:
                 upper = tok.upper()
                 if upper == "{NEWLINE}":
                     res.append("{NEWLINE}")
+                elif upper == "{HEALTHNOW}":
+                    hero = events.hero
+                    res.append(str(int(hero.maxhp) if hero is not None else 6))
+                elif upper == "{HEALTHUP}":
+                    hero = events.hero
+                    res.append(str(int(hero.maxhp) + 1 if hero is not None else 7))
+                elif upper == "{HEALTHPRICE}":
+                    hero = events.hero
+                    hp = int(hero.maxhp) if hero is not None else 6
+                    res.append(str(50 + (hp - 6) * 5))
                 i = j + 1
                 if i >= n:
                     break
@@ -113,7 +126,13 @@ def _center_line(line: str) -> str:
     return (" " * pad) + line
 
 
-def make_box(box: BoxControl, text: str, palette: LLPalette | None = None, menu=None) -> None:
+def make_box(
+    box: BoxControl,
+    text: str,
+    palette: LLPalette | None = None,
+    menu=None,
+    conf: int = 0,
+) -> None:
     box.activated = TRUE
     box.text = text
     box.state = TEXTBOX_REGULAR
@@ -126,6 +145,8 @@ def make_box(box: BoxControl, text: str, palette: LLPalette | None = None, menu=
     box.jump_switch = 0
     box.flashbox = 0
     box.flashhook = 0.0
+    box.confBox = TRUE if conf != 0 else 0
+    box.selected = 0
     if palette is not None and box.surf is None:
         header = LLSystem_ImageLoad("data/pictures/textbox.spr")
         if header.frames:
@@ -180,6 +201,16 @@ def tick_box(box: BoxControl, action: int) -> None:
                 box.current_line += 1
                 _skip_spaces(box)
     elif box.state == TEXTBOX_CONFIRMATION:
+        if box.confBox != 0:
+            if events.keys.right != 0:
+                box.selected = 1
+            if events.keys.left != 0:
+                box.selected = 0
+            if events.keys.enter_pulse != 0:
+                box.state = TEXTBOX_SHUTDOWN
+                box.activated = FALSE
+                box.box_IsInited = FALSE
+            return
         if action != 0:
             if box.jump_switch == box_kill_switch:
                 box.state = TEXTBOX_SHUTDOWN
@@ -209,7 +240,12 @@ def blit_box(canvas, box: BoxControl) -> None:
     if 0 <= box.current_line < len(box.rows):
         shown = box.rows[box.current_line][: box.opcount + 1]
         graphicalString(canvas, box.font_menu, shown, TEXT_X, TEXT_Y + page_row * LINE_H)
-    if box.state == TEXTBOX_CONFIRMATION and box.jump_switch != box_kill_switch:
+    if box.state == TEXTBOX_CONFIRMATION and box.confBox != 0:
+        yes = "> Yes" if box.selected == 0 else "  Yes"
+        no = "> No" if box.selected == 1 else "  No"
+        graphicalString(canvas, box.font_menu, yes, 9 + (10 << 3), 8 + (3 << 4))
+        graphicalString(canvas, box.font_menu, no, 9 + (26 << 3), 8 + (3 << 4))
+    elif box.state == TEXTBOX_CONFIRMATION and box.jump_switch != box_kill_switch:
         if clock.timer >= box.flashhook:
             box.flashhook = clock.timer + 0.18
             box.flashbox = 0 if box.flashbox != 0 else TRUE

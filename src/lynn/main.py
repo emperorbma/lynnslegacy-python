@@ -212,6 +212,8 @@ def _run_map(canvas, frame_clock, scale_option: int, with_objects: bool, map_pat
         keys = pygame.key.get_pressed()
         events.keys.up = TRUE if keys[pygame.K_UP] else 0
         events.keys.down = TRUE if keys[pygame.K_DOWN] else 0
+        events.keys.left = TRUE if keys[pygame.K_LEFT] else 0
+        events.keys.right = TRUE if keys[pygame.K_RIGHT] else 0
         events.keys.enter = TRUE if keys[pygame.K_RETURN] else 0
         events.keys.escape = TRUE if keys[pygame.K_ESCAPE] else 0
         others = demo.objects_by_room[room_i] if room_i < len(demo.objects_by_room) else []

@@ -152,6 +152,7 @@ _UNIQUE_ID_SUFFIX = (
     ("hotrock.xml", 34),
     ("coldrock.xml", 35),
     ("greyrock.xml", 36),
+    ("healthguy.xml", 70),
     ("lynn.xml", 77),
 )
 
