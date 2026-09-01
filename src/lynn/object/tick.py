@@ -56,5 +56,16 @@ def tick_objects(objs: list[CharType]) -> None:
     for obj in objs:
         if obj.spawn_cond != 0:
             LLObject_CheckSpawn(obj)
-        if obj.dead == 0:
+        if obj.spawn_kill_trig == 0:
             tick_object(obj)
+            if obj.hurt != 0:
+                state = obj.funcs.active_state
+                count = obj.funcs.func_count[state] if state < len(obj.funcs.func_count) else 0
+                if count and obj.funcs.current_func[state] >= count:
+                    from lynn.object.combat import LLObject_ClearDamage, LLObject_ShiftState
+
+                    LLObject_ShiftState(obj, obj.reset_state)
+                    LLObject_ClearDamage(obj)
+                    obj.invisible = 0
+                    obj.flash_count = 0
+                    obj.flash_timer = 0

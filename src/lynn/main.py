@@ -18,6 +18,7 @@ from lynn.demos import (
     tick_map_demo,
 )
 from lynn.gfx.menu import handleKeybSelected, keyboardSelected, menu_Blit
+from lynn.object.combat import LLObject_MAINAttack, hero_attack, start_hero_attack
 from lynn.object.tick import LLObject_CheckSpawn
 from lynn.sequence import play_sequence, try_action_sequence
 from lynn.hero import (
@@ -170,6 +171,9 @@ def _run_map(canvas, frame_clock, scale_option: int, with_objects: bool, map_pat
                         menu_confirm = True
                 elif event.key == pygame.K_SPACE:
                     action_pulse = TRUE
+                elif event.key in (pygame.K_LCTRL, pygame.K_RCTRL):
+                    if demo.hero is not None and demo.hero_only is not None:
+                        start_hero_attack(demo.hero)
                 elif event.key in (pygame.K_LEFTBRACKET, pygame.K_PAGEUP):
                     room_i = (room_i - 1) % demo.game_map.rooms
                     cam_x, cam_y = _cam_for_room(demo.game_map, room_i)
@@ -196,7 +200,8 @@ def _run_map(canvas, frame_clock, scale_option: int, with_objects: bool, map_pat
             if started is not None:
                 demo.seq = started
                 demo.do_hud = 0
-        if demo.menu_open == 0 and demo.seq is None:
+        attacking = demo.hero_only is not None and demo.hero_only.attacking != 0
+        if demo.menu_open == 0 and demo.seq is None and not attacking:
             if demo.hero is not None:
                 keys_dir = None
                 if keys[pygame.K_LEFT] or keys[pygame.K_a]:
@@ -231,6 +236,15 @@ def _run_map(canvas, frame_clock, scale_option: int, with_objects: bool, map_pat
             demo.hero,
         )
         ll_clock.timer = time.perf_counter()
+        if (
+            demo.hero is not None
+            and demo.hero_only is not None
+            and demo.hero_only.attacking != 0
+            and demo.seq is None
+            and demo.menu_open == 0
+        ):
+            hero_attack(demo.hero)
+            LLObject_MAINAttack(others, demo.hero)
         if demo.seq is not None and demo.hero_only is not None:
             demo.seq = play_sequence(
                 demo.seq, demo.box, demo.hero_only, demo.palette, demo.menu

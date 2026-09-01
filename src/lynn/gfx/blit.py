@@ -65,7 +65,9 @@ def blit_object(canvas: pygame.Surface, obj, cam_x: int, cam_y: int, tile_surfs_
 
     if not tile_surfs_for_anim:
         return
-    if getattr(obj, "dead", 0) != 0 or getattr(obj, "invisible", 0) != 0:
+    if getattr(obj, "spawn_kill_trig", 0) != 0:
+        return
+    if getattr(obj, "invisible", 0) != 0:
         return
     ctrl = obj.animControl[obj.current_anim] if obj.animControl else None
     x_off = ctrl.x_off if ctrl else 0
