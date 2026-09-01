@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from lynn import clock
 from lynn.constants import SCREEN_H, SCREEN_W
-from lynn.map.collision import move_object
+from lynn.map.collision import check_against_teles, move_object
 from lynn.map.types import MapType, RoomType
 from lynn.object.char import CharType
 from lynn.object.gfx_frame import LLObject_IncrementFrame
@@ -23,6 +23,7 @@ def ctor_hero(load_images: bool = True) -> CharType:
     hero.num = -1
     hero.hp = 6
     hero.maxhp = 6
+    hero.switch_room = -1
     if not hero.walk_speed:
         hero.walk_speed = 0.009
     return hero
@@ -80,3 +81,27 @@ def hero_walk_step(
         rate = hero.animControl[hero.current_anim].rate if hero.animControl else 0.08
         hero.frame_hold = clock.timer + rate
     return moved
+
+
+def try_same_map_room_teleport(hero: CharType, game_map: MapType, room_i: int) -> int:
+    """Instant same-map room tele (no fade, song, or map reload). FB change_room case 0, state 2.
+
+    If standing on a tele with empty to_map, set coords to dx,dy and return to_room.
+    Map teles are ignored. Dest rooms are already spawned in objects_by_room.
+    """
+    if hero.switch_room != -1:
+        return room_i
+    if not (0 <= room_i < len(game_map.room)):
+        return room_i
+    room = game_map.room[room_i]
+    tele_i = check_against_teles(hero, room)
+    if tele_i == -1:
+        return room_i
+    tele = room.teleport[tele_i]
+    dest_room = tele.to_room
+    if dest_room < 0 or dest_room >= game_map.rooms:
+        return room_i
+    hero.coords_x = tele.dx
+    hero.coords_y = tele.dy
+    hero.switch_room = -1
+    return dest_room

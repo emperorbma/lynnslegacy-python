@@ -17,7 +17,15 @@ from lynn.demos import (
     load_palette_demo,
     tick_map_demo,
 )
-from lynn.hero import DIR_DOWN, DIR_LEFT, DIR_RIGHT, DIR_UP, hero_walk_step, update_cam
+from lynn.hero import (
+    DIR_DOWN,
+    DIR_LEFT,
+    DIR_RIGHT,
+    DIR_UP,
+    hero_walk_step,
+    try_same_map_room_teleport,
+    update_cam,
+)
 from lynn.paths import DEFAULT_MAP, chdir_project_root
 
 PAN_SPEED = 4
@@ -151,8 +159,12 @@ def _run_map(canvas, frame_clock, scale_option: int, with_objects: bool, map_pat
                 keys_dir = DIR_UP
             others = demo.objects_by_room[room_i] if room_i < len(demo.objects_by_room) else []
             hero_walk_step(demo.hero, room, keys_dir, others)
-            cam_x, cam_y = update_cam(demo.hero, room)
+            demo.hero_room = try_same_map_room_teleport(
+                demo.hero, demo.game_map, demo.hero_room
+            )
             room_i = demo.hero_room
+            room = demo.game_map.room[room_i]
+            cam_x, cam_y = update_cam(demo.hero, room)
         else:
             if keys[pygame.K_LEFT] or keys[pygame.K_a]:
                 cam_x -= PAN_SPEED

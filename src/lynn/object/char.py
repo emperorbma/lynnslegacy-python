@@ -71,5 +71,8 @@ class CharType:
     unstoppable_by_tile: int = 0
     unstoppable_by_object: int = 0
     impassable: int = 0
+    switch_room: int = -1
+    to_map: str = ""
+    to_entry: int = 0
     # XML scratch
     frame_sound: int = 0

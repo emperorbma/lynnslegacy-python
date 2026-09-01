@@ -1,11 +1,55 @@
-"""FB engine--LL.bas check_walk / move_object (tiles + room bounds, no entity hits)."""
+"""FB matrices.bas check_bounds + engine--LL.bas check_walk / check_teleports / move_object."""
 
 from __future__ import annotations
 
 from lynn.constants import FALSE, TRUE
 from lynn.macros import LLObject_CalculateFrame, quad_calc, testbit
-from lynn.map.types import RoomType
+from lynn.map.types import RoomType, TeleportType
 from lynn.object.char import CharType
+
+# vector_pair as (u.x, u.y, v.x, v.y) — FB matrices.bas
+BoundsBox = tuple[float, float, float, float]
+
+
+def check_bounds(m: BoundsBox, n: BoundsBox) -> int:
+    """0 if AABBs overlap, -1 otherwise. FB matrices.bas (edge-touch is not overlap)."""
+    touching_x = 0
+    touching_y = 0
+    if m[0] + m[2] > n[0]:
+        if m[0] < (n[0] + n[2]):
+            touching_x = TRUE
+    if m[1] + m[3] > n[1]:
+        if m[1] < n[1] + n[3]:
+            touching_y = TRUE
+    if touching_x and touching_y:
+        return 0
+    return -1
+
+
+def check_teleports(
+    char: CharType,
+    teles: list[TeleportType],
+    num_tele: int | None = None,
+) -> int:
+    """Index of the first tele whose AABB overlaps the char, else -1. FB engine--LL.bas."""
+    origin: BoundsBox = (char.coords_x, char.coords_y, char.perimeter_x, char.perimeter_y)
+    n = len(teles) if num_tele is None else min(num_tele, len(teles))
+    for tele_check in range(n):
+        tele = teles[tele_check]
+        target: BoundsBox = (tele.x, tele.y, tele.w, tele.h)
+        if check_bounds(origin, target) == 0:
+            return tele_check
+    return -1
+
+
+def check_against_teles(o: CharType, room: RoomType) -> int:
+    """FB check_against_teles: same-map teles only. Map changes (to_map != '') wait for enter_map."""
+    tele_i = check_teleports(o, room.teleport, room.teleports)
+    if tele_i == -1:
+        return -1
+    if room.teleport[tele_i].to_map != "":
+        return -1
+    return tele_i
 
 
 def check_walk(o: CharType, d: int, room: RoomType, psfing: int = 0) -> int:
