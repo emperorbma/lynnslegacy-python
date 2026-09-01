@@ -178,10 +178,10 @@ def load_menu(palette: LLPalette) -> MainMenu:
 
 
 def _crop_glyph(surf):
-    """llfont cells are 9x17 with ~8x11 ink. Crop to 8x12 so UI type isn't so tall."""
+    """llfont cells are 9x17. Skip 2px top pad; keep rows 2-15 so g/y/p tails remain."""
     w, h = surf.get_width(), surf.get_height()
-    if w >= 8 and h >= 14:
-        return surf.subsurface((0, 2, 8, 12)).copy()
+    if w >= 8 and h >= 16:
+        return surf.subsurface((0, 2, 8, 14)).copy()
     return surf
 
 

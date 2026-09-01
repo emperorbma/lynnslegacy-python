@@ -85,4 +85,4 @@ def test_font_glyphs_are_cropped(pygame_dummy):
     menu = load_menu(load_pal("data/palette/ll.pal"))
     glyph = menu.font[ord("A")]
     assert glyph.get_width() == 8
-    assert glyph.get_height() == 12
+    assert glyph.get_height() == 14
