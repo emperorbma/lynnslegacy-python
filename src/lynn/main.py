@@ -16,6 +16,7 @@ from lynn.demos import (
     load_map_demo,
     load_palette_demo,
     tick_map_demo,
+    try_hero_teleport,
 )
 from lynn.gfx.menu import handleKeybSelected, keyboardSelected, menu_Blit
 from lynn.object.combat import (
@@ -36,7 +37,6 @@ from lynn.hero import (
     DIR_RIGHT,
     DIR_UP,
     hero_walk_step,
-    try_same_map_room_teleport,
     update_cam,
 )
 from lynn.paths import DEFAULT_MAP, chdir_project_root
@@ -247,9 +247,7 @@ def _run_map(canvas, frame_clock, scale_option: int, with_objects: bool, map_pat
                 if keys[pygame.K_UP] or keys[pygame.K_w]:
                     keys_dir = DIR_UP
                 hero_walk_step(demo.hero, room, keys_dir, others)
-                demo.hero_room = try_same_map_room_teleport(
-                    demo.hero, demo.game_map, demo.hero_room
-                )
+                try_hero_teleport(demo)
                 room_i = demo.hero_room
                 room = demo.game_map.room[room_i]
                 cam_x, cam_y = update_cam(demo.hero, room)

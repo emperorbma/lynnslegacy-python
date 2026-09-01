@@ -7,7 +7,18 @@ from pathlib import Path
 
 import pygame
 
-from lynn.constants import SCREEN_H, SCREEN_W, TRUE, u_savepoint
+from lynn.constants import (
+    SCREEN_H,
+    SCREEN_W,
+    TRUE,
+    u_bluechest,
+    u_bluechestitem,
+    u_button,
+    u_chest,
+    u_gbutton,
+    u_ghut,
+    u_savepoint,
+)
 from lynn.gfx.blit import blit_object, blit_room_tiles
 from lynn.gfx.hud import blit_hud, load_hud
 from lynn.gfx.loot import blit_enemy_loot, load_drop_surfs
@@ -20,9 +31,10 @@ from lynn.events import bind_hero, bind_hero_only, reset_events
 import lynn.events as events
 from lynn.gfx.box import BoxControl, blit_box
 from lynn.hero import ctor_hero, ctor_hero_only, place_hero
+from lynn.map.collision import check_teleports
 from lynn.map.loader import load_mapV
 from lynn.map.types import MapType
-from lynn.object.tick import tick_objects
+from lynn.object.tick import LLObject_CheckSpawn, tick_objects
 from lynn.object.xml_load import spawn_from_stub
 from lynn.paths import DEFAULT_MAP, resolve_map_path
 
@@ -74,6 +86,8 @@ class MapDemo:
     seq: object | None = None
     box: object | None = None
     drop_surfs: list = field(default_factory=list)
+    load_images: int = TRUE
+    load_tileset: int = TRUE
 
 
 def load_map_demo(with_objects: bool = True, map_path: str | None = None) -> MapDemo:
@@ -87,22 +101,14 @@ def load_map_demo(with_objects: bool = True, map_path: str | None = None) -> Map
         game_map=game_map,
         tile_surfs=frame_surfaces(game_map.tileset, palette),
     )
+    demo.load_images = TRUE if with_objects else 0
     if not with_objects:
         demo.objects_by_room = [[] for _ in game_map.room]
         return demo
     reset_events()
-    for room in game_map.room:
-        spawned = []
-        for stub in room.enemy:
-            obj = spawn_from_stub(stub, load_images=True)
-            obj.num = len(spawned)
-            spawned.append(obj)
-            if obj.id not in demo.obj_anim_surfs:
-                demo.obj_anim_surfs[obj.id] = [
-                    frame_surfaces(anim, palette) if anim.frames else []
-                    for anim in obj.anim
-                ]
-        demo.objects_by_room.append(spawned)
+    demo.objects_by_room = [[] for _ in game_map.room]
+    for room_i in range(game_map.rooms):
+        set_up_room_enemies(demo, room_i)
     hero = ctor_hero(load_images=True)
     demo.hero_room = place_hero(hero, game_map, 0)
     demo.hero = hero
@@ -122,6 +128,132 @@ def load_map_demo(with_objects: bool = True, map_path: str | None = None) -> Map
         for anim in hero.anim
     ]
     return demo
+
+
+_SPAWN_KILL_OPEN_ANIM = frozenset(
+    {u_chest, u_bluechest, u_bluechestitem, u_ghut, u_button, u_gbutton}
+)
+
+
+def _cache_obj_anims(demo: MapDemo, obj, load_images: bool = True) -> None:
+    if obj.id in demo.obj_anim_surfs:
+        return
+    if not load_images:
+        demo.obj_anim_surfs[obj.id] = [[] for _ in obj.anim]
+        return
+    demo.obj_anim_surfs[obj.id] = [
+        frame_surfaces(anim, demo.palette) if anim.frames else []
+        for anim in obj.anim
+    ]
+
+
+def del_room_enemies(demo: MapDemo, room_i: int) -> None:
+    """FB del_room_enemies: drop live objects for this room."""
+    if 0 <= room_i < len(demo.objects_by_room):
+        demo.objects_by_room[room_i] = []
+
+
+def set_up_room_enemies(demo: MapDemo, room_i: int, load_images: bool | None = None) -> None:
+    """FB set_up_room_enemies: spawn this room from map stubs, then spawn-kill."""
+    if load_images is None:
+        load_images = demo.load_images != 0
+    if not (0 <= room_i < len(demo.game_map.room)):
+        return
+    room = demo.game_map.room[room_i]
+    spawned = []
+    for stub in room.enemy:
+        obj = spawn_from_stub(stub, load_images=load_images)
+        obj.num = len(spawned)
+        spawned.append(obj)
+        _cache_obj_anims(demo, obj, load_images=load_images)
+        if obj.spawn_cond != 0:
+            LLObject_CheckSpawn(obj)
+            if obj.spawn_kill_trig != 0:
+                if obj.unique_id in _SPAWN_KILL_OPEN_ANIM:
+                    obj.current_anim = 1
+                if obj.unique_id == u_ghut:
+                    from lynn.object.combat import LLObject_ShiftState
+
+                    LLObject_ShiftState(obj, 3)
+    while len(demo.objects_by_room) <= room_i:
+        demo.objects_by_room.append([])
+    demo.objects_by_room[room_i] = spawned
+
+
+def enter_map(
+    demo: MapDemo,
+    map_name: str,
+    entry_i: int,
+    load_images: bool | None = None,
+    load_tileset: bool = True,
+) -> None:
+    """FB enter_map + set_up_room_enemies. Keep the hero; swap the map."""
+    if load_images is None:
+        load_images = demo.load_images != 0
+    path = resolve_map_path(map_name)
+    game_map = load_mapV(str(path), load_tileset=load_tileset)
+    if load_tileset and (game_map.tileset is None or game_map.rooms == 0):
+        raise FileNotFoundError(path)
+    demo.game_map = game_map
+    demo.tile_surfs = []
+    if load_tileset and game_map.tileset is not None:
+        demo.tile_surfs = frame_surfaces(game_map.tileset, demo.palette)
+    demo.para_cache = {}
+    demo.objects_by_room = [[] for _ in game_map.room]
+    demo.load_images = TRUE if load_images else 0
+    demo.load_tileset = TRUE if load_tileset else 0
+    for i in range(game_map.rooms):
+        set_up_room_enemies(demo, i, load_images=load_images)
+    if demo.hero is not None:
+        demo.hero_room = place_hero(demo.hero, game_map, entry_i)
+        demo.hero.switch_room = -1
+        demo.hero.to_map = ""
+        bind_hero(demo.hero)
+    events.map_filename = Path(path).name
+    events.hero_room = demo.hero_room
+
+
+def try_hero_teleport(demo: MapDemo) -> None:
+    """FB check_against_teles then change_room type 0 (same map) or 1 (enter_map).
+
+    Instant, no fade or song. Same-map dest rooms are deleted and respawned from stubs.
+    """
+    hero = demo.hero
+    if hero is None:
+        return
+    if hero.switch_room != -1:
+        return
+    room_i = demo.hero_room
+    if not (0 <= room_i < len(demo.game_map.room)):
+        return
+    room = demo.game_map.room[room_i]
+    tele_i = check_teleports(hero, room.teleport, room.teleports)
+    if tele_i == -1:
+        return
+    tele = room.teleport[tele_i]
+    load_images = demo.load_images != 0
+    if tele.to_map != "":
+        hero.to_map = tele.to_map
+        hero.to_entry = tele.to_room
+        enter_map(
+            demo,
+            tele.to_map,
+            tele.to_room,
+            load_images=load_images,
+            load_tileset=demo.load_tileset != 0,
+        )
+        return
+    dest_room = tele.to_room
+    if dest_room < 0 or dest_room >= demo.game_map.rooms:
+        return
+    if dest_room != room_i:
+        del_room_enemies(demo, room_i)
+        demo.hero_room = dest_room
+        events.hero_room = dest_room
+        set_up_room_enemies(demo, dest_room, load_images=load_images)
+    hero.coords_x = tele.dx
+    hero.coords_y = tele.dy
+    hero.switch_room = -1
 
 
 def tick_map_demo(demo: MapDemo, room_i: int) -> None:

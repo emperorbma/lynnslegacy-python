@@ -212,14 +212,16 @@ def test_forest_fall_room1_north_returns_without_ping_pong():
     assert try_same_map_room_teleport(hero, m, 0) == 0
 
 
-def test_forest_fall_map_tele_is_ignored():
+def test_forest_fall_map_tele_sets_to_map_and_entry():
     m, hero = _forest_fall()
     nerme = m.room[0].teleport[1]
     assert nerme.to_map
     hero.coords_x = nerme.x - 8
     hero.coords_y = nerme.y - 8
     assert check_teleports(hero, m.room[0].teleport) == 1
-    assert check_against_teles(hero, m.room[0]) == -1
+    assert check_against_teles(hero, m.room[0]) == 1
+    assert hero.to_map == nerme.to_map
+    assert hero.to_entry == nerme.to_room
     x0, y0 = hero.coords_x, hero.coords_y
     assert try_same_map_room_teleport(hero, m, 0) == 0
     assert (hero.coords_x, hero.coords_y) == (x0, y0)

@@ -124,7 +124,7 @@ def try_same_map_room_teleport(hero: CharType, game_map: MapType, room_i: int) -
     """Instant same-map room tele (no fade, song, or map reload). FB change_room case 0, state 2.
 
     If standing on a tele with empty to_map, set coords to dx,dy and return to_room.
-    Map teles are ignored. Dest rooms are already spawned in objects_by_room.
+    Map teles are left for enter_map (to_map / to_entry already set by check_against_teles).
     """
     if hero.switch_room != -1:
         return room_i
@@ -135,6 +135,8 @@ def try_same_map_room_teleport(hero: CharType, game_map: MapType, room_i: int) -
     if tele_i == -1:
         return room_i
     tele = room.teleport[tele_i]
+    if tele.to_map != "":
+        return room_i
     dest_room = tele.to_room
     if dest_room < 0 or dest_room >= game_map.rooms:
         return room_i

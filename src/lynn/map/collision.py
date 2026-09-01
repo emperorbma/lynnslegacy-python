@@ -43,12 +43,18 @@ def check_teleports(
 
 
 def check_against_teles(o: CharType, room: RoomType) -> int:
-    """FB check_against_teles: same-map teles only. Map changes (to_map != '') wait for enter_map."""
+    """FB check_against_teles: first overlapping tele, or -1.
+
+    Same-map teles have empty to_map. Map-change teles copy to_map and to_entry
+    (FB stores the dest entry index in TeleportType.to_room).
+    """
     tele_i = check_teleports(o, room.teleport, room.teleports)
     if tele_i == -1:
         return -1
-    if room.teleport[tele_i].to_map != "":
-        return -1
+    tele = room.teleport[tele_i]
+    if tele.to_map != "":
+        o.to_map = tele.to_map
+        o.to_entry = tele.to_room
     return tele_i
 
 
