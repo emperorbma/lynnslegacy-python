@@ -36,6 +36,7 @@ class CommandData:
     fadeTime: float = 0.0
     reserved_9: int = 0
     reserved_10: int = 0
+    ent_func: int = 0
 
 
 @dataclass
@@ -52,6 +53,8 @@ class SequenceType:
     Command: list[CommandType] = field(default_factory=list)
     seq_type: str = ""
     seq_index: int = 0
+    current_command: int = 0
+    ent: list = field(default_factory=list)
 
 
 @dataclass

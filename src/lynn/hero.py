@@ -18,6 +18,8 @@ class MainCharType:
     """FB lynn_structures.bi main_char_type — inventory / HUD fields."""
 
     attacking: int = 0
+    action: int = 0
+    action_lock: int = 0
     hasItem: list[int] = field(default_factory=lambda: [0] * 6)
     has_weapon: int = -1
     selected_item: int = 0

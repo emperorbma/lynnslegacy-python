@@ -25,6 +25,36 @@ def tick_object(this: CharType) -> None:
     f.current_func[state] = f.current_func[state] + result
 
 
+def LLObject_CheckSpawn(obj: CharType) -> None:
+    from lynn.constants import TRUE
+    from lynn.events import now
+    from lynn.object.dispatch import lookup_func
+
+    if obj.spawn_cond == 0 or obj.spawn_info is None:
+        return
+    if obj.spawn_kill_trig != 0:
+        return
+    info = obj.spawn_info
+    if info.kill_n == 0:
+        return
+    res = TRUE
+    for pair in info.kill_spawn:
+        op = now[pair.code_index] != 0 if 0 <= pair.code_index < len(now) else False
+        if pair.code_state == 0:
+            op = not op
+        if not op:
+            res = 0
+            break
+    if res != 0:
+        lookup_func("__make_dead")(obj)
+        lookup_func("__cripple")(obj)
+        obj.seq_release = 0
+        obj.spawn_kill_trig = TRUE
+
+
 def tick_objects(objs: list[CharType]) -> None:
     for obj in objs:
-        tick_object(obj)
+        if obj.spawn_cond != 0:
+            LLObject_CheckSpawn(obj)
+        if obj.dead == 0:
+            tick_object(obj)

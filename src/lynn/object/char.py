@@ -77,3 +77,22 @@ class CharType:
     to_entry: int = 0
     # XML scratch
     frame_sound: int = 0
+    action_sequence: int = 0
+    seq_here: int = 0
+    seq: list = field(default_factory=list)
+    sel_seq: int = 0
+    seq_release: int = 0
+    seq_paused: int = 0
+    spawn_cond: int = 0
+    spawn_info: object | None = None
+    spawn_kill_trig: int = 0
+    chap: int = 0
+    return_trig: int = 0
+    invisible: int = 0
+    invincible: int = 0
+    dest_x: int = 0
+    dest_y: int = 0
+    mod_lock: int = 0
+    jump_count: int = 0
+    fade_time: float = 0.0
+    state_shift: int = 0

@@ -188,4 +188,9 @@ def spawn_from_stub(stub, load_images: bool = True) -> CharType:
     obj.coords_y = stub.y_origin
     obj.direction = stub.direction
     obj.ori_dir = stub.direction
+    obj.seq_here = getattr(stub, "seq_here", 0)
+    obj.seq = list(getattr(stub, "seq", None) or [])
+    obj.spawn_cond = getattr(stub, "spawn_cond", 0)
+    obj.spawn_info = getattr(stub, "spawn_info", None)
+    obj.chap = getattr(stub, "chap", 0)
     return obj

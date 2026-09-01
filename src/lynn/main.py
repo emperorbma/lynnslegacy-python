@@ -18,6 +18,8 @@ from lynn.demos import (
     tick_map_demo,
 )
 from lynn.gfx.menu import handleKeybSelected, keyboardSelected, menu_Blit
+from lynn.object.tick import LLObject_CheckSpawn
+from lynn.sequence import play_sequence, try_action_sequence
 from lynn.hero import (
     DIR_DOWN,
     DIR_LEFT,
@@ -130,12 +132,14 @@ def _run_map(canvas, frame_clock, scale_option: int, with_objects: bool, map_pat
     while running:
         menu_up = menu_right = menu_down = menu_left = 0
         menu_confirm = False
+        action_pulse = 0
+        seq_busy = demo.seq is not None
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
-                    if with_objects and demo.hero is not None and demo.menu is not None:
+                    if with_objects and demo.hero is not None and demo.menu is not None and not seq_busy:
                         if demo.menu_open != 0:
                             demo.menu_open = 0
                             demo.menu_backdrop = None
@@ -143,7 +147,7 @@ def _run_map(canvas, frame_clock, scale_option: int, with_objects: bool, map_pat
                             demo.menu_open = TRUE
                             demo.menu.selectedItem = 18
                             demo.menu_backdrop = None
-                    else:
+                    elif not with_objects:
                         running = False
                 elif event.key == pygame.K_F11 or (
                     event.key == pygame.K_RETURN and (event.mod & pygame.KMOD_ALT)
@@ -164,12 +168,16 @@ def _run_map(canvas, frame_clock, scale_option: int, with_objects: bool, map_pat
                         event.mod & pygame.KMOD_ALT
                     ):
                         menu_confirm = True
+                elif event.key == pygame.K_SPACE:
+                    action_pulse = TRUE
                 elif event.key in (pygame.K_LEFTBRACKET, pygame.K_PAGEUP):
                     room_i = (room_i - 1) % demo.game_map.rooms
                     cam_x, cam_y = _cam_for_room(demo.game_map, room_i)
                 elif event.key in (pygame.K_RIGHTBRACKET, pygame.K_PAGEDOWN):
                     room_i = (room_i + 1) % demo.game_map.rooms
                     cam_x, cam_y = _cam_for_room(demo.game_map, room_i)
+        if demo.hero_only is not None:
+            demo.hero_only.action = action_pulse
         if demo.menu_open != 0 and demo.menu is not None and demo.hero_only is not None:
             keyboardSelected(demo.menu, menu_up, menu_right, menu_down, menu_left)
             if menu_confirm and handleKeybSelected(demo.menu, demo.hero_only) != 0:
@@ -177,7 +185,18 @@ def _run_map(canvas, frame_clock, scale_option: int, with_objects: bool, map_pat
                 demo.menu_backdrop = None
         room = demo.game_map.room[room_i]
         keys = pygame.key.get_pressed()
-        if demo.menu_open == 0:
+        others = demo.objects_by_room[room_i] if room_i < len(demo.objects_by_room) else []
+        if (
+            demo.seq is None
+            and demo.menu_open == 0
+            and demo.hero is not None
+            and demo.hero_only is not None
+        ):
+            started = try_action_sequence(demo.hero, demo.hero_only, others)
+            if started is not None:
+                demo.seq = started
+                demo.do_hud = 0
+        if demo.menu_open == 0 and demo.seq is None:
             if demo.hero is not None:
                 keys_dir = None
                 if keys[pygame.K_LEFT] or keys[pygame.K_a]:
@@ -188,7 +207,6 @@ def _run_map(canvas, frame_clock, scale_option: int, with_objects: bool, map_pat
                     keys_dir = DIR_DOWN
                 if keys[pygame.K_UP] or keys[pygame.K_w]:
                     keys_dir = DIR_UP
-                others = demo.objects_by_room[room_i] if room_i < len(demo.objects_by_room) else []
                 hero_walk_step(demo.hero, room, keys_dir, others)
                 demo.hero_room = try_same_map_room_teleport(
                     demo.hero, demo.game_map, demo.hero_room
@@ -206,14 +224,24 @@ def _run_map(canvas, frame_clock, scale_option: int, with_objects: bool, map_pat
                 if keys[pygame.K_DOWN] or keys[pygame.K_s]:
                     cam_y += PAN_SPEED
                 cam_x, cam_y = _clamp_cam(room, cam_x, cam_y)
+        others = demo.objects_by_room[room_i] if room_i < len(demo.objects_by_room) else []
         shown = _map_caption(
             demo.game_map.filename, room_i, demo.game_map.rooms, cam_x, cam_y, shown,
             demo.objects_by_room[room_i] if room_i < len(demo.objects_by_room) else (),
             demo.hero,
         )
         ll_clock.timer = time.perf_counter()
+        if demo.seq is not None and demo.hero_only is not None:
+            demo.seq = play_sequence(
+                demo.seq, demo.box, demo.hero_only, demo.palette, demo.menu
+            )
+            if demo.seq is None:
+                demo.do_hud = TRUE
+            for obj in others:
+                LLObject_CheckSpawn(obj)
         if demo.menu_open == 0:
-            tick_map_demo(demo, room_i)
+            if demo.seq is None:
+                tick_map_demo(demo, room_i)
             draw_map_demo(canvas, demo, room_i, cam_x, cam_y)
             demo.menu_backdrop = None
         else:

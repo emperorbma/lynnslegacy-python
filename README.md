@@ -39,7 +39,7 @@ Keys:
 - Arrow keys / WASD — walk Lynn (`objects` mode) or pan camera (`map` mode)
 - `[` `]` or PageUp / PageDown — previous / next room
 - Esc — pause menu (`objects`); quit (`map` / `palette`)
-- Enter / Space — confirm pause-menu slot
+- Enter / Space — confirm pause-menu slot; Space also actions objects (sapling)
 - F11 / Alt+Enter — toggle fullscreen
 - F12 — cycle integer scale (fit, then 1x–6x)
 

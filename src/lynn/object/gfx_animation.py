@@ -18,4 +18,21 @@ def __idle_animate(this: CharType) -> int:
     return 0
 
 
+def __active_animate(this: CharType) -> int:
+    """FB object--gfx_animation.bas: play current anim once, then callback."""
+    this.animating = 1
+    anim = this.anim[this.current_anim] if this.anim and this.current_anim < len(this.anim) else None
+    if anim is None or anim.frames <= 0:
+        this.animating = 0
+        return 1
+    if LLObject_IncrementFrame(this) != 0:
+        this.frame -= 1
+        rate = this.animControl[this.current_anim].rate if this.animControl else 0.08
+        this.frame_hold = clock.timer + rate
+        this.animating = 0
+        return 1
+    return 0
+
+
 register_func("__idle_animate", __idle_animate)
+register_func("__active_animate", __active_animate)

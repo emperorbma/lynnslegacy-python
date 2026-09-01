@@ -13,6 +13,8 @@ from lynn.gfx.menu import load_menu
 from lynn.gfx.image import LLSystem_ImageLoad, frame_surface, frame_surfaces
 from lynn.gfx.palette import LLPalette, load_pal
 import lynn.object  # registers __idle_animate / __return_idle / __reset_frame
+from lynn.events import bind_hero_only, reset_events
+from lynn.gfx.box import BoxControl, blit_box
 from lynn.hero import ctor_hero, ctor_hero_only, place_hero
 from lynn.map.loader import load_mapV
 from lynn.map.types import MapType
@@ -65,6 +67,8 @@ class MapDemo:
     menu: object | None = None
     menu_open: int = 0
     menu_backdrop: object | None = None
+    seq: object | None = None
+    box: object | None = None
 
 
 def load_map_demo(with_objects: bool = True, map_path: str | None = None) -> MapDemo:
@@ -81,6 +85,7 @@ def load_map_demo(with_objects: bool = True, map_path: str | None = None) -> Map
     if not with_objects:
         demo.objects_by_room = [[] for _ in game_map.room]
         return demo
+    reset_events()
     for room in game_map.room:
         spawned = []
         for stub in room.enemy:
@@ -97,9 +102,11 @@ def load_map_demo(with_objects: bool = True, map_path: str | None = None) -> Map
     demo.hero_room = place_hero(hero, game_map, 0)
     demo.hero = hero
     demo.hero_only = ctor_hero_only()
+    bind_hero_only(demo.hero_only)
     demo.hud = load_hud(palette)
     demo.do_hud = TRUE
     demo.menu = load_menu(palette)
+    demo.box = BoxControl()
     demo.hero_surfs = [
         frame_surfaces(anim, palette) if anim.frames else []
         for anim in hero.anim
@@ -135,6 +142,8 @@ def draw_map_demo(canvas: pygame.Surface, demo: MapDemo, room_i: int, cam_x: int
     blit_room_tiles(canvas, room, demo.tile_surfs, cam_x, cam_y, layers=(2,))
     if demo.do_hud != 0 and demo.hud is not None and demo.hero is not None and demo.hero_only is not None:
         blit_hud(canvas, demo.hero, demo.hero_only, demo.hud)
+    if demo.box is not None:
+        blit_box(canvas, demo.box)
 
 
 def load_palette_demo() -> tuple[LLPalette, list]:
