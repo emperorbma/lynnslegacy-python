@@ -10,8 +10,10 @@ from lynn.constants import SCREEN_H, SCREEN_W
 from lynn.gfx.blit import blit_object, blit_room_tiles
 from lynn.gfx.image import LLSystem_ImageLoad, frame_surface, frame_surfaces
 from lynn.gfx.palette import LLPalette, load_pal
+import lynn.object  # registers __idle_animate / __return_idle / __reset_frame
 from lynn.map.loader import load_mapV
 from lynn.map.types import MapType
+from lynn.object.tick import tick_objects
 from lynn.object.xml_load import spawn_from_stub
 from lynn.paths import DEFAULT_MAP, resolve_map_path
 
@@ -79,6 +81,11 @@ def load_map_demo(with_objects: bool = True, map_path: str | None = None) -> Map
                 ]
         demo.objects_by_room.append(spawned)
     return demo
+
+
+def tick_map_demo(demo: MapDemo, room_i: int) -> None:
+    if 0 <= room_i < len(demo.objects_by_room):
+        tick_objects(demo.objects_by_room[room_i])
 
 
 def draw_map_demo(canvas: pygame.Surface, demo: MapDemo, room_i: int, cam_x: int, cam_y: int) -> None:

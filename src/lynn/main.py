@@ -3,11 +3,20 @@
 from __future__ import annotations
 
 import sys
+import time
 
 import pygame
 
+from lynn import clock as ll_clock
 from lynn.constants import SCREEN_H, SCREEN_W
-from lynn.demos import MODES, draw_map_demo, draw_palette_demo, load_map_demo, load_palette_demo
+from lynn.demos import (
+    MODES,
+    draw_map_demo,
+    draw_palette_demo,
+    load_map_demo,
+    load_palette_demo,
+    tick_map_demo,
+)
 from lynn.paths import DEFAULT_MAP, chdir_project_root
 
 PAN_SPEED = 4
@@ -30,15 +39,15 @@ def main(argv: list[str] | None = None) -> int:
     pygame.mouse.set_visible(False)
     pygame.display.set_caption(_caption_for(mode, map_spec))
     _open_window()
-    clock = pygame.time.Clock()
+    frame_clock = pygame.time.Clock()
     canvas = pygame.Surface((SCREEN_W, SCREEN_H)).convert()
     scale_option = 0
 
     if mode == "palette":
-        code = _run_palette(canvas, clock, scale_option)
+        code = _run_palette(canvas, frame_clock, scale_option)
     else:
         code = _run_map(
-            canvas, clock, scale_option,
+            canvas, frame_clock, scale_option,
             with_objects=(mode == "objects"),
             map_path=map_spec,
         )
@@ -86,7 +95,7 @@ def _caption_for(mode: str, map_spec: str | None = None) -> str:
     return f"Lynn's Legacy - {label}"
 
 
-def _run_palette(canvas, clock, scale_option: int) -> int:
+def _run_palette(canvas, frame_clock, scale_option: int) -> int:
     palette, sprite_surfs = load_palette_demo()
     start = pygame.time.get_ticks()
     running = True
@@ -95,11 +104,11 @@ def _run_palette(canvas, clock, scale_option: int) -> int:
         elapsed = (pygame.time.get_ticks() - start) / 1000.0
         draw_palette_demo(canvas, palette, sprite_surfs, elapsed)
         _present(canvas, scale_option)
-        clock.tick(60)
+        frame_clock.tick(60)
     return 0
 
 
-def _run_map(canvas, clock, scale_option: int, with_objects: bool, map_path: str | None = None) -> int:
+def _run_map(canvas, frame_clock, scale_option: int, with_objects: bool, map_path: str | None = None) -> int:
     demo = load_map_demo(with_objects=with_objects, map_path=map_path)
     room_i = 0
     cam_x, cam_y = _cam_for_room(demo.game_map, room_i)
@@ -135,10 +144,15 @@ def _run_map(canvas, clock, scale_option: int, with_objects: bool, map_path: str
         if keys[pygame.K_DOWN] or keys[pygame.K_s]:
             cam_y += PAN_SPEED
         cam_x, cam_y = _clamp_cam(room, cam_x, cam_y)
-        shown = _map_caption(demo.game_map.filename, room_i, demo.game_map.rooms, cam_x, cam_y, shown)
+        shown = _map_caption(
+            demo.game_map.filename, room_i, demo.game_map.rooms, cam_x, cam_y, shown,
+            demo.objects_by_room[room_i] if room_i < len(demo.objects_by_room) else (),
+        )
+        ll_clock.timer = time.perf_counter()
+        tick_map_demo(demo, room_i)
         draw_map_demo(canvas, demo, room_i, cam_x, cam_y)
         _present(canvas, scale_option)
-        clock.tick(60)
+        frame_clock.tick(60)
     return 0
 
 
@@ -158,8 +172,15 @@ def _common_events(scale_option: int, running: bool) -> tuple[int, bool]:
     return scale_option, running
 
 
-def _map_caption(filename, room_i, rooms, cam_x, cam_y, previous):
-    text = f"Lynn's Legacy - {filename}  room {room_i}/{rooms - 1}  cam {cam_x},{cam_y}"
+def _map_caption(filename, room_i, rooms, cam_x, cam_y, previous, objs=()):
+    from pathlib import Path
+
+    bits = [f"{Path(o.id).stem}:{o.frame}" for o in objs]
+    extra = ("  " + " ".join(bits)) if bits else ""
+    text = (
+        f"Lynn's Legacy - {filename}  room {room_i}/{rooms - 1}  "
+        f"cam {cam_x},{cam_y}{extra}"
+    )
     if text != previous:
         pygame.display.set_caption(text)
     return text

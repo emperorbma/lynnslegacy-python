@@ -62,4 +62,4 @@ The window loads `data/map/island3.map` (first real map). `title.map` is the boo
 
 ## Current milestone
 
-`island3.map` tiles plus idle XML objects (moths and red teles at spawn). Layer 2 still draws over entities, like the original.
+`island3.map` tiles plus XML objects. Object frames tick (`LLObject_IncrementFrame`, `__idle_animate`, `__return_idle`); red teles cycle in place. Layer 2 still draws over entities.

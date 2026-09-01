@@ -59,5 +59,9 @@ class CharType:
     unique_id: int = 0
     hp: int = 0
     maxhp: int = 0
+    frame_hold: float = 0.0
+    animating: int = 0
+    mad: int = 0
+    dead: int = 0
     # XML scratch
     frame_sound: int = 0
