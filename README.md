@@ -43,7 +43,7 @@ run.bat test --map valley    demo/map tests against that map
 
 Keys:
 
-- Arrow keys / WASD — pan camera
+- Arrow keys / WASD — walk Lynn (`objects` mode) or pan camera (`map` mode)
 - `[` `]` or PageUp / PageDown — previous / next room
 - Esc — quit
 - F11 / Alt+Enter — toggle fullscreen
@@ -62,4 +62,4 @@ The window loads `data/map/island3.map` (first real map). `title.map` is the boo
 
 ## Current milestone
 
-`island3.map` tiles plus XML objects. Object frames tick (`LLObject_IncrementFrame`, `__idle_animate`, `__return_idle`); red teles cycle in place. Layer 2 still draws over entities.
+Lynn walks on `island3` (arrows/WASD, tile collision, camera follow). Red teles still idle-animate. `run.bat map` is tiles-only free-cam.

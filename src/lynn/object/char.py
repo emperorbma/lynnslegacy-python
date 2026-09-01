@@ -63,5 +63,12 @@ class CharType:
     animating: int = 0
     mad: int = 0
     dead: int = 0
+    walk_hold: float = 0.0
+    walk_speed: float = 0.009
+    moving: int = 0
+    num: int = 0
+    unstoppable_by_screen: int = 0
+    unstoppable_by_tile: int = 0
+    unstoppable_by_object: int = 0
     # XML scratch
     frame_sound: int = 0

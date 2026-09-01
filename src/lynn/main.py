@@ -17,6 +17,7 @@ from lynn.demos import (
     load_palette_demo,
     tick_map_demo,
 )
+from lynn.hero import DIR_DOWN, DIR_LEFT, DIR_RIGHT, DIR_UP, hero_walk_step, update_cam
 from lynn.paths import DEFAULT_MAP, chdir_project_root
 
 PAN_SPEED = 4
@@ -110,8 +111,11 @@ def _run_palette(canvas, frame_clock, scale_option: int) -> int:
 
 def _run_map(canvas, frame_clock, scale_option: int, with_objects: bool, map_path: str | None = None) -> int:
     demo = load_map_demo(with_objects=with_objects, map_path=map_path)
-    room_i = 0
-    cam_x, cam_y = _cam_for_room(demo.game_map, room_i)
+    room_i = demo.hero_room if demo.hero is not None else 0
+    if demo.hero is not None:
+        cam_x, cam_y = update_cam(demo.hero, demo.game_map.room[room_i])
+    else:
+        cam_x, cam_y = _cam_for_room(demo.game_map, room_i)
     shown = None
     running = True
     while running:
@@ -135,18 +139,33 @@ def _run_map(canvas, frame_clock, scale_option: int, with_objects: bool, map_pat
                     cam_x, cam_y = _cam_for_room(demo.game_map, room_i)
         room = demo.game_map.room[room_i]
         keys = pygame.key.get_pressed()
-        if keys[pygame.K_LEFT] or keys[pygame.K_a]:
-            cam_x -= PAN_SPEED
-        if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
-            cam_x += PAN_SPEED
-        if keys[pygame.K_UP] or keys[pygame.K_w]:
-            cam_y -= PAN_SPEED
-        if keys[pygame.K_DOWN] or keys[pygame.K_s]:
-            cam_y += PAN_SPEED
-        cam_x, cam_y = _clamp_cam(room, cam_x, cam_y)
+        if demo.hero is not None:
+            keys_dir = None
+            if keys[pygame.K_LEFT] or keys[pygame.K_a]:
+                keys_dir = DIR_LEFT
+            if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
+                keys_dir = DIR_RIGHT
+            if keys[pygame.K_DOWN] or keys[pygame.K_s]:
+                keys_dir = DIR_DOWN
+            if keys[pygame.K_UP] or keys[pygame.K_w]:
+                keys_dir = DIR_UP
+            hero_walk_step(demo.hero, room, keys_dir)
+            cam_x, cam_y = update_cam(demo.hero, room)
+            room_i = demo.hero_room
+        else:
+            if keys[pygame.K_LEFT] or keys[pygame.K_a]:
+                cam_x -= PAN_SPEED
+            if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
+                cam_x += PAN_SPEED
+            if keys[pygame.K_UP] or keys[pygame.K_w]:
+                cam_y -= PAN_SPEED
+            if keys[pygame.K_DOWN] or keys[pygame.K_s]:
+                cam_y += PAN_SPEED
+            cam_x, cam_y = _clamp_cam(room, cam_x, cam_y)
         shown = _map_caption(
             demo.game_map.filename, room_i, demo.game_map.rooms, cam_x, cam_y, shown,
             demo.objects_by_room[room_i] if room_i < len(demo.objects_by_room) else (),
+            demo.hero,
         )
         ll_clock.timer = time.perf_counter()
         tick_map_demo(demo, room_i)
@@ -172,11 +191,13 @@ def _common_events(scale_option: int, running: bool) -> tuple[int, bool]:
     return scale_option, running
 
 
-def _map_caption(filename, room_i, rooms, cam_x, cam_y, previous, objs=()):
+def _map_caption(filename, room_i, rooms, cam_x, cam_y, previous, objs=(), hero=None):
     from pathlib import Path
 
     bits = [f"{Path(o.id).stem}:{o.frame}" for o in objs]
     extra = ("  " + " ".join(bits)) if bits else ""
+    if hero is not None:
+        extra = f"  lynn {int(hero.coords_x)},{int(hero.coords_y)} d{hero.direction}" + extra
     text = (
         f"Lynn's Legacy - {filename}  room {room_i}/{rooms - 1}  "
         f"cam {cam_x},{cam_y}{extra}"

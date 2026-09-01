@@ -11,6 +11,7 @@ from lynn.gfx.blit import blit_object, blit_room_tiles
 from lynn.gfx.image import LLSystem_ImageLoad, frame_surface, frame_surfaces
 from lynn.gfx.palette import LLPalette, load_pal
 import lynn.object  # registers __idle_animate / __return_idle / __reset_frame
+from lynn.hero import ctor_hero, place_hero
 from lynn.map.loader import load_mapV
 from lynn.map.types import MapType
 from lynn.object.tick import tick_objects
@@ -53,6 +54,9 @@ class MapDemo:
     objects_by_room: list = field(default_factory=list)
     obj_anim_surfs: dict = field(default_factory=dict)
     para_cache: dict = field(default_factory=dict)
+    hero: object | None = None
+    hero_surfs: list = field(default_factory=list)
+    hero_room: int = 0
 
 
 def load_map_demo(with_objects: bool = True, map_path: str | None = None) -> MapDemo:
@@ -80,6 +84,13 @@ def load_map_demo(with_objects: bool = True, map_path: str | None = None) -> Map
                     for anim in obj.anim
                 ]
         demo.objects_by_room.append(spawned)
+    hero = ctor_hero(load_images=True)
+    demo.hero_room = place_hero(hero, game_map, 0)
+    demo.hero = hero
+    demo.hero_surfs = [
+        frame_surfaces(anim, palette) if anim.frames else []
+        for anim in hero.anim
+    ]
     return demo
 
 
@@ -104,6 +115,10 @@ def draw_map_demo(canvas: pygame.Surface, demo: MapDemo, room_i: int, cam_x: int
             if not anims or obj.current_anim >= len(anims):
                 continue
             blit_object(canvas, obj, cam_x, cam_y, anims[obj.current_anim])
+    if demo.hero is not None and demo.hero_surfs:
+        anim_i = demo.hero.current_anim
+        if anim_i < len(demo.hero_surfs):
+            blit_object(canvas, demo.hero, cam_x, cam_y, demo.hero_surfs[anim_i])
     blit_room_tiles(canvas, room, demo.tile_surfs, cam_x, cam_y, layers=(2,))
 
 

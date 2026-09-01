@@ -1,0 +1,121 @@
+"""FB engine--LL.bas check_walk / move_object (tiles + room bounds, no entity hits)."""
+
+from __future__ import annotations
+
+from lynn.constants import FALSE, TRUE
+from lynn.macros import quad_calc, testbit
+from lynn.map.types import RoomType
+from lynn.object.char import CharType
+
+
+def check_walk(o: CharType, d: int, room: RoomType, psfing: int = 0) -> int:
+    room_px = room.x << 4
+    room_py = room.y << 4
+    if (
+        o.coords_x < 0
+        or o.coords_y < 0
+        or (o.coords_x + o.perimeter_x) > room_px
+        or (o.coords_y + o.perimeter_y) > room_py
+    ):
+        return FALSE
+
+    x_tile_2 = int(o.coords_x) >> 3
+    y_tile_2 = int(o.coords_y) >> 3
+    x_offset_2 = int(o.coords_x) & 7
+    y_offset_2 = int(o.coords_y) & 7
+    quads_x = int(o.perimeter_x) >> 3
+    quads_y = int(o.perimeter_y) >> 3
+    x_aligned = 0
+    y_aligned = 0
+    if x_offset_2 != 0:
+        quads_x += 1
+    else:
+        x_aligned = 1
+    if y_offset_2 != 0:
+        quads_y += 1
+    else:
+        y_aligned = 1
+
+    tile_free = TRUE
+    psf_free = TRUE
+    crawl_axis = quads_x if (d % 2) == 0 else quads_y
+
+    for layer in range(3):
+        if layer >= len(room.layout):
+            break
+        layout = room.layout[layer]
+        for crawl in range(crawl_axis):
+            if d == 0:
+                x_opt = x_tile_2 + crawl
+                y_opt = y_tile_2 - y_aligned
+            elif d == 1:
+                x_opt = (quads_x - 1) + x_tile_2 + x_aligned
+                y_opt = y_tile_2 + crawl
+            elif d == 2:
+                x_opt = x_tile_2 + crawl
+                y_opt = (quads_y - 1) + y_tile_2 + y_aligned
+            else:
+                x_opt = x_tile_2 - x_aligned
+                y_opt = y_tile_2 + crawl
+
+            t_index = ((y_opt << 3) >> 4) * room.x + ((x_opt << 3) >> 4)
+            if t_index < 0 or t_index >= len(layout):
+                blocked = TRUE
+            else:
+                tile = layout[t_index]
+                bit_index = 15 - quad_calc(x_opt, y_opt)
+                blocked = TRUE if testbit(tile, bit_index) != 0 else FALSE
+            if blocked != 0:
+                if psfing != 0:
+                    psf_free = FALSE
+                else:
+                    tile_free = FALSE
+
+    if psfing != 0:
+        return psf_free
+    return tile_free
+
+
+def move_object(
+    o: CharType,
+    room: RoomType,
+    only_looking: int = 0,
+    moment: float = 1,
+    recurring: int = 0,
+) -> int:
+    mx = 0
+    my = 0
+    psfing = TRUE if (only_looking != 0 or recurring != 0) else FALSE
+    d = o.direction
+    unstop_tile = o.unstoppable_by_tile != 0
+    unstop_screen = o.unstoppable_by_screen != 0
+    room_px = room.x << 4
+    room_py = room.y << 4
+
+    def _try(dir_id: int, screen_ok: bool, apply) -> int:
+        if not (screen_ok or unstop_screen):
+            return 0
+        if check_walk(o, dir_id, room, psfing) == 0 and not unstop_tile:
+            return 0
+        if only_looking == 0:
+            apply()
+        return 1
+
+    if d == 0:
+        my = _try(0, o.coords_y > 0, lambda: setattr(o, "coords_y", o.coords_y - moment))
+    elif d == 1:
+        mx = _try(
+            1,
+            o.coords_x < room_px - o.perimeter_x,
+            lambda: setattr(o, "coords_x", o.coords_x + moment),
+        )
+    elif d == 2:
+        my = _try(
+            2,
+            o.coords_y < room_py - o.perimeter_y,
+            lambda: setattr(o, "coords_y", o.coords_y + moment),
+        )
+    elif d == 3:
+        mx = _try(3, o.coords_x > 0, lambda: setattr(o, "coords_x", o.coords_x - moment))
+
+    return (mx << 16) | my
