@@ -1,5 +1,12 @@
 .venv/
 .env
+.env.*
+# Machine-local instruction set lives in ~/.grok/rules/ (never in this repo).
+# If a copy is dropped here, do not publish it.
+CLAUDE.local.md
+AGENTS.local.md
+PRIVATE.md
+.grok/rules/
 *.pyc
 __pycache__/
 *.py[cod]

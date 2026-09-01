@@ -8,14 +8,7 @@ This is not a rewrite and not a map-editor port. Function names, field names, an
 
 Public domain ([Unlicense](http://unlicense.org/)), same as the original FreeBASIC game and the LÖVE port. See `LICENSE`.
 
-## Source trees
-
-| Role | Path |
-|---|---|
-| This project | `C:\lynn2py\lynnslegacy` |
-| FreeBASIC source of truth | `C:\lynn2py\lynnslegacy-fbsrc` |
-| Love2D crib (annotated 1:1) | `C:\lynn2py\lynnslegacy-lua` |
-| Unity C# (types only; incomplete) | `C:\lynn2unity\lynnslegacy` |
+Machine-local source-tree paths and credentials are not stored in this repository.
 
 ## Setup
 
@@ -62,4 +55,4 @@ Default map is `data/map/forest_fall.map` (chapter 1 overworld; `title.map` tele
 
 ## Current milestone
 
-Lynn walks `forest_fall` (arrows/WASD, tile collision, camera follow). Same-map room teles are next. `run.bat map` is tiles-only free-cam.
+Lynn walks `forest_fall` (arrows/WASD, tile collision, camera follow). Same-map room strips warp instantly. `run.bat map` is tiles-only free-cam.
