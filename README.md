@@ -31,8 +31,8 @@ Runtime data lives in `data/` (copied from the Lua tree: uncompressed maps, spri
 Double-click `run.bat`, or from the project root:
 
 ```text
-run.bat                      objects PoC (island3 + idle XML entities)
-run.bat map                  island3 tiles only
+run.bat                      objects PoC (forest_fall overworld)
+run.bat map                  forest_fall tiles only
 run.bat map valley           another map (stem, file, or path)
 run.bat objects inhouse
 run.bat palette              256-color ramp + lynn24.spr
@@ -49,7 +49,7 @@ Keys:
 - F11 / Alt+Enter — toggle fullscreen
 - F12 — cycle integer scale (fit, then 1x–6x)
 
-The window loads `data/map/island3.map` (first real map). `title.map` is the boot/loading sequence, not a place.
+Default map is `data/map/forest_fall.map` (chapter 1 overworld; `title.map` teles here). `title.map` is the boot/menu sequence. `island3` is a later island state (`run.bat objects island3`).
 
 ## Porting conventions
 
@@ -62,4 +62,4 @@ The window loads `data/map/island3.map` (first real map). `title.map` is the boo
 
 ## Current milestone
 
-Lynn walks on `island3` (arrows/WASD, tile collision, camera follow). Red teles still idle-animate. `run.bat map` is tiles-only free-cam.
+Lynn walks `forest_fall` (arrows/WASD, tile collision, camera follow). Same-map room teles are next. `run.bat map` is tiles-only free-cam.

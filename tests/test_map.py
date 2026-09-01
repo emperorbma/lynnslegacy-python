@@ -4,7 +4,7 @@ from lynn.map.loader import load_mapV
 from lynn.paths import DEFAULT_MAP, resolve_map_path, project_root
 
 DATA = project_root() / "data" / "map"
-PARSE_MAPS = ["island3.map", "title.map", "inhouse.map", "valley.map"]
+PARSE_MAPS = ["forest_fall.map", "island3.map", "title.map", "inhouse.map", "valley.map"]
 
 
 def test_resolve_map_default_is_current():

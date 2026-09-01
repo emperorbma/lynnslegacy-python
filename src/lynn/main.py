@@ -71,7 +71,7 @@ def parse_cli(argv: list[str]) -> tuple[str, str | None, list[str]]:
 def _usage() -> str:
     return (
         "Usage: python -m lynn [objects|map|palette|test] [map]\n"
-        f"  objects [map]  idle XML entities (default map: {DEFAULT_MAP})\n"
+        f"  objects [map]  walk Lynn (default map: {DEFAULT_MAP})\n"
         "  map [map]      tiles only\n"
         "  palette        256-color ramp + lynn24.spr\n"
         "  test           pytest (extra args forwarded, including --map)\n"

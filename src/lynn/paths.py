@@ -26,11 +26,11 @@ def chdir_project_root() -> Path:
     return root
 
 
-DEFAULT_MAP = "island3.map"
+DEFAULT_MAP = "forest_fall.map"
 
 
 def resolve_map_path(spec: str | None = None) -> Path:
-    """Accept a stem (`valley`), file (`valley.map`), or path. Default: island3."""
+    """Accept a stem (`valley`), file (`valley.map`), or path. Default: forest_fall."""
     raw = (spec or DEFAULT_MAP).strip().replace("\\", "/")
     name = Path(raw).name
     if not name.lower().endswith(".map"):

@@ -22,7 +22,7 @@ exit /b %ERRORLEVEL%
 
 :usage
 echo Usage: run.bat [objects^|map^|palette^|test^|help] [map]
-echo   objects [map]  idle XML entities (default map: island3)
+echo   objects [map]  idle XML entities (default map: forest_fall)
 echo   map [map]      tiles only
 echo   palette        256-color ramp + lynn24.spr
 echo   test           pytest (e.g. run.bat test --map valley)

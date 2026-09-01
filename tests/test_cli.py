@@ -25,4 +25,4 @@ def test_parse_cli_map_default_and_override():
         None,
         ["--map", "valley.map"],
     )
-    assert DEFAULT_MAP == "island3.map"
+    assert DEFAULT_MAP == "forest_fall.map"
