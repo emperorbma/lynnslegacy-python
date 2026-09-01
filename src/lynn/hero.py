@@ -54,7 +54,12 @@ def update_cam(hero: CharType, room: RoomType) -> tuple[int, int]:
     return cam_x, cam_y
 
 
-def hero_walk_step(hero: CharType, room: RoomType, keys_dir: int | None) -> int:
+def hero_walk_step(
+    hero: CharType,
+    room: RoomType,
+    keys_dir: int | None,
+    others: list[CharType] | None = None,
+) -> int:
     """One FB-style 1px step if walk_hold elapsed. keys_dir is 0..3 or None."""
     if clock.timer > hero.walk_hold:
         hero.walk_hold = 0
@@ -64,7 +69,7 @@ def hero_walk_step(hero: CharType, room: RoomType, keys_dir: int | None) -> int:
     if hero.walk_hold != 0:
         return 0
     hero.direction = keys_dir
-    moved = move_object(hero, room, only_looking=0, moment=1)
+    moved = move_object(hero, room, only_looking=0, moment=1, others=others)
     if moved == 0:
         hero.moving = 0
         return 0

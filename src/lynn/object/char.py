@@ -70,5 +70,6 @@ class CharType:
     unstoppable_by_screen: int = 0
     unstoppable_by_tile: int = 0
     unstoppable_by_object: int = 0
+    impassable: int = 0
     # XML scratch
     frame_sound: int = 0

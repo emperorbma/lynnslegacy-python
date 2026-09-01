@@ -149,7 +149,8 @@ def _run_map(canvas, frame_clock, scale_option: int, with_objects: bool, map_pat
                 keys_dir = DIR_DOWN
             if keys[pygame.K_UP] or keys[pygame.K_w]:
                 keys_dir = DIR_UP
-            hero_walk_step(demo.hero, room, keys_dir)
+            others = demo.objects_by_room[room_i] if room_i < len(demo.objects_by_room) else []
+            hero_walk_step(demo.hero, room, keys_dir, others)
             cam_x, cam_y = update_cam(demo.hero, room)
             room_i = demo.hero_room
         else:

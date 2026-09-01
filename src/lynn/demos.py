@@ -77,6 +77,7 @@ def load_map_demo(with_objects: bool = True, map_path: str | None = None) -> Map
         spawned = []
         for stub in room.enemy:
             obj = spawn_from_stub(stub, load_images=True)
+            obj.num = len(spawned)
             spawned.append(obj)
             if obj.id not in demo.obj_anim_surfs:
                 demo.obj_anim_surfs[obj.id] = [

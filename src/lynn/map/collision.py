@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from lynn.constants import FALSE, TRUE
-from lynn.macros import quad_calc, testbit
+from lynn.macros import LLObject_CalculateFrame, quad_calc, testbit
 from lynn.map.types import RoomType
 from lynn.object.char import CharType
 
@@ -76,12 +76,80 @@ def check_walk(o: CharType, d: int, room: RoomType, psfing: int = 0) -> int:
     return tile_free
 
 
+def _frame_shell(o: CharType):
+    if not o.anim or o.current_anim >= len(o.anim):
+        return None
+    anim = o.anim[o.current_anim]
+    fi = LLObject_CalculateFrame(o)
+    if fi < 0 or fi >= len(anim.frame):
+        return None
+    return anim.frame[fi]
+
+
+def _impassable(o: CharType, face_i: int) -> int:
+    shell = _frame_shell(o)
+    if shell is None or shell.faces == 0:
+        return int(getattr(o, "impassable", 0) or 0)
+    if 0 <= face_i < len(shell.face):
+        return int(shell.face[face_i].impassable)
+    return int(getattr(o, "impassable", 0) or 0)
+
+
+def _boxes(o: CharType, dx: float, dy: float) -> list[tuple[float, float, float, float]]:
+    x = o.coords_x + dx
+    y = o.coords_y + dy
+    shell = _frame_shell(o)
+    if shell is None or shell.faces == 0:
+        return [(x, y, o.perimeter_x, o.perimeter_y)]
+    ctrl = o.animControl[o.current_anim] if o.animControl else None
+    x_off = ctrl.x_off if ctrl else 0
+    y_off = ctrl.y_off if ctrl else 0
+    boxes = []
+    for face in shell.face:
+        boxes.append((x + face.x - x_off, y + face.y - y_off, face.w, face.h))
+    return boxes
+
+
+def _overlap(a, b) -> bool:
+    ax, ay, aw, ah = a
+    bx, by, bw, bh = b
+    return ax + aw > bx and ax < bx + bw and ay + ah > by and ay < by + bh
+
+
+def check_against(o: CharType, other: CharType, d: int) -> int:
+    """1 if the 1px step in direction d hits an impassable other."""
+    if o is other or o.num == other.num:
+        return 0
+    if o.dead != 0 or other.dead != 0:
+        return 0
+    step = ((0, -1), (1, 0), (0, 1), (-1, 0))
+    dx, dy = step[d] if 0 <= d < 4 else (0, 0)
+    for i, box_o in enumerate(_boxes(o, dx, dy)):
+        for j, box_n in enumerate(_boxes(other, 0, 0)):
+            if not _overlap(box_o, box_n):
+                continue
+            if _impassable(o, i) == 0 and _impassable(other, j) == 0:
+                continue
+            return 1
+    return 0
+
+
+def check_against_entities(o: CharType, d: int, others: list[CharType] | None) -> int:
+    if not others:
+        return 0
+    for other in others:
+        if check_against(o, other, d) == 1:
+            return 1
+    return 0
+
+
 def move_object(
     o: CharType,
     room: RoomType,
     only_looking: int = 0,
     moment: float = 1,
     recurring: int = 0,
+    others: list[CharType] | None = None,
 ) -> int:
     mx = 0
     my = 0
@@ -96,6 +164,8 @@ def move_object(
         if not (screen_ok or unstop_screen):
             return 0
         if check_walk(o, dir_id, room, psfing) == 0 and not unstop_tile:
+            return 0
+        if o.unstoppable_by_object == 0 and check_against_entities(o, dir_id, others) == 1:
             return 0
         if only_looking == 0:
             apply()
