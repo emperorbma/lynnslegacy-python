@@ -59,6 +59,7 @@ class CharType:
     unique_id: int = 0
     hp: int = 0
     maxhp: int = 0
+    money: int = 0
     frame_hold: float = 0.0
     animating: int = 0
     mad: int = 0

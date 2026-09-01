@@ -85,3 +85,6 @@ def test_objects_demo_spawns_hero_and_entities(pygame_dummy, map_spec):
     # Layer 2 can hide sprites at spawn; a difference is extra proof when it shows.
     if tobytes(a, "RGB") == tobytes(b, "RGB"):
         assert objs.hero_surfs and any(objs.hero_surfs)
+    if objs.do_hud != 0:
+        # New-game first heart pip is on-screen HUD, not a map tile.
+        assert b.get_at((8 + 4, 8 + 4))[:3] == (255, 157, 157)

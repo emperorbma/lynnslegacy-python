@@ -87,6 +87,7 @@ def test_ctor_hero_perimeter():
     assert hero.perimeter_x == 16
     assert hero.perimeter_y == 16
     assert hero.hp == 6
+    assert hero.money == 0
     assert hero.switch_room == -1
     dummy = CharType()
     assert dummy.walk_speed == 0.009

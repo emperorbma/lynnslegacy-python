@@ -6,12 +6,13 @@ from dataclasses import dataclass, field
 
 import pygame
 
-from lynn.constants import SCREEN_H, SCREEN_W
+from lynn.constants import SCREEN_H, SCREEN_W, TRUE
 from lynn.gfx.blit import blit_object, blit_room_tiles
+from lynn.gfx.hud import blit_hud, load_hud
 from lynn.gfx.image import LLSystem_ImageLoad, frame_surface, frame_surfaces
 from lynn.gfx.palette import LLPalette, load_pal
 import lynn.object  # registers __idle_animate / __return_idle / __reset_frame
-from lynn.hero import ctor_hero, place_hero
+from lynn.hero import ctor_hero, ctor_hero_only, place_hero
 from lynn.map.loader import load_mapV
 from lynn.map.types import MapType
 from lynn.object.tick import tick_objects
@@ -57,6 +58,9 @@ class MapDemo:
     hero: object | None = None
     hero_surfs: list = field(default_factory=list)
     hero_room: int = 0
+    hero_only: object | None = None
+    hud: object | None = None
+    do_hud: int = 0
 
 
 def load_map_demo(with_objects: bool = True, map_path: str | None = None) -> MapDemo:
@@ -88,6 +92,9 @@ def load_map_demo(with_objects: bool = True, map_path: str | None = None) -> Map
     hero = ctor_hero(load_images=True)
     demo.hero_room = place_hero(hero, game_map, 0)
     demo.hero = hero
+    demo.hero_only = ctor_hero_only()
+    demo.hud = load_hud(palette)
+    demo.do_hud = TRUE
     demo.hero_surfs = [
         frame_surfaces(anim, palette) if anim.frames else []
         for anim in hero.anim
@@ -121,6 +128,8 @@ def draw_map_demo(canvas: pygame.Surface, demo: MapDemo, room_i: int, cam_x: int
         if anim_i < len(demo.hero_surfs):
             blit_object(canvas, demo.hero, cam_x, cam_y, demo.hero_surfs[anim_i])
     blit_room_tiles(canvas, room, demo.tile_surfs, cam_x, cam_y, layers=(2,))
+    if demo.do_hud != 0 and demo.hud is not None and demo.hero is not None and demo.hero_only is not None:
+        blit_hud(canvas, demo.hero, demo.hero_only, demo.hud)
 
 
 def load_palette_demo() -> tuple[LLPalette, list]:

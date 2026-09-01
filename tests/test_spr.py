@@ -38,8 +38,8 @@ def test_lynn24_index_zero_present():
     assert 0 in img.frame[0].pixels
 
 
-def test_lynn24_col_if_present():
-    if not COL_PATH.is_file():
-        pytest.skip("no lynn24.col")
+def test_lynn24_has_no_col_sidecar():
+    # Original walk sprite has no .col; hitboxes come from lynn.xml perimeter.
+    assert not COL_PATH.is_file()
     img = LLSystem_ImageLoad(str(SPR_PATH))
-    assert any(shell.faces >= 0 for shell in img.frame)
+    assert all(shell.faces == 0 for shell in img.frame)

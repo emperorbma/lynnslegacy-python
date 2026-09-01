@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field
+
 from lynn import clock
 from lynn.constants import SCREEN_H, SCREEN_W
 from lynn.map.collision import check_against_teles, move_object
@@ -9,6 +11,17 @@ from lynn.map.types import MapType, RoomType
 from lynn.object.char import CharType
 from lynn.object.gfx_frame import LLObject_IncrementFrame
 from lynn.object.xml_load import LLSystem_CopyNewObject
+
+
+@dataclass
+class MainCharType:
+    """FB lynn_structures.bi main_char_type — inventory / HUD fields."""
+
+    attacking: int = 0
+    hasItem: list[int] = field(default_factory=lambda: [0] * 6)
+    has_weapon: int = -1
+    selected_item: int = 0
+    weapon: int = -1
 
 DIR_UP = 0
 DIR_RIGHT = 1
@@ -23,10 +36,21 @@ def ctor_hero(load_images: bool = True) -> CharType:
     hero.num = -1
     hero.hp = 6
     hero.maxhp = 6
+    hero.money = 0
     hero.switch_room = -1
     if not hero.walk_speed:
         hero.walk_speed = 0.009
     return hero
+
+
+def ctor_hero_only() -> MainCharType:
+    """FB ctor_hero side effects on llg(hero_only): empty weapon and items."""
+    only = MainCharType()
+    only.weapon = -1
+    only.has_weapon = -1
+    only.hasItem = [0] * 6
+    only.selected_item = 0
+    return only
 
 
 def place_hero(hero: CharType, game_map: MapType, entry_i: int = 0) -> int:
