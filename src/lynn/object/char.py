@@ -57,6 +57,7 @@ class CharType:
     perimeter_x: int = 0
     perimeter_y: int = 0
     unique_id: int = 0
+    strength: int = 0
     hp: int = 0
     maxhp: int = 0
     money: int = 0
@@ -64,8 +65,15 @@ class CharType:
     animating: int = 0
     mad: int = 0
     dead: int = 0
+    total_dead: int = 0
+    dead_hold: float = 0.0
     walk_hold: float = 0.0
     walk_speed: float = 0.009
+    walk_length: int = 0
+    walk_buffer: int = 0
+    walk_steps: int = 0
+    pause: float = 0.0
+    on_ice: int = 0
     moving: int = 0
     num: int = 0
     unstoppable_by_screen: int = 0

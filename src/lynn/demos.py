@@ -13,6 +13,7 @@ from lynn.gfx.menu import load_menu
 from lynn.gfx.image import LLSystem_ImageLoad, frame_surface, frame_surfaces
 from lynn.gfx.palette import LLPalette, load_pal
 import lynn.object  # registers __idle_animate / __return_idle / __reset_frame
+import lynn.object.move_ai  # noqa: F401  — after collision is loaded (no circular import)
 from lynn.events import bind_hero_only, reset_events
 from lynn.gfx.box import BoxControl, blit_box
 from lynn.hero import ctor_hero, ctor_hero_only, place_hero
@@ -116,7 +117,12 @@ def load_map_demo(with_objects: bool = True, map_path: str | None = None) -> Map
 
 def tick_map_demo(demo: MapDemo, room_i: int) -> None:
     if 0 <= room_i < len(demo.objects_by_room):
-        tick_objects(demo.objects_by_room[room_i])
+        from lynn.events import bind_room
+
+        room = demo.game_map.room[room_i] if room_i < len(demo.game_map.room) else None
+        objs = demo.objects_by_room[room_i]
+        bind_room(room, objs)
+        tick_objects(objs)
 
 
 def draw_map_demo(canvas: pygame.Surface, demo: MapDemo, room_i: int, cam_x: int, cam_y: int) -> None:

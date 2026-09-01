@@ -3,9 +3,13 @@
 from __future__ import annotations
 
 import lynn.events as events
+from lynn import clock
 from lynn.constants import TRUE
 from lynn.object.char import CharType
 from lynn.object.dispatch import register_func
+
+# FB unique_id values that stay visible after __cripple (chests, rocks, buttons, ghut).
+_CRIPPLE_KEEP_VISIBLE = frozenset({2, 3, 4, 5, 6, 33, 34, 35, 36})
 
 
 def __return_trig(this: CharType) -> int:
@@ -56,7 +60,21 @@ def __make_dead(this: CharType) -> int:
 
 
 def __cripple(this: CharType) -> int:
-    return 1
+    """FB object_modification.bas: hide corpse after a short hold (not chests/rocks)."""
+    if this.unique_id in _CRIPPLE_KEEP_VISIBLE:
+        this.invisible = 0
+    else:
+        this.invisible = TRUE
+    if this.dead_hold == 0:
+        this.dead_hold = clock.timer + 0.1
+    this.strength = 0
+    this.impassable = 0
+    this.animating = 0
+    this.total_dead = TRUE
+    if clock.timer > this.dead_hold:
+        this.dead_hold = 0
+        return 1
+    return 0
 
 
 def __active_anim_0(this: CharType) -> int:
