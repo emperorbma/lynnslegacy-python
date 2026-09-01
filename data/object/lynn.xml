@@ -1,0 +1,943 @@
+
+<lynn>
+
+  <sprite>
+
+    <filename> data\pictures\char\lynn24.spr </filename>
+    <rate> .08 </rate>
+    <y_off> 8 </y_off>
+    <dir_frames> 8 </dir_frames>
+
+  </sprite>
+
+  <sprite>
+
+    <filename> data\pictures\char\lynnsplat2.spr </filename>
+    <rate> .1 </rate>
+    <x_off> 24 </x_off>
+    <y_off> 16 </y_off>
+    <dir_frames> 16 </dir_frames>
+
+  </sprite>
+
+
+  <sprite>
+
+    <filename> data\pictures\1.spr </filename>
+    <dir_frames> 1 </dir_frames>
+
+  </sprite>
+
+
+  <sprite>
+
+    <filename> data\pictures\char\lynnattack_new.spr </filename>
+    <rate> .07 </rate>
+    <x_off> 16 </x_off>
+    <y_off> 20 </y_off>
+    <dir_frames> 6 </dir_frames>
+
+    <sound>
+
+      <frame> 0 </frame>
+      <uni_sound> -1 </uni_sound>
+      <index> sound_mace_0 </index>
+      <vol> 50 </vol>
+      
+    </sound> 
+
+  </sprite>
+
+
+  <sprite>
+
+    <filename> data\pictures\char\lynnattack_2.spr </filename>
+    <rate> .1 </rate>
+    <x_off> 16 </x_off>
+    <y_off> 20 </y_off>
+    <dir_frames> 6 </dir_frames>
+
+    <sound>
+
+      <frame> 0 </frame>
+      <uni_sound> -1 </uni_sound>
+      <index> sound_mace_1 </index>
+      <vol> 50 </vol>
+      
+    </sound> 
+
+  </sprite>
+
+
+  <sprite>
+
+    <filename> data\pictures\char\lynnattack_3.spr </filename>
+    <rate> .13 </rate>
+    <x_off> 24 </x_off>
+    <y_off> 28 </y_off>
+    <dir_frames> 6 </dir_frames>
+
+    <sound>
+
+      <frame> 0 </frame>
+      <uni_sound> -1 </uni_sound>
+      <index> sound_mace_2 </index>
+      <vol> 50 </vol>
+      
+    </sound> 
+
+  </sprite>
+
+
+  <sprite>
+
+    <filename> data\pictures\char\lynn_flare.spr </filename>
+    <rate> .07 </rate>
+    <x_off> 16 </x_off>
+    <y_off> 20 </y_off>
+    <dir_frames> 5 </dir_frames>
+
+    <sound>
+
+      <frame> 0 </frame>
+      <uni_sound> -1 </uni_sound>
+      <index> sound_flare </index>
+      
+    </sound> 
+
+  </sprite>
+
+
+  <sprite>
+
+    <filename> data\pictures\char\lynn_ice.spr </filename>
+    <rate> .07 </rate>
+    <x_off> 16 </x_off>
+    <y_off> 20 </y_off>
+    <dir_frames> 5 </dir_frames>
+
+    <sound>
+
+      <frame> 0 </frame>
+      <uni_sound> -1 </uni_sound>
+      <index> sound_ice </index>
+      
+    </sound> 
+
+  </sprite>
+
+
+  <sprite>
+
+    <filename> data\pictures\char\lynnfall.spr </filename>
+    <rate> .18 </rate>
+    <y_off> 8 </y_off>
+
+  </sprite>
+
+
+  <sprite>
+
+    <filename> data\pictures\char\blank.spr </filename>
+
+  </sprite>
+
+  <sprite>
+
+    <filename> data\pictures\char\mace_grab.spr </filename>
+    <rate> .1 </rate>
+    <x_off> 26 </x_off>
+    <y_off> 21 </y_off>
+
+  </sprite>
+
+
+  <sprite>
+
+    <filename> data\pictures\char\mace_grab.spr </filename>
+    <rate> .1 </rate>
+    <x_off> 26 </x_off>
+    <y_off> 21 </y_off>
+
+  </sprite>
+
+  <sprite>
+
+    <filename> data\pictures\char\lynngetup.spr </filename>
+    <rate> .18 </rate>
+    <y_off> 8 </y_off>
+
+  </sprite>
+
+  <sprite>
+
+    <filename> data\pictures\char\lynnsplat_dry.spr </filename>
+    <rate> .1 </rate>
+    <x_off> 24 </x_off>
+    <y_off> 16 </y_off>
+    <dir_frames> 16 </dir_frames>
+
+  </sprite>
+
+
+  <snd>
+    <index> sound_crickets </index>
+    
+  </snd>
+  
+  <snd>
+
+    <index> sound_corealarm </index>
+    
+  </snd>
+  
+  <snd>
+
+    <index> sound_corealarm2 </index>
+    
+  </snd>
+  
+  <snd>
+
+    <index> sound_limboloop </index>
+    
+  </snd>
+
+  <snd>
+
+    <index> sound_build </index>
+    
+  </snd>
+
+  
+  
+  <flash_length> 30 </flash_length>
+  <flash_time> .02 </flash_time>
+  <real_y> 16 </real_y>
+  <real_x> 16 </real_x>
+  <fly_speed> .004 </fly_speed>
+  <fly_length> 10 </fly_length>
+  <walk_speed> .009 </walk_speed>
+  <jump_time> 40 </jump_time>
+  <fade_time> .10 </fade_time>
+
+  <fp>
+
+    <func> active_animate </func>
+    <func> active_anim_0 </func>
+    <func> return_trig </func>
+
+  </fp>
+
+
+  <fp>
+
+    <func> home </func>
+    <func> return_trig </func>
+
+  </fp>
+
+
+  <fp>
+
+    <func> dir_left </func>
+    <func> second_pause </func>
+    <func> dir_right </func>
+    <func> second_pause </func>
+    <func> home </func>
+    <func> return_trig </func>
+
+  </fp>
+
+
+  <fp>
+
+    <func> dir_right </func>
+    <func> second_pause </func>
+    <func> half_second_pause </func>
+    <func> dir_down </func>
+    <func> second_pause </func>
+    <func> return_trig </func>
+
+  </fp>
+
+
+  <fp>
+
+    <func> tile_up </func>
+    <func> counted_jump </func>
+    <func> return_trig </func>
+
+  </fp>
+
+
+  <fp>
+
+    <func> second_pause </func>
+    <func> fade_to_black </func>
+    <func> kill_song </func>
+    <func> return_trig </func>
+
+  </fp>
+
+
+  <fp>
+
+    <proc_id> attack_state </proc_id>
+    <func> weapon_anim </func>
+    <func> directional_animate </func>
+    <func> active_anim_0 </func>
+
+  </fp>
+
+
+  <fp>
+
+    <proc_id> hit_state </proc_id>
+    <func> do_flyback </func>
+
+  </fp>
+
+
+  <fp>
+
+    <func> active_anim_6 </func>
+    <func> directional_animate </func>
+    <func> active_anim_0 </func>
+
+  </fp>
+
+
+  <fp>
+
+    <func> active_anim_7 </func>
+    <func> directional_animate </func>
+    <func> active_anim_0 </func>
+
+  </fp>
+
+
+  <fp>
+
+    <proc_id> death_state </proc_id>
+    <func> dir_down </func>
+    <func> active_anim_8 </func>
+    <func> active_animate_x </func>
+    <func> fade_to_red </func>
+    <func> fade_to_black </func>
+
+  </fp>
+
+  <fp>
+
+    <func> make_invisible </func>
+    <func> return_trig </func>
+
+  </fp>
+
+
+  <fp>
+
+    <func> make_invincible </func>
+    <func> fade_to_black </func>
+    <func> change_room </func>
+    <func> fade_up_to_color </func>
+    <func> make_vulnerable </func>
+    <func> return_trig </func>
+
+  </fp>
+
+
+  <fp>
+
+    <func> make_invincible </func>
+    <func> fade_to_black </func>
+    <func> change_room </func>
+    <func> fade_up_to_color </func>
+    <func> make_vulnerable </func>
+    <func> return_trig </func>
+
+  </fp>
+
+
+  <fp>
+
+    <func> make_invincible </func>
+    <func> fade_to_black </func>
+    <func> change_map </func>
+    <func> fade_up_to_color </func>
+    <func> make_vulnerable </func>
+    <func> return_trig </func>
+
+  </fp>
+
+
+  <fp>
+
+    <func> second_pause </func>
+    <func> return_trig </func>
+
+  </fp>
+
+
+  <fp>
+
+    <func> weapon_anim </func>
+    <func> directional_animate </func>
+    <func> active_anim_0 </func>
+    <func> return_trig </func>
+
+  </fp>
+
+  
+  <fp>
+
+    <func> flicker </func>
+    <func> make_invisible </func>
+    <func> second_pause </func>
+    <func> second_pause </func>
+    <func> fade_to_black </func>
+    <func> set_camera </func>
+    <func> make_visible </func>
+    <func> change_map </func>
+    <func> return_trig </func>
+
+  </fp>
+
+
+  <fp>
+
+    <func> make_visible </func>
+    <func> return_trig </func>
+
+  </fp>
+
+  <fp>
+
+    <func> make_invisible </func>
+    <func> return_trig </func>
+
+  </fp>
+
+
+  <fp>
+
+    <func> active_anim_1 </func>
+    <func> return_trig </func>
+
+  </fp>
+
+  <fp>
+
+    <func> make_invincible </func>
+    <func> return_trig </func>
+
+  </fp>
+
+
+  <fp>
+
+    <func> make_vulnerable </func>
+    <func> return_trig </func>
+
+  </fp>
+
+  <fp>
+
+    <func> tile_up </func>
+
+  </fp>
+
+
+  <fp>
+
+    <func> color_off </func>
+    <func> chapter_1_off </func>
+    <func> fade_up_to_color </func>
+    <func> return_trig </func>
+
+  </fp>
+
+
+  <fp>
+
+    <func> chapter_1_on </func>
+    <func> color_on </func>
+    <func> return_trig </func>
+
+  </fp>
+
+  <fp>
+
+    <func> play_sound </func>
+    <func> return_trig </func>
+
+  </fp>
+
+  <fp>
+
+    <func> stop_sound </func>
+    <func> return_trig </func>
+
+  </fp>
+
+  
+  <fp>
+
+    <func> fade_off </func>
+    <func> return_trig </func>
+
+  </fp>
+
+  <fp>
+
+    <func> second_pause </func>
+    <func> chapter_1_on </func>
+    <func> fade_up_to_color </func>
+    <func> second_pause </func>
+    <func> second_pause </func>
+    <func> second_pause </func>
+    <func> fade_to_black </func>
+    <func> chapter_1_off </func>
+    <func> active_anim_1 </func>
+    <func> make_visible </func>
+    <func> return_trig </func>
+
+  </fp>
+
+
+  <fp>
+
+    <func> change_map </func>
+    <func> return_trig </func>
+
+  </fp>
+
+  <fp>
+
+    <func> change_map </func>
+    <func> return_trig </func>
+
+  </fp>
+
+
+  <fp>
+
+    <func> set_fade </func>
+    <func> return_trig </func>
+
+  </fp>
+
+
+  <fp>
+
+    <func> flicker </func>
+    <func> make_invisible </func>
+    <func> second_pause </func>
+    <func> second_pause </func>
+    <func> fade_to_black </func>
+    <func> make_visible </func>
+    <func> return_trig </func>
+
+  </fp>
+
+  <fp>
+
+    <func> do_nothing </func>
+    <func> return_trig </func>
+
+  </fp>
+
+
+  <fp>
+
+    <func> reset_frame </func>
+    <func> return_trig </func>
+
+  </fp>
+
+
+  <fp>
+
+    <func> set_vol_fade </func>
+    <func> return_trig </func>
+
+  </fp>
+
+
+  <fp>
+
+    <func> weapon_anim </func>
+    <func> flash </func>
+    <func> flash_down </func>
+    <func> directional_animate </func>
+    <func> active_anim_0 </func>
+
+  </fp>
+
+  <fp>
+
+    <func> color_on </func>
+    <func> return_trig </func>
+
+  </fp>
+
+  <fp>
+
+    <func> invis_entry </func>
+    <func> return_trig </func>
+
+  </fp>
+
+
+  <fp>
+
+    <func> flicker </func>
+    <func> make_visible </func>
+    <func> return_trig </func>
+
+  </fp>
+
+
+
+
+  <fp>
+
+    <func> move_backwards </func>
+    <func> return_trig </func>
+
+  </fp>
+
+  <fp>
+
+    <func> move_normal </func>
+    <func> return_trig </func>
+
+  </fp>
+
+
+  <fp>
+
+    <func> fade_up_to_color </func>
+    <func> return_trig </func>
+
+  </fp>
+
+  <fp>
+
+    <func> set_camera </func>
+    <func> return_trig </func>
+
+  </fp>
+
+  <fp>
+
+    <func> active_anim_0 </func>
+    <func> return_trig </func>
+
+  </fp>
+
+  <fp>
+
+    <func> do_flyback </func>
+    <func> flicker </func>
+    <func> return_trig </func>
+
+  </fp>
+
+  <fp>
+
+    <func> drop_b_key </func>
+    <func> return_trig </func>
+
+  </fp>
+
+  <fp>
+
+    <func> flash </func>
+    <func> q_second_pause </func>
+    <func> flash_down </func>
+    <func> return_trig </func>
+
+  </fp>
+
+  <fp>
+
+    <func> q_second_pause </func>
+    <func> return_trig </func>
+
+  </fp>
+
+  <fp>
+
+    <func> half_second_pause </func>
+    <func> return_trig </func>
+
+  </fp>
+
+  <fp>
+
+    <func> fade_to_white </func>
+    <func> return_trig </func>
+
+  </fp>
+
+  <fp>
+
+    <func> fade_down_to_color </func>
+    <func> return_trig </func>
+
+  </fp>
+
+  <fp>
+
+    <func> active_anim_10 </func>
+    <func> active_animate </func>
+    <func> active_anim_0 </func>
+    <func> return_trig </func>
+
+  </fp>
+
+  <fp>
+
+    <func> black_text_on </func>
+    <func> return_trig </func>
+
+  </fp>
+
+  <fp>
+
+    <func> give_100_gold </func>
+    <func> return_trig </func>
+
+  </fp>
+
+  <fp>
+
+    <func> play_song </func>
+    <func> return_trig </func>
+
+  </fp>
+
+  <fp>
+
+    <func> end </func>
+    <func> return_trig </func>
+
+  </fp>
+
+  <fp>
+
+    <func> kill_song </func>
+    <func> return_trig </func>
+
+  </fp>
+
+  <fp>
+
+    <func> set_happen </func>
+    <func> return_trig </func>
+
+  </fp>
+
+  <fp>
+
+    <func> q_second_pause </func>
+    <func> home </func>
+    <func> return_trig </func>
+
+  </fp>
+
+  <fp>
+
+    <func> set_white_fade </func>
+    <func> return_trig </func>
+
+  </fp>
+
+  <fp>
+
+    <func> set_gray_fade </func>
+    <func> return_trig </func>
+
+  </fp>
+
+  <fp>
+
+    <func> fade_to_black </func>
+    <func> return_trig </func>
+
+  </fp>
+
+  <fp>
+
+    <func> turn_off_tiles </func>
+    <func> return_trig </func>
+
+  </fp>
+
+  <fp>
+
+    <func> turn_on_tiles </func>
+    <func> return_trig </func>
+
+  </fp>
+
+  <fp>
+
+    <func> flicker </func>
+    <func> make_invisible </func>
+    <func> return_trig </func>
+
+  </fp>
+
+  <fp>
+
+    <func> fade_to_black </func>
+    <func> set_camera </func>
+    <func> make_visible </func>
+    <func> change_map </func>
+
+  </fp>
+
+  <fp>
+
+    <func> quake </func>
+    <func> return_trig </func>
+
+  </fp>
+
+
+  <fp>
+
+    <func> flash </func>
+    <func> return_trig </func>
+
+  </fp>
+
+  <fp>
+
+    <func> flash_down </func>
+    <func> return_trig </func>
+
+  </fp>
+  
+  <fp>
+
+    <func> weapon_anim </func>
+    <func> flash </func>
+    <func> flash_down </func>
+    <func> directional_animate </func>
+    <func> active_anim_0 </func>
+    <func> return_trig </func>
+
+  </fp>
+
+  <fp>
+
+    <func> color_off </func>
+    <func> return_trig </func>
+
+  </fp>
+
+  <fp>
+
+    <func> color_on </func>
+    <func> return_trig </func>
+
+  </fp>
+
+  <fp>
+
+    <func> red_tint </func>
+    <func> return_trig </func>
+
+  </fp>
+
+  <fp>
+
+    <func> set_anim </func>
+    <func> return_trig </func>
+
+  </fp>
+
+  <fp>
+
+    <func> active_animate </func>
+    <func> return_trig </func>
+
+  </fp>
+
+  <fp>
+
+    <func> set_font_fg </func>
+    <func> return_trig </func>
+
+  </fp>
+
+  <fp>
+
+    <func> set_font_bg </func>
+    <func> return_trig </func>
+
+  </fp>
+
+  <fp>
+
+    <func> give_costume </func>
+    <func> return_trig </func>
+
+  </fp>
+
+  <fp>
+
+    <func> fade_music_out </func>
+    <func> return_trig </func>
+
+  </fp>
+
+  <fp>
+
+    <func> home </func>
+    <func> up_face </func>
+    <func> return_trig </func>
+
+  </fp>
+
+
+  <fp>
+
+    <func> give_outfit </func>
+    <func> return_trig </func>
+
+  </fp>
+
+  <fp>
+
+    <func> set_finish </func>
+    <func> return_trig </func>
+
+  </fp>
+
+  <fp>
+
+    <func> outfit_swap </func>
+    <func> return_trig </func>
+
+  </fp>
+
+
+  <fp>
+
+    <func> set_song </func>
+    <func> return_trig </func>
+
+  </fp>
+
+
+
+
+
+
+</lynn>
+
