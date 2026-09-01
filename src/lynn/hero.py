@@ -26,6 +26,8 @@ class MainCharType:
     weapon: int = -1
     hasCostume: list[int] = field(default_factory=lambda: [0] * 9)
     isWearing: int = 0
+    has_bar: int = 0
+    b_key: int = 0
 
 DIR_UP = 0
 DIR_RIGHT = 1

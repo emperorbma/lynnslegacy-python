@@ -53,19 +53,28 @@ def LLObject_CheckSpawn(obj: CharType) -> None:
 
 
 def tick_objects(objs: list[CharType]) -> None:
+    from lynn.object.control import in_proximity, out_proximity
+
     for obj in objs:
         if obj.spawn_cond != 0:
             LLObject_CheckSpawn(obj)
-        if obj.spawn_kill_trig == 0:
-            tick_object(obj)
-            if obj.hurt != 0:
-                state = obj.funcs.active_state
-                count = obj.funcs.func_count[state] if state < len(obj.funcs.func_count) else 0
-                if count and obj.funcs.current_func[state] >= count:
-                    from lynn.object.combat import LLObject_ClearDamage, LLObject_ShiftState
+        if obj.spawn_kill_trig != 0:
+            continue
+        if obj.dead == 0 and obj.froggy != 0:
+            if obj.mad == 0:
+                if obj.funcs.active_state < obj.reset_state:
+                    obj.funcs.active_state = in_proximity(obj)
+            else:
+                obj.funcs.active_state = out_proximity(obj)
+        tick_object(obj)
+        if obj.hurt != 0:
+            state = obj.funcs.active_state
+            count = obj.funcs.func_count[state] if state < len(obj.funcs.func_count) else 0
+            if count and obj.funcs.current_func[state] >= count:
+                from lynn.object.combat import LLObject_ClearDamage, LLObject_ShiftState
 
-                    LLObject_ShiftState(obj, obj.reset_state)
-                    LLObject_ClearDamage(obj)
-                    obj.invisible = 0
-                    obj.flash_count = 0
-                    obj.flash_timer = 0
+                LLObject_ShiftState(obj, obj.reset_state)
+                LLObject_ClearDamage(obj)
+                obj.invisible = 0
+                obj.flash_count = 0
+                obj.flash_timer = 0

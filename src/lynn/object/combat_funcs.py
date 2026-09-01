@@ -25,6 +25,25 @@ def __directional_animate(this: CharType) -> int:
     return 0
 
 
+def __flashy(this: CharType) -> int:
+    """FB object--gfx.bas: i-frames. dmg.id stays set until flash_count fills."""
+    if this.flash_timer == 0:
+        this.invisible = 0 if this.invisible != 0 else -1
+        this.flash_timer = clock.timer + (this.flash_time or 0.02)
+        this.flash_count += 1
+    if clock.timer >= this.flash_timer:
+        this.flash_timer = 0
+    if this.flash_count >= this.flash_length:
+        this.flash_count = 0
+        this.flash_timer = 0
+        this.invisible = 0
+        this.dmg_id = 0
+        from lynn.object.combat import LLObject_ClearDamage
+
+        LLObject_ClearDamage(this)
+    return 0
+
+
 def __flicker(this: CharType) -> int:
     if this.flash_length <= 0:
         this.invisible = 0
@@ -68,6 +87,26 @@ def __infinity(this: CharType) -> int:
 
 
 def __drop(this: CharType) -> int:
+    """FB object_etc.bas: roll health / gold / silver onto the corpse."""
+    import random
+
+    roll = int(random.random() * 100)
+    kind = 0
+    if this.d_health > roll:
+        kind = 1
+    elif this.d_gold > int(random.random() * 100):
+        kind = 2
+    elif this.d_silver > int(random.random() * 100):
+        kind = 3
+    if kind == 0:
+        return 1
+    this.dropped = kind
+    span_x = int(this.perimeter_x) - 8
+    span_y = int(this.perimeter_y) - 8
+    ox = int(random.random() * span_x) if span_x > 0 else 0
+    oy = int(random.random() * span_y) if span_y > 0 else 0
+    this.drop_x = int(this.coords_x) + ox
+    this.drop_y = int(this.coords_y) + oy
     return 1
 
 

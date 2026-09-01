@@ -75,3 +75,14 @@ def test_menu_blit_new_game_has_outfit_and_resume(pygame_dummy):
     # Background is not flat black; resume icon sits at (126, 54).
     assert canvas.get_at((160, 100))[:3] != (0, 0, 0)
     assert canvas.get_at((126 + 8, 54 + 8))[:3] != (0, 0, 0)
+
+
+def test_font_glyphs_are_cropped(pygame_dummy):
+    from lynn.gfx.palette import load_pal
+    from lynn.paths import chdir_project_root
+
+    chdir_project_root()
+    menu = load_menu(load_pal("data/palette/ll.pal"))
+    glyph = menu.font[ord("A")]
+    assert glyph.get_width() == 8
+    assert glyph.get_height() == 12

@@ -173,13 +173,26 @@ def load_menu(palette: LLPalette) -> MainMenu:
     menu.menuNames[menu_rknight_select] = "Regenerative power."
     menu.menuNames[menu_menu_select] = "Back to title screen."
     menu.menuNames[menu_resume_select] = "Back to the game."
-    menu.font = frame_surfaces(LLSystem_ImageLoad("data/pictures/llfont.spr"), palette)
+    menu.font = [_crop_glyph(s) for s in frame_surfaces(LLSystem_ImageLoad("data/pictures/llfont.spr"), palette)]
     return menu
+
+
+def _crop_glyph(surf):
+    """llfont cells are 9x17 with ~8x11 ink. Crop to 8x12 so UI type isn't so tall."""
+    w, h = surf.get_width(), surf.get_height()
+    if w >= 8 and h >= 14:
+        return surf.subsurface((0, 2, 8, 12)).copy()
+    return surf
 
 
 def graphicalString(canvas, menu: MainMenu, text: str, x: int, y: int) -> None:
     """FB graphicalString: 8px advance, glyph = ASCII index into llfont.spr."""
+    origin_x = x
     for ch in text:
+        if ch == "\n":
+            y += 16
+            x = origin_x
+            continue
         idx = ord(ch)
         if 0 <= idx < len(menu.font) and menu.font[idx] is not None:
             canvas.blit(menu.font[idx], (x, y))

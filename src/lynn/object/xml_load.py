@@ -126,7 +126,38 @@ def LLSystem_ObjectFromXML(obj: CharType, load_images: bool = True) -> CharType:
         obj.perimeter_y = int(obj.real_y)
     obj.current_anim = 0
     obj.funcs.active_state = 0
+    _assign_unique_id(obj)
     return obj
+
+
+# FB UniqueCheck: Right(id, Len(name & ".xml")) so hsavepoint.xml matches savepoint.
+_UNIQUE_ID_SUFFIX = (
+    ("bluechestitem.xml", 4),
+    ("crate_health.xml", 31),
+    ("savepoint.xml", 29),
+    ("chest.xml", 2),
+    ("bluechest.xml", 3),
+    ("gbutton.xml", 6),
+    ("button.xml", 5),
+    ("bush.xml", 9),
+    ("menu.xml", 28),
+    ("crate.xml", 30),
+    ("ghut.xml", 33),
+    ("hotrock.xml", 34),
+    ("coldrock.xml", 35),
+    ("greyrock.xml", 36),
+    ("lynn.xml", 77),
+)
+
+
+def _assign_unique_id(obj: CharType) -> None:
+    name = obj.id.replace("\\", "/").lower()
+    if "/" in name:
+        name = name.rsplit("/", 1)[-1]
+    for suffix, uid in _UNIQUE_ID_SUFFIX:
+        if name.endswith(suffix):
+            obj.unique_id = uid
+            return
 
 
 def _sprite_text(obj: CharType, path: list[str], text: str, load_images: bool) -> None:

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import lynn.events as events
-from lynn.constants import DF_MAIN_CHAR, TRUE
+from lynn.constants import DF_MAIN_CHAR, DF_ROOM_ENEMY, DF_TEMP_ENEMY, TRUE
 from lynn.macros import LLObject_CalculateFrame
 from lynn.map.collision import check_bounds
 from lynn.object.char import CharType
@@ -73,9 +73,38 @@ def hero_attack(hr: CharType) -> None:
         hr.psycho = 0
 
 
+def _damager(h: CharType) -> CharType | None:
+    others = events.current_others
+    if others is None:
+        return None
+    i = h.dmg_index
+    if 0 <= i < len(others):
+        return others[i]
+    return None
+
+
+def _face_strength(enemy: CharType, specific: int) -> int:
+    fi = enemy.frame_check
+    if enemy.anim and enemy.current_anim < len(enemy.anim):
+        frames = enemy.anim[enemy.current_anim].frame
+        if 0 <= fi < len(frames):
+            shell = frames[fi]
+            if shell.faces == 0:
+                return int(enemy.strength)
+            if 0 <= specific < len(shell.face):
+                return int(shell.face[specific].strength)
+    return int(enemy.strength)
+
+
 def LLObject_DeriveHurt(h: CharType) -> None:
     only = events.hero_only
     weap = only.weapon if only is not None else 0
+    if h.dmg_id in (DF_ROOM_ENEMY, DF_TEMP_ENEMY):
+        enemy = _damager(h)
+        if enemy is None:
+            return
+        h.hurt = _face_strength(enemy, h.dmg_specific)
+        return
     if h.invincible != 0:
         return
     if h.mace_weak != 0 and weap < 1:
@@ -83,6 +112,13 @@ def LLObject_DeriveHurt(h: CharType) -> None:
     if h.star_weak != 0 and weap < 2:
         return
     h.hurt = 2 ** weap
+
+
+def _set_fly_from(h: CharType, origin_x: float, origin_y: float) -> None:
+    dx = h.coords_x - origin_x
+    dy = h.coords_y - origin_y
+    h.fly_x = 1 if dx > 0 else (-1 if dx < 0 else 0)
+    h.fly_y = 1 if dy > 0 else (-1 if dy < 0 else 0)
 
 
 def LLObject_ProcessHurt(h: CharType) -> None:
@@ -93,6 +129,10 @@ def LLObject_ProcessHurt(h: CharType) -> None:
     if h.hp > 0:
         if h.dmg_id == DF_MAIN_CHAR:
             LLObject_ShiftState(h, h.hit_state)
+        elif h.dmg_id in (DF_ROOM_ENEMY, DF_TEMP_ENEMY):
+            enemy = _damager(h)
+            if enemy is not None:
+                _set_fly_from(h, enemy.coords_x, enemy.coords_y)
         return
     if h.dead == 0:
         LLObject_ShiftState(h, h.death_state)
@@ -140,6 +180,92 @@ def start_hero_attack(hr: CharType) -> None:
     only = events.hero_only
     if only is None or only.weapon == -1 or only.attacking != 0:
         return
+    if only.action_lock != 0 or hr.dead != 0:
+        return
     only.attacking = TRUE
     if 0 <= hr.attack_state < len(hr.funcs.current_func):
         hr.funcs.current_func[hr.attack_state] = 0
+
+
+def LLObject_ObjectDamage(enemies: list[CharType], hr: CharType, e_type: int = DF_ROOM_ENEMY) -> None:
+    """FB ObjectDamage: living enemies with strength vs hero AABB."""
+    if hr.invincible != 0:
+        return
+    for enemy_collide, enemy in enumerate(enemies):
+        if enemy is hr or int(enemy.strength) == 0:
+            continue
+        enemy.frame_check = LLObject_CalculateFrame(enemy)
+        faces = _faces(enemy)
+        if faces <= 0:
+            if check_bounds(LLObject_VectorPair(enemy), LLObject_VectorPair(hr)) != 0:
+                continue
+            hr.dmg_id = e_type
+            hr.dmg_index = enemy_collide
+            hr.dmg_specific = 0
+            LLObject_DamageCalc(hr)
+            if hr.dmg_id != 0:
+                return
+            continue
+        for check_fields in range(faces):
+            origin = LLObject_VectorPairEx(enemy, check_fields)
+            if check_bounds(origin, LLObject_VectorPair(hr)) != 0:
+                continue
+            hr.dmg_id = e_type
+            hr.dmg_index = enemy_collide
+            hr.dmg_specific = check_fields
+            LLObject_DamageCalc(hr)
+            if hr.dmg_id != 0:
+                return
+
+
+def LLObject_MAINDamage(hr: CharType, enemies: list[CharType] | None = None) -> None:
+    """FB MAINDamage: contact (projectiles later). i-frames are dmg_id != 0."""
+    if hr.invincible != 0 or hr.dead != 0:
+        return
+    if hr.dmg_id != 0:
+        return
+    room_enemies = enemies if enemies is not None else (events.current_others or [])
+    LLObject_ObjectDamage(room_enemies, hr, DF_ROOM_ENEMY)
+
+
+def hero_hurt_tick(hr: CharType) -> None:
+    """FB engine--LL.bas: while hurt, run hit_state (do_flyback) until it wraps."""
+    if hr.hurt == 0:
+        return
+    st = hr.hit_state
+    f = hr.funcs
+    if st < 0 or st >= len(f.func) or not f.func[st]:
+        hr.hurt = 0
+        return
+    count = f.func_count[st] if st < len(f.func_count) else len(f.func[st])
+    idx = f.current_func[st]
+    if idx < 0 or idx >= len(f.func[st]):
+        idx = 0
+        f.current_func[st] = 0
+    result = f.func[st][idx](hr)
+    f.current_func[st] += result
+    if f.current_func[st] >= count:
+        f.current_func[st] = 0
+        hr.hurt = 0
+        hr.dmg_index = 0
+        hr.dmg_specific = 0
+
+
+def hero_death_tick(hr: CharType) -> None:
+    """FB: run death_state until it wraps. Title jump is later."""
+    if hr.dead == 0:
+        return
+    st = hr.death_state
+    f = hr.funcs
+    if st < 0 or st >= len(f.func) or not f.func[st]:
+        return
+    count = f.func_count[st] if st < len(f.func_count) else len(f.func[st])
+    if count == 0:
+        return
+    idx = f.current_func[st]
+    if idx >= count:
+        return
+    if idx < 0 or idx >= len(f.func[st]):
+        return
+    result = f.func[st][idx](hr)
+    f.current_func[st] += result

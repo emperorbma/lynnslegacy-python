@@ -111,7 +111,8 @@ def test_roamer_dies_and_is_gone():
     clock.timer = 0.0
     assert _swing_until_hurt(hero, only, roamer)
     # Finish hit reaction so a second swing can connect.
-    for i in range(80):
+    # hit_state is do_flyback + flicker (flash_length 30); 0.05 steps take two ticks per flash.
+    for i in range(400):
         clock.timer += 0.05
         tick_objects([roamer])
         if roamer.hurt == 0 and roamer.dead == 0:

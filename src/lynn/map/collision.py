@@ -231,5 +231,33 @@ def move_object(
         )
     elif d == 3:
         mx = _try(3, o.coords_x > 0, lambda: setattr(o, "coords_x", o.coords_x - moment))
+    elif d == 4:
+        my = _try(0, o.coords_y > 0, lambda: setattr(o, "coords_y", o.coords_y - moment))
+        mx = _try(3, o.coords_x > 0, lambda: setattr(o, "coords_x", o.coords_x - moment))
+    elif d == 5:
+        my = _try(0, o.coords_y > 0, lambda: setattr(o, "coords_y", o.coords_y - moment))
+        mx = _try(
+            1,
+            o.coords_x < room_px - o.perimeter_x,
+            lambda: setattr(o, "coords_x", o.coords_x + moment),
+        )
+    elif d == 6:
+        my = _try(
+            2,
+            o.coords_y < room_py - o.perimeter_y,
+            lambda: setattr(o, "coords_y", o.coords_y + moment),
+        )
+        mx = _try(
+            1,
+            o.coords_x < room_px - o.perimeter_x,
+            lambda: setattr(o, "coords_x", o.coords_x + moment),
+        )
+    elif d == 7:
+        my = _try(
+            2,
+            o.coords_y < room_py - o.perimeter_y,
+            lambda: setattr(o, "coords_y", o.coords_y + moment),
+        )
+        mx = _try(3, o.coords_x > 0, lambda: setattr(o, "coords_x", o.coords_x - moment))
 
     return (mx << 16) | my

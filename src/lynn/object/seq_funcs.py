@@ -77,15 +77,24 @@ def __cripple(this: CharType) -> int:
     return 0
 
 
-def __active_anim_0(this: CharType) -> int:
-    this.current_anim = 0
-    this.frame = 0
+def _make_active_anim(n: int):
+    def _fn(this: CharType) -> int:
+        this.current_anim = n
+        this.frame = 0
+        return 1
+
+    _fn.__name__ = f"__active_anim_{n}"
+    return _fn
+
+
+def __dir_down(this: CharType) -> int:
+    this.direction = 2
     return 1
 
 
-def __active_anim_1(this: CharType) -> int:
-    this.current_anim = 1
-    this.frame = 0
+def __eat_lynn_action(this: CharType) -> int:
+    if events.hero_only is not None:
+        events.hero_only.action = 0
     return 1
 
 
@@ -97,6 +106,17 @@ def __fade_down_to_color(this: CharType) -> int:
     return 1
 
 
+def __fade_to_red(this: CharType) -> int:
+    return 1
+
+
+def __fade_to_black(this: CharType) -> int:
+    return 1
+
+
 for _name, _fn in list(globals().items()):
     if _name.startswith("__") and callable(_fn) and _name != "__active_animate":
         register_func(_name, _fn)
+
+for _n in range(16):
+    register_func(f"__active_anim_{_n}", _make_active_anim(_n))

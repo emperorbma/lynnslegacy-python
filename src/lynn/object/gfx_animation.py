@@ -36,3 +36,4 @@ def __active_animate(this: CharType) -> int:
 
 register_func("__idle_animate", __idle_animate)
 register_func("__active_animate", __active_animate)
+register_func("__active_animate_x", __active_animate)

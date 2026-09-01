@@ -56,5 +56,23 @@ def __walk(this: CharType) -> int:
     return 0
 
 
+def __copter_path(this: CharType) -> int:
+    """FB object_move.bas: 8-dir random heading that can actually step."""
+    this.walk_buffer = int(this.walk_length) if this.walk_length else 80
+    room = events.current_room
+    others = events.current_others
+    for _ in range(20):
+        this.direction += int(random.random() * 8) - 1
+        if this.direction == -1:
+            this.direction = 7
+        this.direction = abs(this.direction) & 7
+        if room is None:
+            break
+        if move_object(this, room, only_looking=MO_JUST_CHECKING, others=others) != 0:
+            break
+    return 1
+
+
 register_func("__randomize_path", __randomize_path)
 register_func("__walk", __walk)
+register_func("__copter_path", __copter_path)

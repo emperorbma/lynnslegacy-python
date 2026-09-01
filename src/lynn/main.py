@@ -18,7 +18,16 @@ from lynn.demos import (
     tick_map_demo,
 )
 from lynn.gfx.menu import handleKeybSelected, keyboardSelected, menu_Blit
-from lynn.object.combat import LLObject_MAINAttack, hero_attack, start_hero_attack
+from lynn.object.combat import (
+    LLObject_MAINAttack,
+    LLObject_MAINDamage,
+    hero_attack,
+    hero_death_tick,
+    hero_hurt_tick,
+    start_hero_attack,
+)
+from lynn.object.combat_funcs import __flashy
+import lynn.events as events
 from lynn.object.tick import LLObject_CheckSpawn
 from lynn.sequence import play_sequence, try_action_sequence
 from lynn.hero import (
@@ -134,13 +143,17 @@ def _run_map(canvas, frame_clock, scale_option: int, with_objects: bool, map_pat
         menu_up = menu_right = menu_down = menu_left = 0
         menu_confirm = False
         action_pulse = 0
+        events.keys.enter_pulse = 0
         seq_busy = demo.seq is not None
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
-                    if with_objects and demo.hero is not None and demo.menu is not None and not seq_busy:
+                    save_open = demo.hero is not None and demo.hero.menu_sel != 0
+                    if save_open:
+                        pass
+                    elif with_objects and demo.hero is not None and demo.menu is not None and not seq_busy:
                         if demo.menu_open != 0:
                             demo.menu_open = 0
                             demo.menu_backdrop = None
@@ -169,6 +182,9 @@ def _run_map(canvas, frame_clock, scale_option: int, with_objects: bool, map_pat
                         event.mod & pygame.KMOD_ALT
                     ):
                         menu_confirm = True
+                        events.keys.enter_pulse = TRUE
+                elif event.key == pygame.K_RETURN and not (event.mod & pygame.KMOD_ALT):
+                    events.keys.enter_pulse = TRUE
                 elif event.key == pygame.K_SPACE:
                     action_pulse = TRUE
                 elif event.key in (pygame.K_LCTRL, pygame.K_RCTRL):
@@ -189,10 +205,20 @@ def _run_map(canvas, frame_clock, scale_option: int, with_objects: bool, map_pat
                 demo.menu_backdrop = None
         room = demo.game_map.room[room_i]
         keys = pygame.key.get_pressed()
+        events.keys.up = TRUE if keys[pygame.K_UP] else 0
+        events.keys.down = TRUE if keys[pygame.K_DOWN] else 0
+        events.keys.enter = TRUE if keys[pygame.K_RETURN] else 0
+        events.keys.escape = TRUE if keys[pygame.K_ESCAPE] else 0
         others = demo.objects_by_room[room_i] if room_i < len(demo.objects_by_room) else []
+        locked = (
+            (demo.hero_only is not None and demo.hero_only.action_lock != 0)
+            or (demo.hero is not None and demo.hero.menu_sel != 0)
+            or (demo.hero is not None and demo.hero.dead != 0)
+        )
         if (
             demo.seq is None
             and demo.menu_open == 0
+            and not locked
             and demo.hero is not None
             and demo.hero_only is not None
         ):
@@ -200,8 +226,9 @@ def _run_map(canvas, frame_clock, scale_option: int, with_objects: bool, map_pat
             if started is not None:
                 demo.seq = started
                 demo.do_hud = 0
+                events.do_hud = 0
         attacking = demo.hero_only is not None and demo.hero_only.attacking != 0
-        if demo.menu_open == 0 and demo.seq is None and not attacking:
+        if demo.menu_open == 0 and demo.seq is None and not attacking and not locked:
             if demo.hero is not None:
                 keys_dir = None
                 if keys[pygame.K_LEFT] or keys[pygame.K_a]:
@@ -245,6 +272,21 @@ def _run_map(canvas, frame_clock, scale_option: int, with_objects: bool, map_pat
         ):
             hero_attack(demo.hero)
             LLObject_MAINAttack(others, demo.hero)
+        if (
+            demo.hero is not None
+            and demo.seq is None
+            and demo.menu_open == 0
+        ):
+            if demo.hero.dead == 0:
+                LLObject_MAINDamage(demo.hero, others)
+                if demo.hero.dmg_id != 0:
+                    __flashy(demo.hero)
+                if demo.hero.hurt:
+                    hero_hurt_tick(demo.hero)
+            else:
+                if demo.hero_only is not None:
+                    demo.hero_only.attacking = 0
+                hero_death_tick(demo.hero)
         if demo.seq is not None and demo.hero_only is not None:
             demo.seq = play_sequence(
                 demo.seq, demo.box, demo.hero_only, demo.palette, demo.menu

@@ -3,18 +3,21 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from pathlib import Path
 
 import pygame
 
-from lynn.constants import SCREEN_H, SCREEN_W, TRUE
+from lynn.constants import SCREEN_H, SCREEN_W, TRUE, u_savepoint
 from lynn.gfx.blit import blit_object, blit_room_tiles
 from lynn.gfx.hud import blit_hud, load_hud
+from lynn.gfx.loot import blit_enemy_loot, load_drop_surfs
 from lynn.gfx.menu import load_menu
 from lynn.gfx.image import LLSystem_ImageLoad, frame_surface, frame_surfaces
 from lynn.gfx.palette import LLPalette, load_pal
 import lynn.object  # registers __idle_animate / __return_idle / __reset_frame
 import lynn.object.move_ai  # noqa: F401  — after collision is loaded (no circular import)
-from lynn.events import bind_hero_only, reset_events
+from lynn.events import bind_hero, bind_hero_only, reset_events
+import lynn.events as events
 from lynn.gfx.box import BoxControl, blit_box
 from lynn.hero import ctor_hero, ctor_hero_only, place_hero
 from lynn.map.loader import load_mapV
@@ -70,6 +73,7 @@ class MapDemo:
     menu_backdrop: object | None = None
     seq: object | None = None
     box: object | None = None
+    drop_surfs: list = field(default_factory=list)
 
 
 def load_map_demo(with_objects: bool = True, map_path: str | None = None) -> MapDemo:
@@ -104,10 +108,15 @@ def load_map_demo(with_objects: bool = True, map_path: str | None = None) -> Map
     demo.hero = hero
     demo.hero_only = ctor_hero_only()
     bind_hero_only(demo.hero_only)
+    bind_hero(hero)
+    events.map_filename = Path(path).name
+    events.hero_room = demo.hero_room
+    events.do_hud = TRUE
     demo.hud = load_hud(palette)
     demo.do_hud = TRUE
     demo.menu = load_menu(palette)
     demo.box = BoxControl()
+    demo.drop_surfs = load_drop_surfs(palette)
     demo.hero_surfs = [
         frame_surfaces(anim, palette) if anim.frames else []
         for anim in hero.anim
@@ -122,7 +131,10 @@ def tick_map_demo(demo: MapDemo, room_i: int) -> None:
         room = demo.game_map.room[room_i] if room_i < len(demo.game_map.room) else None
         objs = demo.objects_by_room[room_i]
         bind_room(room, objs)
+        bind_hero(demo.hero)
+        events.hero_room = room_i
         tick_objects(objs)
+        demo.do_hud = events.do_hud
 
 
 def draw_map_demo(canvas: pygame.Surface, demo: MapDemo, room_i: int, cam_x: int, cam_y: int) -> None:
@@ -135,8 +147,11 @@ def draw_map_demo(canvas: pygame.Surface, demo: MapDemo, room_i: int, cam_x: int
         demo.para_cache[room_i] = para
     canvas.fill((0, 0, 0))
     blit_room_tiles(canvas, room, demo.tile_surfs, cam_x, cam_y, para, layers=(0, 1))
+    save_open = demo.hero is not None and demo.hero.menu_sel != 0
     if room_i < len(demo.objects_by_room):
         for obj in demo.objects_by_room[room_i]:
+            if save_open and obj.unique_id == u_savepoint:
+                continue
             anims = demo.obj_anim_surfs.get(obj.id)
             if not anims or obj.current_anim >= len(anims):
                 continue
@@ -146,8 +161,22 @@ def draw_map_demo(canvas: pygame.Surface, demo: MapDemo, room_i: int, cam_x: int
         if anim_i < len(demo.hero_surfs):
             blit_object(canvas, demo.hero, cam_x, cam_y, demo.hero_surfs[anim_i])
     blit_room_tiles(canvas, room, demo.tile_surfs, cam_x, cam_y, layers=(2,))
+    if room_i < len(demo.objects_by_room) and demo.drop_surfs:
+        blit_enemy_loot(
+            canvas,
+            demo.objects_by_room[room_i],
+            demo.hero,
+            cam_x,
+            cam_y,
+            demo.drop_surfs,
+        )
     if demo.do_hud != 0 and demo.hud is not None and demo.hero is not None and demo.hero_only is not None:
         blit_hud(canvas, demo.hero, demo.hero_only, demo.hud)
+    if save_open and events.box_entity is not None:
+        from lynn.object.save import blit_save_menu
+
+        sp = events.box_entity
+        blit_save_menu(canvas, sp, demo.obj_anim_surfs.get(sp.id, []), demo.hud)
     if demo.box is not None:
         blit_box(canvas, demo.box)
 

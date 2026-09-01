@@ -2,26 +2,56 @@
 
 from __future__ import annotations
 
-from lynn.constants import LL_EVENTS_MAX
+from dataclasses import dataclass
+
+from lynn.constants import LL_EVENTS_MAX, TRUE
 
 now: list[int] = [0] * LL_EVENTS_MAX
 hero_only = None
+hero = None
 current_room = None
 current_others = None
+do_hud = TRUE
+box_entity = None
+map_filename = ""
+hero_room = 0
+
+
+@dataclass
+class KeyState:
+    up: int = 0
+    down: int = 0
+    enter: int = 0
+    escape: int = 0
+    enter_pulse: int = 0
+
+
+keys = KeyState()
 
 
 def reset_events() -> None:
-    global hero_only, current_room, current_others
+    global hero_only, hero, current_room, current_others, do_hud, box_entity, map_filename, hero_room
     for i in range(len(now)):
         now[i] = 0
     hero_only = None
+    hero = None
     current_room = None
     current_others = None
+    do_hud = TRUE
+    box_entity = None
+    map_filename = ""
+    hero_room = 0
+    keys.up = keys.down = keys.enter = keys.escape = keys.enter_pulse = 0
 
 
 def bind_hero_only(only) -> None:
     global hero_only
     hero_only = only
+
+
+def bind_hero(h) -> None:
+    global hero
+    hero = h
 
 
 def bind_room(room, others=None) -> None:
