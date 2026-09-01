@@ -123,6 +123,12 @@ class CharType:
     fly_timer: float = 0.0
     fly_length: int = 0
     fly_speed: float = 0.0
+    fly_hold: int = 0
+    mad_walk_speed: float = 0.0
+    diag_chase: int = 0
+    degree: int = 0
+    sway: float = 0.0
+    swaying: int = 0
     flash_timer: float = 0.0
     flash_count: int = 0
     flash_length: int = 30

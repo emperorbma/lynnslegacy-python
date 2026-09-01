@@ -73,6 +73,104 @@ def __copter_path(this: CharType) -> int:
     return 1
 
 
+def _in_dir_small(d: int) -> int:
+    if d < 0:
+        return 3
+    if d > 3:
+        return 0
+    return d
+
+
+def __make_face(this: CharType) -> int:
+    """FB object_move.bas: face the hero on the longer axis."""
+    hero = events.hero
+    if hero is None:
+        return 1
+    ox = this.coords_x + (int(this.perimeter_x) >> 1)
+    oy = this.coords_y + (int(this.perimeter_y) >> 1)
+    hx = hero.coords_x + (int(hero.perimeter_x) >> 1)
+    hy = hero.coords_y + (int(hero.perimeter_y) >> 1)
+    dx = abs(hx - ox)
+    dy = abs(hy - oy)
+    if dx >= dy:
+        if hx > ox:
+            this.direction = 1
+        elif hx < ox:
+            this.direction = 3
+    else:
+        if hy > oy:
+            this.direction = 2
+        elif hy < oy:
+            this.direction = 0
+    return 1
+
+
+def __chase(this: CharType) -> int:
+    """FB object_move.bas: home in on the hero until out_proximity resets."""
+    import math
+
+    hero = events.hero
+    room = events.current_room
+    others = events.current_others
+    if hero is None:
+        return 0
+    hx = hero.coords_x + (int(hero.perimeter_x) >> 1)
+    hy = hero.coords_y + (int(hero.perimeter_y) >> 1)
+    ox = this.coords_x + (int(this.perimeter_x) >> 1)
+    oy = this.coords_y + (int(this.perimeter_y) >> 1)
+    if this.sway == 0:
+        this.degree = (this.degree + 1) % 360
+        this.sway = clock.timer + 0.002
+    if clock.timer > this.sway:
+        this.sway = 0
+    if this.walk_hold == 0 and room is not None:
+        px = 1 if hx > ox else (-1 if hx < ox else 0)
+        py = 1 if hy > oy else (-1 if hy < oy else 0)
+        if px == 1 and py == 1:
+            this.direction = 6
+        elif px == 1 and py == 0:
+            this.direction = 1
+        elif px == 1 and py == -1:
+            this.direction = 5
+        elif px == -1 and py == 1:
+            this.direction = 7
+        elif px == -1 and py == 0:
+            this.direction = 3
+        elif px == -1 and py == -1:
+            this.direction = 4
+        elif px == 0 and py == 1:
+            this.direction = 2
+        elif px == 0 and py == -1:
+            this.direction = 0
+        if px != 0 or py != 0:
+            if move_object(this, room, only_looking=0, moment=1, others=others) == 0:
+                tmp = this.direction
+                sway_calc = math.sin(math.radians(this.degree))
+                if sway_calc > 0:
+                    this.direction += 1
+                elif sway_calc < 0:
+                    this.direction -= 1
+                this.direction = _in_dir_small(this.direction)
+                move_object(this, room, only_looking=0, moment=1, others=others)
+                this.direction = tmp
+        if this.uni_directional == 0:
+            this.direction = _in_dir_small(this.direction)
+        __make_face(this)
+        rate = this.mad_walk_speed if this.mad_walk_speed else (this.walk_speed or 0.059)
+        this.walk_hold = clock.timer + rate
+        if this.animControl and this.current_anim < len(this.animControl):
+            if LLObject_IncrementFrame(this) != 0:
+                this.frame = 0
+                ctrl = this.animControl[this.current_anim]
+                mad = ctrl.rateMad if ctrl.rateMad else (ctrl.rate or 0.03)
+                this.frame_hold = clock.timer + mad
+    if clock.timer > this.walk_hold:
+        this.walk_hold = 0
+    return 0
+
+
 register_func("__randomize_path", __randomize_path)
 register_func("__walk", __walk)
 register_func("__copter_path", __copter_path)
+register_func("__make_face", __make_face)
+register_func("__chase", __chase)

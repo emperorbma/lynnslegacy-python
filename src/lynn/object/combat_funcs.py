@@ -63,21 +63,41 @@ def __flicker(this: CharType) -> int:
 
 
 def __do_flyback(this: CharType) -> int:
+    """FB object_move.bas: knockback via move_object so tiles still block."""
+    import lynn.events as events
+    from lynn.map.collision import move_object
+
     if this.fly_length <= 0:
         this.fly_count = 0
         this.invisible = 0
         return 1
     if this.fly_timer == 0:
+        this.fly_hold = this.direction
+        room = events.current_room
+        others = events.current_others
+        if room is not None:
+            if this.fly_y < 0:
+                this.direction = 0
+                move_object(this, room, moment=abs(this.fly_y) or 1, others=others)
+            elif this.fly_y > 0:
+                this.direction = 2
+                move_object(this, room, moment=abs(this.fly_y) or 1, others=others)
+            if this.fly_x < 0:
+                this.direction = 3
+                move_object(this, room, moment=abs(this.fly_x) or 1, others=others)
+            elif this.fly_x > 0:
+                this.direction = 1
+                move_object(this, room, moment=abs(this.fly_x) or 1, others=others)
+        this.direction = this.fly_hold
         this.fly_timer = clock.timer + (this.fly_speed or 0.004)
         this.fly_count += 1
-        this.coords_x += this.fly_x
-        this.coords_y += this.fly_y
     if clock.timer >= this.fly_timer:
         this.fly_timer = 0
     if this.fly_count >= this.fly_length:
         this.fly_count = 0
         this.fly_timer = 0
         this.invisible = 0
+        this.mad = 0
         return 1
     return 0
 

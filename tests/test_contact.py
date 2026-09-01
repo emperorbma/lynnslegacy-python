@@ -90,7 +90,13 @@ def test_hurt_flyback_moves_hero():
     bind_hero(hero)
     roamer = _overlap_roamer(hero)
     roamer.coords_x = hero.coords_x - 8
-    bind_room(None, [roamer])
+    from lynn.map.loader import load_mapV
+    from lynn.paths import resolve_map_path
+
+    room = load_mapV(str(resolve_map_path("forest_fall")), load_tileset=False).room[1]
+    hero.coords_x, hero.coords_y = 160, 280
+    roamer.coords_x, roamer.coords_y = 152, 280
+    bind_room(room, [roamer])
     clock.timer = 0.0
     x0 = hero.coords_x
     LLObject_MAINDamage(hero, [roamer])
