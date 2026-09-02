@@ -45,6 +45,7 @@ class BoxControl:
     flashhook: float = 0.0
     confBox: int = 0
     selected: int = 0
+    sound: int = 0
 
 
 def parse_text(text: str) -> str:
@@ -147,6 +148,7 @@ def make_box(
     box.flashhook = 0.0
     box.confBox = TRUE if conf == conf_Box or conf == TRUE else 0
     box.selected = 0
+    box.sound = 0
     if palette is not None and box.surf is None:
         header = LLSystem_ImageLoad("data/pictures/textbox.spr")
         if header.frames:
@@ -168,6 +170,22 @@ def _skip_spaces(box: BoxControl) -> None:
         box.opcount += 1
 
 
+def _text_beep(box: BoxControl) -> None:
+    """FB blit_box text_sound: one texttemp at 25 per non-space glyph."""
+    if box.sound != 0:
+        return
+    row = box.rows[box.current_line] if 0 <= box.current_line < len(box.rows) else ""
+    if box.opcount < 0 or box.opcount >= len(row):
+        return
+    ch = row[box.opcount]
+    if ch in (" ", "\0"):
+        return
+    from lynn.audio import play_sample, sound_texttemp
+
+    play_sample(sound_texttemp, 25)
+    box.sound = -1
+
+
 def tick_box(box: BoxControl, action: int) -> None:
     if box.activated == 0:
         return
@@ -186,7 +204,9 @@ def tick_box(box: BoxControl, action: int) -> None:
         if clock.timer >= box.timer + box.speed:
             box.timer = clock.timer
             box.opcount += 1
+            box.sound = 0
             _skip_spaces(box)
+        _text_beep(box)
         if box.opcount >= _line_len(box):
             if box.current_line >= len(box.rows) - 1:
                 box.opcount = max(0, _line_len(box) - 1)

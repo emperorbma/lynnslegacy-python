@@ -322,6 +322,14 @@ def __kill_song(this: CharType) -> int:
 
 
 def __stop_sound(this: CharType) -> int:
+    """FB object_sound.bas: BASS_ChannelStop(playing_handle)."""
+    handle = this.playing_handle
+    if handle is not None and hasattr(handle, "stop"):
+        try:
+            handle.stop()
+        except Exception:
+            pass
+    this.playing_handle = None
     return 1
 
 
@@ -382,6 +390,14 @@ def __play_song(this: CharType) -> int:
 
 
 def __play_sound(this: CharType) -> int:
+    """FB object_sound.bas: play_sample(snd[sound[chap]], vol[chap])."""
+    from lynn.audio import play_sample
+
+    chap = int(this.chap)
+    if 0 <= chap < len(this.sound):
+        sid = this.sound[chap]
+        vol = this.vol[chap] if chap < len(this.vol) else 0
+        this.playing_handle = play_sample(sid, vol)
     return 1
 
 
@@ -390,6 +406,53 @@ def __set_fade(this: CharType) -> int:
 
 
 def __set_vol_fade(this: CharType) -> int:
+    """FB object_sound.bas: arm background sample fade-out."""
+    this.vol_fade_trig = -1
+    return 1
+
+
+def __do_vol_fade(this: CharType) -> int:
+    """FB object_sound.bas: 64 slices, static 0.3s, then ChannelStop."""
+    slices = 64
+    fade_dt = 0.3
+    handle = this.playing_handle
+    if this.vol_fade_lock == 0:
+        if this.sample_fade_lock == 0:
+            cur_vol = 100
+            if handle is not None and hasattr(handle, "get_volume"):
+                try:
+                    cur_vol = int(round(float(handle.get_volume()) * 100))
+                except Exception:
+                    cur_vol = 100
+            this.sample_vol_store = cur_vol
+            this.sample_fade_lock = -1
+        remain = slices - this.vol_fade
+        vol_prec = remain * (this.sample_vol_store / slices)
+        if handle is not None and hasattr(handle, "set_volume"):
+            try:
+                handle.set_volume(max(0.0, min(1.0, vol_prec / 100.0)))
+            except Exception:
+                pass
+        this.vol_fade += 4
+        this.vol_fade_lock = clock.timer + fade_dt
+    if clock.timer > this.vol_fade_lock:
+        this.vol_fade_lock = 0
+    if this.vol_fade >= slices:
+        if handle is not None and hasattr(handle, "stop"):
+            try:
+                handle.stop()
+            except Exception:
+                pass
+        if handle is not None and hasattr(handle, "set_volume"):
+            try:
+                handle.set_volume(max(0.0, min(1.0, this.sample_vol_store / 100.0)))
+            except Exception:
+                pass
+        this.playing_handle = None
+        this.sample_fade_lock = 0
+        this.vol_fade_trig = 0
+        this.vol_fade = 0
+        this.sample_vol_store = 0
     return 1
 
 

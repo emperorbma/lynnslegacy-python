@@ -90,7 +90,9 @@ def LLSystem_ObjectFromXML(obj: CharType, load_images: bool = True) -> CharType:
             obj.funcs.current_func.append(0)
             obj.funcs.states += 1
         elif name == "snd":
-            pass
+            obj.sounds += 1
+            obj.sound.append(0)
+            obj.vol.append(0)
 
     def text_node(elem: ET.Element) -> None:
         if elem.text is None:
@@ -102,6 +104,8 @@ def LLSystem_ObjectFromXML(obj: CharType, load_images: bool = True) -> CharType:
             _sprite_text(obj, path, text, load_images)
         elif path[1] == "fp":
             _fp_text(obj, path, text)
+        elif path[1] == "snd":
+            _snd_text(obj, path, text)
         elif len(path) == 2:
             converted = _xml_number(text)
             if converted is None:
@@ -206,6 +210,17 @@ def _sprite_text(obj: CharType, path: list[str], text: str, load_images: bool) -
             _stamp_frame_sound(anim, ctrl, obj.frame_sound, "sound", sound_from_name(text), uni=True)
         elif kind == "vol":
             _stamp_frame_sound(anim, ctrl, obj.frame_sound, "vol", int(_xml_number(text) or 0), uni=True)
+
+
+def _snd_text(obj: CharType, path: list[str], text: str) -> None:
+    """FB concat 'snd->': index is a sound_* enum, vol is 0–100."""
+    if len(path) < 3 or not obj.sound:
+        return
+    kind = path[2]
+    if kind == "index":
+        obj.sound[-1] = sound_from_name(text)
+    elif kind == "vol":
+        obj.vol[-1] = int(_xml_number(text) or 0)
 
 
 def _fp_text(obj: CharType, path: list[str], text: str) -> None:

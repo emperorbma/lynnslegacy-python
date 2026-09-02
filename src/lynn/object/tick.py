@@ -94,6 +94,10 @@ def tick_objects(objs: list[CharType]) -> None:
             else:
                 obj.funcs.active_state = out_proximity(obj)
         tick_object(obj)
+        if obj.vol_fade_trig != 0:
+            from lynn.object.dispatch import lookup_func
+
+            lookup_func("__do_vol_fade")(obj)
         if obj.hurt != 0:
             state = obj.funcs.active_state
             count = obj.funcs.func_count[state] if state < len(obj.funcs.func_count) else 0

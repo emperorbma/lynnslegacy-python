@@ -9,6 +9,18 @@ from lynn.gfx.image import LLSystem_ImageHeader
 
 
 @dataclass
+class MatExpl:
+    """FB object_structures.bi mat_expl — one particle in __explode."""
+
+    x: int = 0
+    y: int = 0
+    frame: int = 0
+    frame_hold: float = 0.0
+    alive: int = 0
+    sound: int = 0
+
+
+@dataclass
 class LLObject_ImageHeader:
     x_off: int = 0
     y_off: int = 0
@@ -120,6 +132,18 @@ class CharType:
     death_state: int = 0
     reset_state: int = 0
     dead_anim: int = 0
+    expl_anim: int = 0
+    explosions: int = 0
+    cur_expl: int = 0
+    expl_timer: float = 0.0
+    expl_delay: float = 0.0
+    expl_x_off: int = 0
+    expl_y_off: int = 0
+    expl_x_size: int = 0
+    expl_y_size: int = 0
+    fireworks: int = 0
+    isBoss: int = 0
+    explosion: list = field(default_factory=list)
     dmg_id: int = 0
     dmg_index: int = 0
     dmg_specific: int = 0
@@ -156,6 +180,16 @@ class CharType:
     dead_sound: int = 0
     hit_sound_vol: int = 0
     dead_sound_vol: int = 0
+    sound: list = field(default_factory=list)
+    vol: list = field(default_factory=list)
+    sounds: int = 0
+    playing_handle: object | None = None
+    vol_fade_trig: int = 0
+    vol_fade: int = 0
+    vol_fade_lock: float = 0.0
+    vol_fade_time: float = 0.3
+    sample_fade_lock: int = 0
+    sample_vol_store: int = 0
     froggy: int = 0
     vision_field: int = 0
     jump_state: int = 0

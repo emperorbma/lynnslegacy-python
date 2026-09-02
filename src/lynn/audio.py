@@ -135,9 +135,33 @@ SOUND_NAMES: dict[str, int] = {
 }
 
 snd: list = [None] * NUM_OF_SOUNDS
+_sample_loop: list[bool] = [False] * NUM_OF_SOUNDS
+for _idx, _filename, _loop in _SAMPLE_FILES:
+    if 0 <= _idx < NUM_OF_SOUNDS:
+        _sample_loop[_idx] = _loop
 last_play: tuple[int, int] | None = None
+last_channel: object | None = None
 last_song: str = ""
 music_volume: int = 100
+
+
+class _SilentChannel:
+    """Stand-in when the mixer is dummy/off. stop/set_volume are no-ops."""
+
+    def __init__(self, volume: float = 1.0) -> None:
+        self._volume = volume
+
+    def stop(self) -> None:
+        return None
+
+    def set_volume(self, volume: float) -> None:
+        self._volume = volume
+
+    def get_volume(self) -> float:
+        return self._volume
+
+    def get_busy(self) -> bool:
+        return False
 
 # FB headers/utility.bi music_strings(25). Index is room.song / this.chap.
 MUSIC_STRINGS: tuple[str, ...] = (
@@ -205,6 +229,7 @@ def init_mixer() -> bool:
             pygame.mixer.pre_init(44100, -16, 2, 512)
             pygame.mixer.init(44100, -16, 2, 512)
         pygame.mixer.set_num_channels(32)
+        pygame.mixer.set_reserved(8)
         return pygame.mixer.get_init() is not None
     except Exception:
         return False
@@ -256,25 +281,57 @@ def _apply_vol_tweaks() -> None:
     _set(sound_gulls2, 55)
 
 
-def play_sample(s: int, v: int = 0) -> int:
-    """FB play_sample: llg(snd)[s], volume 0-100 (0 means 100)."""
-    global last_play
+def sample_loops(s: int) -> bool:
+    """True if init_snd loaded this index with BASS_SAMPLE_LOOP."""
+    return 0 <= int(s) < len(_sample_loop) and _sample_loop[int(s)]
+
+
+def play_sample(s: int, v: int = 0):
+    """FB play_sample: llg(snd)[s], volume 0-100 (0 means 100). Looping samples loop."""
+    global last_play, last_channel
     if v == 0:
         v = 100
     last_play = (int(s), int(v))
+    last_channel = None
     if not s:
         return 0
-    if s < 0 or s >= len(snd) or snd[s] is None:
-        return 0
+    vol = max(0.0, min(1.0, v / 100.0))
+    loops = -1 if sample_loops(s) else 0
     if not audio_output_enabled():
-        return 1
+        last_channel = _SilentChannel(vol)
+        return last_channel
+    if s < 0 or s >= len(snd) or snd[s] is None:
+        last_channel = _SilentChannel(vol)
+        return last_channel
     try:
+        import pygame
+
         sample = snd[s]
-        sample.set_volume(max(0.0, min(1.0, v / 100.0)))
-        sample.play()
+        sample.set_volume(vol)
+        channel = None
+        if loops:
+            # Reserved 0–7 so title.it (mixer.music) and one-shots cannot steal sea/crickets.
+            for i in range(8):
+                ch = pygame.mixer.Channel(i)
+                if not ch.get_busy():
+                    channel = ch
+                    break
+            if channel is None:
+                channel = pygame.mixer.Channel(0)
+            channel.set_volume(vol)
+            channel.play(sample, loops=loops)
+        else:
+            channel = sample.play(loops=0)
+            if channel is not None:
+                channel.set_volume(vol)
+        if channel is not None:
+            last_channel = channel
+            return channel
     except Exception:
-        return 0
-    return 1
+        last_channel = _SilentChannel(vol)
+        return last_channel
+    last_channel = _SilentChannel(vol)
+    return last_channel
 
 
 def sounds_dir() -> Path:

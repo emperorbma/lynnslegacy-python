@@ -43,6 +43,24 @@ def test_center_line_pads_left():
     assert len(centered) < 38
 
 
+def test_typewriter_plays_texttemp():
+    from lynn import audio
+    from lynn.audio import sound_texttemp
+
+    box = BoxControl()
+    clock.timer = 0.0
+    make_box(box, "Hello")
+    clock.timer = box.speed + 0.001
+    tick_box(box, 0)
+    assert audio.last_play == (sound_texttemp, 25)
+    first = audio.last_play
+    tick_box(box, 0)
+    assert audio.last_play == first
+    clock.timer = box.timer + box.speed + 0.001
+    tick_box(box, 0)
+    assert audio.last_play == (sound_texttemp, 25)
+
+
 def test_space_confirms_short_box():
     box = BoxControl()
     clock.timer = 0.0

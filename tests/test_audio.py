@@ -8,15 +8,21 @@ import lynn.object  # noqa: F401
 from lynn.audio import (
     NUM_OF_SOUNDS,
     play_sample,
+    sample_loops,
     sound_bush,
+    sound_crickets,
     sound_enemyhit,
     sound_enemykill,
+    sound_explosion,
     sound_from_name,
+    sound_gulls2,
     sound_healthgrab,
     sound_lynn_die,
     sound_lynn_hurt_1,
     sound_mace_0,
+    sound_mothdie,
     sound_null,
+    sound_sea,
     sound_switch,
 )
 from lynn.constants import u_lynn
@@ -120,6 +126,170 @@ def test_play_sample_records_last_play():
     assert audio.last_play == (sound_switch, 100)
 
 
+def test_crickets_and_explosion_are_loop_and_one_shot():
+    assert sample_loops(sound_crickets) is True
+    assert sample_loops(sound_explosion) is False
+    assert (project_root() / "data/sounds/crickets.ogg").is_file()
+    assert (project_root() / "data/sounds/explosion.ogg").is_file()
+
+
+def test_lynn_and_moth_load_xml_snd_slots():
+    lynn = CharType()
+    lynn.id = "data/object/lynn.xml"
+    LLSystem_ObjectFromXML(lynn, load_images=False)
+    assert lynn.sounds >= 1
+    assert lynn.sound[0] == sound_crickets
+
+    moth = CharType()
+    moth.id = "data/object/moth.xml"
+    LLSystem_ObjectFromXML(moth, load_images=False)
+    assert moth.sound[0] == sound_mothdie
+    assert moth.vol[0] == 70
+
+    gull = CharType()
+    gull.id = "data/object/gull.xml"
+    LLSystem_ObjectFromXML(gull, load_images=False)
+    assert gull.sound[3] == sound_gulls2
+    assert gull.vol[3] == 25
+
+
+def test_play_sound_uses_chap_slot():
+    from lynn.object.dispatch import lookup_func
+
+    lynn = CharType()
+    lynn.id = "data/object/lynn.xml"
+    LLSystem_ObjectFromXML(lynn, load_images=False)
+    lynn.chap = 0
+    lookup_func("__play_sound")(lynn)
+    from lynn import audio
+
+    assert audio.last_play == (sound_crickets, 100)
+    assert lynn.playing_handle is not None
+    lookup_func("__stop_sound")(lynn)
+    assert lynn.playing_handle is None
+
+    moth = CharType()
+    moth.id = "data/object/moth.xml"
+    LLSystem_ObjectFromXML(moth, load_images=False)
+    moth.chap = 0
+    lookup_func("__play_sound")(moth)
+    assert audio.last_play == (sound_mothdie, 70)
+
+
+def test_title_begin_play_sound_is_crickets():
+    """title.map entry 0 command 11: lynn play_sound chap 0."""
+    from lynn.map.loader import load_mapV
+    from lynn.object.dispatch import lookup_func
+    from lynn.paths import resolve_map_path
+
+    m = load_mapV(str(resolve_map_path("title")), load_tileset=False)
+    cmd = m.entry[0].seq[0].Command[11]
+    assert cmd.ent[0].active_ent == 0
+    assert cmd.ent[0].ent_state == 26
+    assert cmd.ent[0].chap == 0
+    hero = ctor_hero(load_images=False)
+    hero.chap = 0
+    lookup_func("__play_sound")(hero)
+    from lynn import audio
+
+    assert audio.last_play == (sound_crickets, 100)
+
+
+def test_explode_lynn_plays_explosion():
+    from lynn.events import bind_hero, reset_events
+    from lynn.object.dispatch import lookup_func
+
+    reset_events()
+    hero = ctor_hero(load_images=False)
+    hero.coords_x = 80
+    hero.coords_y = 64
+    bind_hero(hero)
+    boom = CharType()
+    boom.id = "data/object/moth_explosion.xml"
+    LLSystem_ObjectFromXML(boom, load_images=False)
+    assert lookup_func("__explode_lynn") is not lookup_func("__noop")
+    lookup_func("__explode_lynn")(boom)
+    from lynn import audio
+
+    assert audio.last_play == (sound_explosion, 100)
+    assert boom.coords_x == 56
+    assert boom.coords_y == 40
+
+
+def test_vol_fade_stops_sample():
+    from lynn import clock
+    from lynn.object.dispatch import lookup_func
+
+    lynn = CharType()
+    lynn.id = "data/object/lynn.xml"
+    LLSystem_ObjectFromXML(lynn, load_images=False)
+    lynn.chap = 0
+    lookup_func("__play_sound")(lynn)
+    lookup_func("__set_vol_fade")(lynn)
+    assert lynn.vol_fade_trig != 0
+    clock.timer = 1.0
+    for i in range(40):
+        clock.timer = 1.0 + i * 0.31
+        lookup_func("__do_vol_fade")(lynn)
+        if lynn.vol_fade_trig == 0:
+            break
+    assert lynn.vol_fade_trig == 0
+    assert lynn.playing_handle is None
+
+
+def test_title_gull_play_sound_is_sea_then_gulls2():
+    from lynn.hero import ctor_hero
+    from lynn.map.loader import load_mapV
+    from lynn.object.dispatch import lookup_func
+    from lynn.object.xml_load import spawn_from_stub
+    from lynn.paths import resolve_map_path
+    from lynn.sequence import bind_sequence_ents
+    from lynn import audio
+
+    m = load_mapV(str(resolve_map_path("title")), load_tileset=False)
+    objs = [spawn_from_stub(e, load_images=False) for e in m.room[0].enemy]
+    hero = ctor_hero(load_images=False)
+    seq = m.entry[0].seq[0]
+    bind_sequence_ents(seq, hero, objs)
+    c1 = seq.Command[1]
+    gull = seq.ent[c1.ent[2].active_ent]
+    assert "gull" in gull.id
+    gull.chap = c1.ent[2].chap
+    lookup_func("__play_sound")(gull)
+    assert audio.last_play == (sound_sea, 100)
+    c3 = seq.Command[3]
+    gull2 = seq.ent[c3.ent[0].active_ent]
+    gull2.chap = c3.ent[0].chap
+    lookup_func("__play_sound")(gull2)
+    assert audio.last_play == (sound_gulls2, 25)
+    assert c1.ent[2].jump_count == 0
+    assert seq.Command[2].ent[1].jump_count == 100
+
+
+def test_explode_spawns_particles_and_plays():
+    import pygame
+    from lynn.object.dispatch import lookup_func
+    from lynn.object.xml_load import LLSystem_ObjectFromXML
+
+    pygame.init()
+    pygame.display.set_mode((320, 200))
+    crate = CharType()
+    crate.id = "data/object/raycrate.xml"
+    LLSystem_ObjectFromXML(crate, load_images=True)
+    crate.coords_x = 104
+    crate.coords_y = 112
+    assert crate.explosions == 40
+    assert crate.expl_anim == 1
+    assert lookup_func("__explode") is not lookup_func("__noop")
+    lookup_func("__explode")(crate)
+    assert crate.cur_expl >= 1
+    assert crate.explosion[0].alive != 0
+    from lynn import audio
+
+    assert audio.last_play == (sound_explosion, 70)
+    pygame.quit()
+
+
 def test_roamer_defaults_and_bush_sounds():
     roamer = CharType()
     roamer.id = "data/object/roamer.xml"
@@ -148,6 +318,25 @@ def test_lynn_attack_frame_carries_mace_sound():
     assert attack.frame[0].uni_sound == -1
     assert attack.frame[6].sound == sound_mace_0
     pygame.quit()
+
+
+def test_enemy_hit_and_kill_sounds():
+    from lynn.events import reset_events
+    from lynn.object.combat import LLObject_ProcessHurt
+
+    reset_events()
+    roamer = CharType()
+    roamer.id = "data/object/roamer.xml"
+    LLSystem_ObjectFromXML(roamer, load_images=False)
+    roamer.hurt = 1
+    roamer.hp = 2
+    LLObject_ProcessHurt(roamer)
+    from lynn import audio
+
+    assert audio.last_play == (sound_enemyhit, 100)
+    roamer.hurt = 1
+    LLObject_ProcessHurt(roamer)
+    assert audio.last_play == (sound_enemykill, 100)
 
 
 def test_contact_plays_hurt_voice():

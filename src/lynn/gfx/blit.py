@@ -109,3 +109,18 @@ def blit_object(canvas: pygame.Surface, obj, cam_x: int, cam_y: int, tile_surfs_
     x = int(obj.coords_x) - (0 if obj.no_cam else cam_x) - x_off
     y = int(obj.coords_y) - (0 if obj.no_cam else cam_y) - y_off
     canvas.blit(tile_surfs_for_anim[frame], (x, y))
+
+
+def blit_explosions(canvas: pygame.Surface, obj, cam_x: int, cam_y: int, expl_surfs) -> None:
+    """FB blit_enemy: Put each alive mat_expl frame of expl_anim."""
+    if not expl_surfs or getattr(obj, "cur_expl", 0) <= 0:
+        return
+    cam_off_x = 0 if obj.no_cam else cam_x
+    cam_off_y = 0 if obj.no_cam else cam_y
+    for particle in obj.explosion[: obj.cur_expl]:
+        if particle.alive == 0:
+            continue
+        fi = particle.frame
+        if fi < 0 or fi >= len(expl_surfs):
+            fi = 0
+        canvas.blit(expl_surfs[fi], (int(particle.x) - cam_off_x, int(particle.y) - cam_off_y))

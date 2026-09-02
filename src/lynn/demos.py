@@ -465,6 +465,10 @@ def tick_map_demo(demo: MapDemo, room_i: int) -> None:
         bind_hero(demo.hero)
         events.hero_room = room_i
         tick_objects(objs)
+        if demo.hero is not None and demo.hero.vol_fade_trig != 0:
+            from lynn.object.dispatch import lookup_func
+
+            lookup_func("__do_vol_fade")(demo.hero)
         demo.do_hud = events.do_hud
         from lynn.audio import tick_music
 
@@ -567,6 +571,11 @@ def _blit_y_sorted(canvas, demo: MapDemo, room_i: int, cam_x: int, cam_y: int, s
         if anim_i < 0 or anim_i >= len(anims) or not anims[anim_i]:
             continue
         blit_object(canvas, obj, cam_x, cam_y, anims[anim_i])
+        expl_i = int(getattr(obj, "expl_anim", 0) or 0)
+        if getattr(obj, "cur_expl", 0) > 0 and 0 <= expl_i < len(anims) and anims[expl_i]:
+            from lynn.gfx.blit import blit_explosions
+
+            blit_explosions(canvas, obj, cam_x, cam_y, anims[expl_i])
 
 
 def load_palette_demo() -> tuple[LLPalette, list]:
