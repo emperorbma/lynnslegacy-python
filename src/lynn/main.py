@@ -1,4 +1,4 @@
-"""Window loop. `python -m lynn [objects|map|palette|audio|test]`."""
+"""Window loop. `python -m lynn [objects|map|palette|audio|config|test]`."""
 
 from __future__ import annotations
 
@@ -40,6 +40,13 @@ from lynn.hero import (
     hero_walk_step,
     update_cam,
 )
+from lynn.controls import (
+    chart,
+    load_controls,
+    load_fullscreen,
+    pygame_keys_for,
+    scancode_held,
+)
 from lynn.paths import DEFAULT_MAP, START_MAP, chdir_project_root
 
 PAN_SPEED = 4
@@ -53,6 +60,20 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if mode in ("test", "--test", "-t"):
         return _run_tests(rest)
+    if mode == "config":
+        chdir_project_root()
+        pygame.init()
+        pygame.display.set_caption("Configure LL")
+        _open_window()
+        if load_fullscreen() != 0:
+            pygame.display.toggle_fullscreen()
+        frame_clock = pygame.time.Clock()
+        canvas = pygame.Surface((SCREEN_W, SCREEN_H)).convert()
+        from lynn.gfx.config_ui import run_config
+
+        code = run_config(canvas, lambda: _present(canvas, 0), frame_clock, 0)
+        pygame.quit()
+        return code
     if mode == "audio":
         chdir_project_root()
         from lynn.audio import init_mixer, init_snd
@@ -74,6 +95,7 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     chdir_project_root()
+    load_controls()
     save = None
     if save_spec:
         from lynn.object.save import LLSystem_ReadSaveFile, resolve_save_spec
@@ -99,6 +121,8 @@ def main(argv: list[str] | None = None) -> int:
     pygame.mouse.set_visible(False)
     pygame.display.set_caption(_caption_for(mode, map_spec, quiet=show_splash))
     _open_window()
+    if load_fullscreen() != 0:
+        pygame.display.toggle_fullscreen()
     frame_clock = pygame.time.Clock()
     canvas = pygame.Surface((SCREEN_W, SCREEN_H)).convert()
     scale_option = 0
@@ -166,10 +190,11 @@ def resolve_boot_map(mode: str, map_spec: str | None, save) -> tuple[str | None,
 
 def _usage() -> str:
     return (
-        "Usage: python -m lynn [objects|map|palette|audio|test] [map] [--save spec]\n"
+        "Usage: python -m lynn [objects|map|palette|audio|config|test] [map] [--save spec]\n"
         f"  objects [map]  walk Lynn (default: splash + {START_MAP})\n"
         f"  map [map]      tiles only (default: {DEFAULT_MAP})\n"
         "  palette        256-color ramp + lynn24.spr\n"
+        "  config         key setup (writes data/controls.xml and ll.ini)\n"
         "  audio          live sound check (title.it + a sample); Esc quits\n"
         "  test           pytest (extra args forwarded, including --map; silent audio)\n"
         "  --save spec    load a save (path, or N for a local example / ll_saveN.sav)\n"
@@ -288,9 +313,9 @@ def _run_map(
                         events.keys.enter_pulse = TRUE
                 elif event.key == pygame.K_RETURN and not (event.mod & pygame.KMOD_ALT):
                     events.keys.enter_pulse = TRUE
-                elif event.key == pygame.K_SPACE:
+                elif event.key in pygame_keys_for(chart.actkey):
                     action_pulse = TRUE
-                elif event.key in (pygame.K_LCTRL, pygame.K_RCTRL):
+                elif event.key in pygame_keys_for(chart.atkkey):
                     if demo.hero is not None and demo.hero_only is not None:
                         start_hero_attack(demo.hero)
                 elif not seq_busy and event.key in (pygame.K_LEFTBRACKET, pygame.K_PAGEUP):
@@ -336,13 +361,13 @@ def _run_map(
         if demo.menu_open == 0 and demo.seq is None and not attacking and not locked:
             if demo.hero is not None:
                 keys_dir = None
-                if keys[pygame.K_LEFT] or keys[pygame.K_a]:
+                if scancode_held(keys, chart.lkey):
                     keys_dir = DIR_LEFT
-                if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
+                if scancode_held(keys, chart.rkey):
                     keys_dir = DIR_RIGHT
-                if keys[pygame.K_DOWN] or keys[pygame.K_s]:
+                if scancode_held(keys, chart.dkey):
                     keys_dir = DIR_DOWN
-                if keys[pygame.K_UP] or keys[pygame.K_w]:
+                if scancode_held(keys, chart.ukey):
                     keys_dir = DIR_UP
                 hero_walk_step(demo.hero, room, keys_dir, others)
                 try_hero_teleport(demo)
@@ -350,13 +375,13 @@ def _run_map(
                 room = demo.game_map.room[room_i]
                 cam_x, cam_y = update_cam(demo.hero, room)
             else:
-                if keys[pygame.K_LEFT] or keys[pygame.K_a]:
+                if scancode_held(keys, chart.lkey):
                     cam_x -= PAN_SPEED
-                if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
+                if scancode_held(keys, chart.rkey):
                     cam_x += PAN_SPEED
-                if keys[pygame.K_UP] or keys[pygame.K_w]:
+                if scancode_held(keys, chart.ukey):
                     cam_y -= PAN_SPEED
-                if keys[pygame.K_DOWN] or keys[pygame.K_s]:
+                if scancode_held(keys, chart.dkey):
                     cam_y += PAN_SPEED
                 cam_x, cam_y = _clamp_cam(room, cam_x, cam_y)
         others = demo.objects_by_room[room_i] if room_i < len(demo.objects_by_room) else []

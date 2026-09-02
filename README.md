@@ -34,19 +34,21 @@ run.bat objects inhouse      interior map
 run.bat palette              256-color ramp + lynn24.spr
 run.bat test                 pytest (same as python -m lynn test; silent audio)
 run.bat test --map valley    demo/map tests against that map
+run.bat config               key setup (writes data/controls.xml and ll.ini)
 run.bat audio                live sound check (title.it); Esc quits
 run.bat --save ll_save1.sav  debug: boot from a save file (skips splash/title)
-.\.venv\Scripts\python.exe -m lynn [objects|map|palette|audio|test] [map] [--save spec]
+.\.venv\Scripts\python.exe -m lynn [objects|map|palette|audio|config|test] [map] [--save spec]
 ```
 
 Keys:
 
-- Arrow keys / WASD — walk Lynn (`objects`) or pan camera (`map`)
-- Space — action (talk, pickup, advance text)
+- Movement — `data/controls.xml` (shipped default: WASD). `run.bat config` to rebind
+- Arrow keys — pause menu and title Begin/Continue/Quit
+- Space — action (talk, pickup, advance text); rebound in config
 - Enter — confirm pause slot or Yes/No
 - Left / Right — Yes/No
-- Ctrl — swing current weapon
-- Esc — pause (`objects`); quit (`map` / `palette`)
+- Ctrl — swing current weapon; rebound in config
+- Esc — pause (`objects`); quit (`map` / `palette` / `config` saves)
 - `[` `]` or PageUp / PageDown — previous / next room
 - F11 / Alt+Enter — toggle fullscreen
 - F12 — cycle integer scale (fit, then 1x–6x)
