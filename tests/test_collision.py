@@ -5,6 +5,7 @@ from lynn.macros import quad_calc
 from lynn.macros import testbit as ll_testbit
 from lynn.map.collision import (
     check_against,
+    check_against_entities,
     check_against_teles,
     check_bounds,
     check_teleports,
@@ -124,6 +125,45 @@ def test_passable_object_does_not_block():
     moth.coords_y = hero.coords_y - 16
     hero.direction = 0
     assert check_against(hero, moth, 0) == 0
+
+
+def test_npc_cannot_walk_onto_hero():
+    from lynn.events import bind_hero, bind_hero_only, reset_events
+    from lynn.hero import ctor_hero_only
+
+    reset_events()
+    m, hero, room = _hero_at_entry()
+    bind_hero(hero)
+    bind_hero_only(ctor_hero_only())
+    npc = CharType()
+    npc.num = 1
+    npc.impassable = 1
+    npc.perimeter_x = 16
+    npc.perimeter_y = 16
+    npc.coords_x = hero.coords_x
+    npc.coords_y = hero.coords_y - 16
+    npc.direction = 2
+    assert check_against(npc, hero, 2) == 1
+    x0, y0 = npc.coords_x, npc.coords_y
+    assert move_object(npc, room, moment=1, others=[]) == 0
+    assert (npc.coords_x, npc.coords_y) == (x0, y0)
+    assert check_against_entities(npc, 2, []) == 1
+
+
+def test_already_overlapping_npc_does_not_pin_hero():
+    m, hero, room = _hero_at_entry()
+    npc = CharType()
+    npc.num = 1
+    npc.impassable = 1
+    npc.perimeter_x = 16
+    npc.perimeter_y = 16
+    npc.coords_x = hero.coords_x
+    npc.coords_y = hero.coords_y
+    hero.direction = 1
+    x0 = hero.coords_x
+    assert check_against(hero, npc, 1) == 0
+    assert move_object(hero, room, moment=1, others=[npc]) != 0
+    assert hero.coords_x == x0 + 1
 
 
 def test_rtele_xml_is_impassable():

@@ -298,6 +298,12 @@ def check_against(o: CharType, other: CharType, d: int) -> int:
         return 0
     if o.dead != 0 or other.dead != 0:
         return 0
+    rest_o = _boxes(o, 0, 0)
+    rest_n = _boxes(other, 0, 0)
+    for box_o in rest_o:
+        for box_n in rest_n:
+            if _overlap(box_o, box_n):
+                return 0
     step = ((0, -1), (1, 0), (0, 1), (-1, 0))
     dx, dy = step[d] if 0 <= d < 4 else (0, 0)
     for i, box_o in enumerate(_boxes(o, dx, dy)):
@@ -311,11 +317,23 @@ def check_against(o: CharType, other: CharType, d: int) -> int:
 
 
 def check_against_entities(o: CharType, d: int, others: list[CharType] | None) -> int:
-    if not others:
+    """FB check_against_entities: room objects, then hero if o is not Lynn."""
+    if others:
+        for other in others:
+            if check_against(o, other, d) == 1:
+                return 1
+    if o.unique_id == u_lynn:
         return 0
-    for other in others:
-        if check_against(o, other, d) == 1:
-            return 1
+    import lynn.events as events
+
+    hero = events.hero
+    if hero is None or o is hero:
+        return 0
+    only = events.hero_only
+    if only is not None and only.attacking != 0:
+        return 0
+    if check_against(o, hero, d) == 1:
+        return 1
     return 0
 
 
