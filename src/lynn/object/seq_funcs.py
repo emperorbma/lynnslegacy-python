@@ -315,6 +315,9 @@ def __fade_off(this: CharType) -> int:
 
 
 def __kill_song(this: CharType) -> int:
+    from lynn.audio import LLMusic_Stop
+
+    LLMusic_Stop()
     return 1
 
 
@@ -323,6 +326,12 @@ def __stop_sound(this: CharType) -> int:
 
 
 def __fade_music_out(this: CharType) -> int:
+    """FB object_etc.bas: 4s / 64 slices, ticked by LLMusic_Fade."""
+    from lynn.audio import SongFadingType
+
+    only = events.hero_only
+    if only is not None:
+        only.songFade = SongFadingType(pulseLength=4 / 64)
     return 1
 
 
@@ -362,6 +371,10 @@ def __flash_down_gray(this: CharType) -> int:
 
 
 def __play_song(this: CharType) -> int:
+    """FB object_sound.bas: LLMusic_Start(music_strings(this.chap))."""
+    from lynn.audio import LLMusic_StartIndex
+
+    LLMusic_StartIndex(int(this.chap))
     return 1
 
 

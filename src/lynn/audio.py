@@ -1,4 +1,4 @@
-"""FB ll/audio.bas init_snd / play_sample. OGG SFX only; .it music is later."""
+"""FB ll/audio.bas init_snd / play_sample, plus LLMusic_* via pygame.mixer.music."""
 
 from __future__ import annotations
 
@@ -135,6 +135,47 @@ SOUND_NAMES: dict[str, int] = {
 
 snd: list = [None] * NUM_OF_SOUNDS
 last_play: tuple[int, int] | None = None
+last_song: str = ""
+music_volume: int = 100
+
+# FB headers/utility.bi music_strings(25). Index is room.song / this.chap.
+MUSIC_STRINGS: tuple[str, ...] = (
+    "",
+    "data/music/amb.it",
+    "data/music/apox.it",
+    "data/music/beneath.it",
+    "data/music/boss.it",
+    "data/music/boss2.it",
+    "data/music/core.it",
+    "data/music/cryspool.it",
+    "data/music/dimension2.it",
+    "data/music/dimhole.it",
+    "data/music/dream.it",
+    "data/music/evernight.it",
+    "data/music/final.it",
+    "data/music/forest.it",
+    "data/music/fsun.it",
+    "data/music/holy.it",
+    "data/music/limbo.it",
+    "data/music/logosta.it",
+    "data/music/master.it",
+    "data/music/sdesert.it",
+    "data/music/title.it",
+    "data/music/town.it",
+    "data/music/valley.it",
+    "data/music/world.it",
+    "data/music/after.it",
+    "data/music/faulty.it",
+)
+
+
+class SongFadingType:
+    """FB lynn_structures.bi songFading_type."""
+
+    def __init__(self, pulse: float = 0.0, pulseLength: float = 0.0, travelled: int = 0) -> None:
+        self.pulse = pulse
+        self.pulseLength = pulseLength
+        self.travelled = travelled
 
 
 def sound_from_name(text: str) -> int:
@@ -222,3 +263,107 @@ def play_sample(s: int, v: int = 0) -> int:
 
 def sounds_dir() -> Path:
     return project_root() / "data" / "sounds"
+
+
+def music_path(index: int) -> str:
+    if 0 <= int(index) < len(MUSIC_STRINGS):
+        return MUSIC_STRINGS[int(index)]
+    return ""
+
+
+def LLMusic_SetVolume(volumeDesired: int) -> None:
+    """FB BASS_CONFIG_GVOL_MUSIC, 0–100."""
+    global music_volume
+    music_volume = max(0, min(100, int(volumeDesired)))
+    try:
+        import pygame
+
+        if pygame.mixer.get_init() is not None:
+            pygame.mixer.music.set_volume(music_volume / 100.0)
+    except Exception:
+        pass
+
+
+def LLMusic_Stop() -> None:
+    """FB bass_channelstop(llg(sng))."""
+    global last_song
+    last_song = ""
+    try:
+        import pygame
+
+        if pygame.mixer.get_init() is not None:
+            pygame.mixer.music.stop()
+    except Exception:
+        pass
+
+
+def LLMusic_Start(songName: str) -> None:
+    """FB BASS_MusicLoad + BASS_ChannelPlay, looped. pygame.mixer.music plays .it."""
+    global last_song
+    name = (songName or "").replace("\\", "/")
+    last_song = name
+    if not name:
+        LLMusic_Stop()
+        last_song = ""
+        return
+    path = Path(name)
+    if not path.is_file():
+        path = project_root() / name
+    if not path.is_file():
+        return
+    try:
+        import pygame
+
+        if pygame.mixer.get_init() is None:
+            return
+        pygame.mixer.music.load(str(path))
+        pygame.mixer.music.set_volume(music_volume / 100.0)
+        pygame.mixer.music.play(-1)
+    except Exception:
+        pass
+
+
+def LLMusic_StartIndex(index: int) -> None:
+    import lynn.events as events
+
+    events.song = int(index)
+    LLMusic_Start(music_path(index))
+
+
+def LLMusic_Fade() -> None:
+    """FB LLMusic_Fade: 64 slices from 100 to 0, then stop and restore volume."""
+    from lynn import clock
+    import lynn.events as events
+
+    only = events.hero_only
+    if only is None or only.songFade is None:
+        return
+    fade = only.songFade
+    slices = 64
+    if clock.timer > fade.pulse:
+        tmp_val = (slices - fade.travelled) * 1.5625
+        LLMusic_SetVolume(int(tmp_val))
+        fade.travelled += 1
+        fade.pulse = clock.timer + fade.pulseLength
+    if fade.travelled == slices:
+        LLMusic_Stop()
+        LLMusic_SetVolume(100)
+        only.songFade = None
+
+
+def tick_music() -> None:
+    import lynn.events as events
+
+    only = events.hero_only
+    if only is not None and only.songFade is not None:
+        LLMusic_Fade()
+
+
+def start_room_song(song: int, force: int = 0) -> None:
+    """FB ll_main_entry / change_room: play room.song if it changed."""
+    import lynn.events as events
+
+    song = int(song)
+    if force == 0 and song == events.song:
+        return
+    LLMusic_StartIndex(song)

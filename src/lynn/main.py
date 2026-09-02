@@ -332,6 +332,9 @@ def _run_map(
             demo.hero,
         )
         ll_clock.timer = time.perf_counter()
+        from lynn.audio import tick_music
+
+        tick_music()
         if (
             demo.hero is not None
             and demo.hero_only is not None

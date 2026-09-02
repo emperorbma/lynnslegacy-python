@@ -31,6 +31,7 @@ class MainCharType:
     dropoutSequence: int = 0
     invisibleEntry: int = 0
     isLoading: int = 0
+    songFade: object | None = None
 
 DIR_UP = 0
 DIR_RIGHT = 1

@@ -145,7 +145,18 @@ def load_map_demo(
     ]
     if save is None and _is_title_map(events.map_filename):
         _maybe_start_entry_seq(demo, entry_i)
+    _start_current_room_song(demo)
     return demo
+
+
+def _start_current_room_song(demo: MapDemo) -> None:
+    """FB ll_main_entry: llg(song) = now_room().song; LLMusic_Start."""
+    from lynn.audio import start_room_song
+
+    room_i = demo.hero_room
+    if not (0 <= room_i < len(demo.game_map.room)):
+        return
+    start_room_song(demo.game_map.room[room_i].song)
 
 
 def _is_title_map(name: str | None) -> bool:
@@ -265,6 +276,7 @@ def enter_map(
     events.map_filename = Path(path).name
     events.hero_room = demo.hero_room
     _maybe_start_entry_seq(demo, entry_i)
+    _start_current_room_song(demo)
 
 
 def jump_to_title(demo: MapDemo) -> None:
@@ -402,6 +414,7 @@ def try_hero_teleport(demo: MapDemo) -> None:
     hero.coords_x = tele.dx
     hero.coords_y = tele.dy
     hero.switch_room = -1
+    _start_current_room_song(demo)
 
 
 def tick_map_demo(demo: MapDemo, room_i: int) -> None:
@@ -415,6 +428,9 @@ def tick_map_demo(demo: MapDemo, room_i: int) -> None:
         events.hero_room = room_i
         tick_objects(objs)
         demo.do_hud = events.do_hud
+        from lynn.audio import tick_music
+
+        tick_music()
 
 
 def draw_map_demo(canvas: pygame.Surface, demo: MapDemo, room_i: int, cam_x: int, cam_y: int) -> None:

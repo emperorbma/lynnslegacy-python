@@ -65,4 +65,6 @@ Window close quits. Default boot is the splash card, then `data/map/title.map` (
 
 Chapter 1 overworld is playable: walk, tile and entity collision, camera, HUD, pause, sapling pickup and swing, contact damage, roamers and copters, signs and NPC talk (including shops), save points, loot, same-map room warps, and map-change doors (houses). Leaving a room respawns its enemies; happen flags keep unique pickups gone.
 
-Not started: `.it` music, room-change fade.
+Room `.it` music plays through pygame-ce `mixer.music` (no extra library). Title boot starts `title.it`; map changes start the dest room song.
+
+Not started: room-change fade.
