@@ -340,6 +340,26 @@ def test_title_begin_reaches_forest_fall_change_map():
     assert only.dropoutSequence == 0
 
 
+def test_chapter_1_hides_room_and_fade_to_black_covers():
+    from lynn.object.seq_funcs import __chapter_1_off, __chapter_1_on, __fade_to_black
+
+    reset_events()
+    hero = ctor_hero(load_images=False)
+    hero.chap = 2
+    bind_hero(hero)
+    clock.timer = 1.0
+    hero.fade_time = 0.0
+    assert __chapter_1_on(hero) == 1
+    assert events.do_chap != 0
+    while __fade_to_black(hero) == 0:
+        clock.timer += 0.05
+    assert events.fade_black >= 250
+    assert __chapter_1_off(hero) == 1
+    assert events.do_chap == 0
+    events.fade_black = 0
+    reset_events()
+
+
 def test_save_slot_preview_draws_status_and_items(pygame_dummy):
     from lynn.constants import SCREEN_H, SCREEN_W
     from lynn.gfx.hud import load_hud

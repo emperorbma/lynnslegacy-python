@@ -283,8 +283,12 @@ def enter_map(
         demo.hero_room = place_hero(demo.hero, game_map, entry_i)
         demo.hero.switch_room = -1
         demo.hero.to_map = ""
+        demo.hero.current_anim = 0
+        demo.hero.frame = 0
         bind_hero(demo.hero)
         _apply_enter_visibility(demo.hero, demo.hero_only)
+    events.do_chap = 0
+    events.fade_black = 0
     events.map_filename = Path(path).name
     events.hero_room = demo.hero_room
     _maybe_start_entry_seq(demo, entry_i)
@@ -450,31 +454,41 @@ def tick_map_demo(demo: MapDemo, room_i: int) -> None:
 
 
 def draw_map_demo(canvas: pygame.Surface, demo: MapDemo, room_i: int, cam_x: int, cam_y: int) -> None:
-    room = demo.game_map.room[room_i]
-    para = demo.para_cache.get(room_i)
-    if room_i not in demo.para_cache:
-        para = None
-        if room.para_img is not None and room.para_img.frames:
-            para = frame_surface(room.para_img, 0, demo.palette)
-        demo.para_cache[room_i] = para
     canvas.fill((0, 0, 0))
-    blit_room_tiles(canvas, room, demo.tile_surfs, cam_x, cam_y, para, layers=(0, 1))
     save_open = demo.hero is not None and demo.hero.menu_sel != 0
-    _blit_y_sorted(canvas, demo, room_i, cam_x, cam_y, save_open)
-    blit_room_tiles(canvas, room, demo.tile_surfs, cam_x, cam_y, layers=(2,))
-    if room_i < len(demo.objects_by_room):
-        blit_enemy_loot(
-            None,
-            demo.objects_by_room[room_i],
-            demo.hero,
-            cam_x,
-            cam_y,
-            demo.drop_surfs,
-        )
+    if events.do_chap != 0 and demo.hero is not None:
+        chap = int(demo.hero.chap)
+        if 0 <= chap < len(demo.hero_surfs) and demo.hero_surfs[chap]:
+            canvas.blit(demo.hero_surfs[chap][0], (88, 28))
+    else:
+        room = demo.game_map.room[room_i]
+        para = demo.para_cache.get(room_i)
+        if room_i not in demo.para_cache:
+            para = None
+            if room.para_img is not None and room.para_img.frames:
+                para = frame_surface(room.para_img, 0, demo.palette)
+            demo.para_cache[room_i] = para
+        blit_room_tiles(canvas, room, demo.tile_surfs, cam_x, cam_y, para, layers=(0, 1))
+        _blit_y_sorted(canvas, demo, room_i, cam_x, cam_y, save_open)
+        blit_room_tiles(canvas, room, demo.tile_surfs, cam_x, cam_y, layers=(2,))
+        if room_i < len(demo.objects_by_room):
+            blit_enemy_loot(
+                None,
+                demo.objects_by_room[room_i],
+                demo.hero,
+                cam_x,
+                cam_y,
+                demo.drop_surfs,
+            )
     if events.fade_white:
         fade = pygame.Surface((SCREEN_W, SCREEN_H))
         fade.fill((255, 255, 255))
         fade.set_alpha(max(0, min(255, int(events.fade_white))))
+        canvas.blit(fade, (0, 0))
+    if events.fade_black:
+        fade = pygame.Surface((SCREEN_W, SCREEN_H))
+        fade.fill((0, 0, 0))
+        fade.set_alpha(max(0, min(255, int(events.fade_black))))
         canvas.blit(fade, (0, 0))
     if demo.do_hud != 0 and demo.hud is not None and demo.hero is not None and demo.hero_only is not None:
         blit_hud(canvas, demo.hero, demo.hero_only, demo.hud)

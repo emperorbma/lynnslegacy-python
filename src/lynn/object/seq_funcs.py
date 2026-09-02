@@ -336,10 +336,13 @@ def __fade_music_out(this: CharType) -> int:
 
 
 def __chapter_1_on(this: CharType) -> int:
+    """FB object_modification.bas: hide the room and show hero.anim[hero.chap]."""
+    events.do_chap = 1
     return 1
 
 
 def __chapter_1_off(this: CharType) -> int:
+    events.do_chap = 0
     return 1
 
 
@@ -426,11 +429,20 @@ def __after_slime(this: CharType) -> int:
 
 
 def __fade_up_to_color(this: CharType) -> int:
-    """FB palette restore after fade-to-black. Instant until real palettes fade."""
-    events.fade_white = 0
-    this.fade_count = 0
-    this.fade_timer = 0
-    return 1
+    """FB palette restore after fade-to-black. Black overlay stands in for palette."""
+    if this.fade_timer == 0:
+        events.fade_black = max(0, int(events.fade_black) - 4)
+        events.fade_white = 0
+        this.fade_count += 1
+        this.fade_timer = clock.timer + (this.fade_time or 0.01)
+    if clock.timer >= this.fade_timer:
+        this.fade_timer = 0
+    if this.fade_count >= 64 or events.fade_black <= 0:
+        events.fade_black = 0
+        this.fade_count = 0
+        this.fade_timer = 0
+        return 1
+    return 0
 
 
 def __eat_lynn_action(this: CharType) -> int:
@@ -475,7 +487,17 @@ def __fade_to_red(this: CharType) -> int:
 
 
 def __fade_to_black(this: CharType) -> int:
-    return 1
+    """FB palette darken. Black overlay stands in for palette steps of 4."""
+    if this.fade_timer == 0:
+        events.fade_black = min(255, int(events.fade_black) + 4)
+        this.fade_timer = clock.timer + (this.fade_time or 0.01)
+    if clock.timer >= this.fade_timer:
+        this.fade_timer = 0
+    if events.fade_black >= 250:
+        events.fade_black = 255
+        this.fade_timer = 0
+        return 1
+    return 0
 
 
 for _name, _fn in list(globals().items()):
