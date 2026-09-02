@@ -117,6 +117,46 @@ def test_sound_enum_and_name_lookup():
     assert (project_root() / "data/sounds/mace0.ogg").is_file()
 
 
+def test_looping_sample_does_not_stack():
+    from lynn.audio import looping_sound_count, stop_looping_samples
+
+    stop_looping_samples()
+    a = play_sample(sound_sea, 100)
+    b = play_sample(sound_sea, 80)
+    assert a is b
+    assert looping_sound_count() == 1
+    play_sample(sound_crickets)
+    assert looping_sound_count() == 2
+    from lynn.audio import stop_looping_samples as stop_loops
+
+    stop_loops(keep=b)
+    assert looping_sound_count() == 1
+    stop_loops()
+    assert looping_sound_count() == 0
+
+
+def test_enter_map_keeps_hero_loop_drops_sea():
+    from lynn.audio import looping_sound_count, stop_looping_samples
+    from lynn.object.dispatch import lookup_func
+
+    stop_looping_samples()
+    hero = ctor_hero(load_images=False)
+    hero.chap = 0
+    lookup_func("__play_sound")(hero)
+    gull = CharType()
+    gull.id = "data/object/gull.xml"
+    LLSystem_ObjectFromXML(gull, load_images=False)
+    gull.chap = 0
+    lookup_func("__play_sound")(gull)
+    assert looping_sound_count() == 2
+    from lynn.audio import stop_looping_samples as stop_loops
+
+    stop_loops(keep=hero.playing_handle)
+    assert looping_sound_count() == 1
+    assert hero.playing_handle is not None
+    stop_loops()
+
+
 def test_play_sample_records_last_play():
     play_sample(sound_mace_0, 50)
     from lynn import audio

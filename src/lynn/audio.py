@@ -143,6 +143,7 @@ last_play: tuple[int, int] | None = None
 last_channel: object | None = None
 last_song: str = ""
 music_volume: int = 100
+_looping: dict[int, object] = {}
 
 
 class _SilentChannel:
@@ -286,6 +287,41 @@ def sample_loops(s: int) -> bool:
     return 0 <= int(s) < len(_sample_loop) and _sample_loop[int(s)]
 
 
+def looping_sound_count() -> int:
+    return len(_looping)
+
+
+def stop_channel(handle) -> None:
+    """Stop a play_sample handle and drop it from the looping table."""
+    global _looping
+    if handle is None:
+        return
+    for idx, ch in list(_looping.items()):
+        if ch is handle:
+            del _looping[idx]
+    if hasattr(handle, "stop"):
+        try:
+            handle.stop()
+        except Exception:
+            pass
+
+
+def stop_looping_samples(keep=None) -> None:
+    """Stop looping SFX except `keep` (Lynn's cricket handle across enter_map)."""
+    global _looping
+    kept: dict[int, object] = {}
+    for idx, ch in _looping.items():
+        if keep is not None and ch is keep:
+            kept[idx] = ch
+            continue
+        if hasattr(ch, "stop"):
+            try:
+                ch.stop()
+            except Exception:
+                pass
+    _looping = kept
+
+
 def play_sample(s: int, v: int = 0):
     """FB play_sample: llg(snd)[s], volume 0-100 (0 means 100). Looping samples loop."""
     global last_play, last_channel
@@ -297,11 +333,25 @@ def play_sample(s: int, v: int = 0):
         return 0
     vol = max(0.0, min(1.0, v / 100.0))
     loops = -1 if sample_loops(s) else 0
+    if loops:
+        existing = _looping.get(int(s))
+        if existing is not None:
+            if hasattr(existing, "set_volume"):
+                try:
+                    existing.set_volume(vol)
+                except Exception:
+                    pass
+            last_channel = existing
+            return existing
     if not audio_output_enabled():
         last_channel = _SilentChannel(vol)
+        if loops:
+            _looping[int(s)] = last_channel
         return last_channel
     if s < 0 or s >= len(snd) or snd[s] is None:
         last_channel = _SilentChannel(vol)
+        if loops:
+            _looping[int(s)] = last_channel
         return last_channel
     try:
         import pygame
@@ -326,11 +376,17 @@ def play_sample(s: int, v: int = 0):
                 channel.set_volume(vol)
         if channel is not None:
             last_channel = channel
+            if loops:
+                _looping[int(s)] = channel
             return channel
     except Exception:
         last_channel = _SilentChannel(vol)
+        if loops:
+            _looping[int(s)] = last_channel
         return last_channel
     last_channel = _SilentChannel(vol)
+    if loops:
+        _looping[int(s)] = last_channel
     return last_channel
 
 

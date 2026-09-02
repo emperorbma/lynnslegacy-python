@@ -281,6 +281,11 @@ def enter_map(
     load_tileset: bool = True,
 ) -> None:
     """FB enter_map + set_up_room_enemies. Keep the hero; swap the map."""
+    from lynn.audio import stop_looping_samples
+
+    # Title gulls leave looping sea on mixer channels; drop those, keep Lynn's cricket.
+    keep = getattr(demo.hero, "playing_handle", None) if demo.hero is not None else None
+    stop_looping_samples(keep=keep)
     if load_images is None:
         load_images = demo.load_images != 0
     path = resolve_map_path(map_name)

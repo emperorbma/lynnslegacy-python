@@ -323,12 +323,9 @@ def __kill_song(this: CharType) -> int:
 
 def __stop_sound(this: CharType) -> int:
     """FB object_sound.bas: BASS_ChannelStop(playing_handle)."""
-    handle = this.playing_handle
-    if handle is not None and hasattr(handle, "stop"):
-        try:
-            handle.stop()
-        except Exception:
-            pass
+    from lynn.audio import stop_channel
+
+    stop_channel(this.playing_handle)
     this.playing_handle = None
     return 1
 
@@ -438,16 +435,9 @@ def __do_vol_fade(this: CharType) -> int:
     if clock.timer > this.vol_fade_lock:
         this.vol_fade_lock = 0
     if this.vol_fade >= slices:
-        if handle is not None and hasattr(handle, "stop"):
-            try:
-                handle.stop()
-            except Exception:
-                pass
-        if handle is not None and hasattr(handle, "set_volume"):
-            try:
-                handle.set_volume(max(0.0, min(1.0, this.sample_vol_store / 100.0)))
-            except Exception:
-                pass
+        from lynn.audio import stop_channel
+
+        stop_channel(handle)
         this.playing_handle = None
         this.sample_fade_lock = 0
         this.vol_fade_trig = 0
