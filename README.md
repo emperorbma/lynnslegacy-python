@@ -14,36 +14,45 @@ Machine-local source-tree paths and credentials are not stored in this repositor
 
 ## Setup
 
+Windows:
+
 ```text
 py -3 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -e ".[dev]"
+```
+
+Unix:
+
+```text
+python3 -m venv .venv
+.venv/bin/python -m pip install -e ".[dev]"
 ```
 
 Runtime data lives in `data/` (uncompressed maps, sprites, objects, sounds, music).
 
 ## Run
 
-Double-click `run.bat`, or from the project root:
+Double-click `run.bat` (Windows) or `./run.sh` (Unix), or from the project root:
 
 ```text
-run.bat                      splash, then title (Begin / Continue / Quit)
-run.bat objects forest_fall  skip title, walk the overworld
-run.bat map                  forest_fall tiles only
-run.bat map valley           another map (stem, file, or path)
-run.bat objects inhouse      interior map
-run.bat palette              256-color ramp + lynn24.spr
-run.bat test                 pytest (same as python -m lynn test; silent audio)
-run.bat test --map valley    demo/map tests against that map
-run.bat config               key setup (writes data/controls.xml and ll.ini)
-run.bat audio                live sound check (title.it); Esc quits
-run.bat --save forest        debug: local example tests/fixtures/test_example_forest.sav
-run.bat --save 1             debug: live slot ll_save1.sav (skips splash/title)
-.\.venv\Scripts\python.exe -m lynn [objects|map|palette|audio|config|test] [map] [--save spec]
+run.bat / ./run.sh                      splash, then title (Begin / Continue / Quit)
+run.bat / ./run.sh objects forest_fall  skip title, walk the overworld
+run.bat / ./run.sh map                  forest_fall tiles only
+run.bat / ./run.sh map valley           another map (stem, file, or path)
+run.bat / ./run.sh objects inhouse      interior map
+run.bat / ./run.sh palette              256-color ramp + lynn24.spr
+run.bat / ./run.sh test                 pytest (same as python -m lynn test; silent audio)
+run.bat / ./run.sh test --map valley    demo/map tests against that map
+run.bat / ./run.sh config               key setup (writes data/controls.xml and ll.ini)
+run.bat / ./run.sh audio                live sound check (title.it); Esc quits
+run.bat / ./run.sh --save forest        debug: local example tests/fixtures/test_example_forest.sav
+run.bat / ./run.sh --save 1             debug: live slot ll_save1.sav (skips splash/title)
+python -m lynn [objects|map|palette|audio|config|test] [map] [--save spec]
 ```
 
 Keys:
 
-- Movement — `data/controls.xml` (shipped default: WASD). `run.bat config` to rebind
+- Movement — `data/controls.xml` (shipped default: WASD). `run.bat config` / `./run.sh config` to rebind
 - Arrow keys — pause menu and title Begin/Continue/Quit
 - Space — action (talk, pickup, advance text); rebound in config
 - Enter — confirm pause slot or Yes/No
@@ -54,7 +63,7 @@ Keys:
 - F11 / Alt+Enter — toggle fullscreen
 - F12 — cycle integer scale (fit, then 1x–6x)
 
-Window close quits. Default boot is the splash card, then `data/map/title.map` (Begin / Continue / Quit). Continue reads `ll_save1.sav`–`ll_save4.sav` next to `run.bat`. Pause → Title returns to that menu. `data/map/forest_fall.map` is chapter 1 overworld (`run.bat objects forest_fall`). `island3` is a later island state (`run.bat objects island3`).
+Window close quits. Default boot is the splash card, then `data/map/title.map` (Begin / Continue / Quit). Continue reads `ll_save1.sav`–`ll_save4.sav` next to `run.bat` / `run.sh`. Pause → Title returns to that menu. `data/map/forest_fall.map` is chapter 1 overworld (`run.bat objects forest_fall` / `./run.sh objects forest_fall`). `island3` is a later island state (`run.bat objects island3` / `./run.sh objects island3`).
 
 ## Porting conventions
 
