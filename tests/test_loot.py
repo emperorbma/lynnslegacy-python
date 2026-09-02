@@ -4,7 +4,9 @@ from lynn.hero import ctor_hero
 from lynn.map.collision import check_bounds
 from lynn.object.char import CharType
 from lynn.object.combat_funcs import __drop
-from lynn.gfx.loot import blit_enemy_loot
+from lynn.constants import u_gold
+from lynn.demos import _sort_y
+from lynn.gfx.loot import blit_enemy_loot, drop_sort_y, is_corpse_drop
 
 
 def test_drop_always_health_when_d_health_100():
@@ -62,3 +64,25 @@ def test_loot_hitbox_is_8x8():
     origin = (0, 0, 16, 16)
     assert check_bounds(origin, (10, 10, 8, 8)) == 0
     assert check_bounds(origin, (40, 40, 8, 8)) == -1
+
+
+def test_drop_y_sorts_with_hero():
+    hero = ctor_hero(load_images=False)
+    hero.coords_y = 100
+    hero.perimeter_y = 16
+    north = CharType()
+    north.dropped = 1
+    north.drop_y = 90
+    south = CharType()
+    south.dropped = 3
+    south.drop_y = 120
+    assert drop_sort_y(north) < _sort_y(hero) < drop_sort_y(south)
+
+
+def test_unique_gold_is_not_a_corpse_overlay():
+    o = CharType()
+    o.dropped = 2
+    o.unique_id = u_gold
+    assert is_corpse_drop(o) is False
+    o.unique_id = 0
+    assert is_corpse_drop(o) is True

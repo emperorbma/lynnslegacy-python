@@ -19,17 +19,17 @@ py -3 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -e ".[dev]"
 ```
 
-Runtime data lives in `data/` (copied from the Lua tree: uncompressed maps, sprites, objects, sounds, music).
+Runtime data lives in `data/` (uncompressed maps, sprites, objects, sounds, music).
 
 ## Run
 
 Double-click `run.bat`, or from the project root:
 
 ```text
-run.bat                      objects PoC (forest_fall overworld)
+run.bat                      walk Lynn (default: forest_fall)
 run.bat map                  forest_fall tiles only
 run.bat map valley           another map (stem, file, or path)
-run.bat objects inhouse
+run.bat objects inhouse      interior map
 run.bat palette              256-color ramp + lynn24.spr
 run.bat test                 pytest (same as python -m lynn test)
 run.bat test --map valley    demo/map tests against that map
@@ -38,15 +38,17 @@ run.bat test --map valley    demo/map tests against that map
 
 Keys:
 
-- Arrow keys / WASD — walk Lynn (`objects` mode) or pan camera (`map` mode)
+- Arrow keys / WASD — walk Lynn (`objects`) or pan camera (`map`)
+- Space — action (talk, pickup, advance text)
+- Enter — confirm pause slot or Yes/No
+- Left / Right — Yes/No
+- Ctrl — swing current weapon
+- Esc — pause (`objects`); quit (`map` / `palette`)
 - `[` `]` or PageUp / PageDown — previous / next room
-- Esc — pause menu (`objects`); quit (`map` / `palette`)
-- Enter / Space — confirm pause-menu slot; Space also actions objects (sapling)
-- Ctrl — swing sapling / current weapon
 - F11 / Alt+Enter — toggle fullscreen
 - F12 — cycle integer scale (fit, then 1x–6x)
 
-Default map is `data/map/forest_fall.map` (chapter 1 overworld; `title.map` teles here). `title.map` is the boot/menu sequence. `island3` is a later island state (`run.bat objects island3`).
+Window close quits. Default map is `data/map/forest_fall.map` (chapter 1 overworld). `title.map` is the boot/menu sequence, not the overworld. `island3` is a later island state (`run.bat objects island3`).
 
 ## Porting conventions
 
@@ -59,4 +61,6 @@ Default map is `data/map/forest_fall.map` (chapter 1 overworld; `title.map` tele
 
 ## Current milestone
 
-Lynn walks `forest_fall` (arrows/WASD, tile collision, camera follow). Same-map room strips warp instantly. `run.bat map` is tiles-only free-cam.
+Chapter 1 overworld is playable: walk, tile and entity collision, camera, HUD, pause, sapling pickup and swing, contact damage, roamers and copters, signs and NPC talk (including shops), save points, loot, same-map room warps, and map-change doors (houses). Leaving a room respawns its enemies; happen flags keep unique pickups gone.
+
+Not started: `.it` music, title sequence, load from save, room-change fade.

@@ -21,7 +21,7 @@ from lynn.constants import (
 )
 from lynn.gfx.blit import blit_object, blit_room_tiles
 from lynn.gfx.hud import blit_hud, load_hud
-from lynn.gfx.loot import blit_enemy_loot, load_drop_surfs
+from lynn.gfx.loot import blit_drop, blit_enemy_loot, drop_sort_y, is_corpse_drop, load_drop_surfs
 from lynn.gfx.menu import load_menu
 from lynn.gfx.image import LLSystem_ImageLoad, frame_surface, frame_surfaces
 from lynn.gfx.palette import LLPalette, load_pal
@@ -282,9 +282,9 @@ def draw_map_demo(canvas: pygame.Surface, demo: MapDemo, room_i: int, cam_x: int
     save_open = demo.hero is not None and demo.hero.menu_sel != 0
     _blit_y_sorted(canvas, demo, room_i, cam_x, cam_y, save_open)
     blit_room_tiles(canvas, room, demo.tile_surfs, cam_x, cam_y, layers=(2,))
-    if room_i < len(demo.objects_by_room) and demo.drop_surfs:
+    if room_i < len(demo.objects_by_room):
         blit_enemy_loot(
-            canvas,
+            None,
             demo.objects_by_room[room_i],
             demo.hero,
             cam_x,
@@ -315,17 +315,22 @@ def _sort_y(obj) -> tuple:
 
 
 def _blit_y_sorted(canvas, demo: MapDemo, room_i: int, cam_x: int, cam_y: int, save_open: bool) -> None:
-    """FB blit_y_sorted: room enemies + hero, by placed then y-mid."""
+    """FB blit_y_sorted plus corpse drops, by placed then y-mid. Layer 2 still covers all."""
     sprites = []
     if 0 <= room_i < len(demo.objects_by_room):
         for obj in demo.objects_by_room[room_i]:
             if save_open and obj.unique_id == u_savepoint:
                 continue
-            sprites.append(obj)
+            sprites.append(("obj", obj, _sort_y(obj)))
+            if is_corpse_drop(obj):
+                sprites.append(("drop", obj, drop_sort_y(obj)))
     if demo.hero is not None:
-        sprites.append(demo.hero)
-    sprites.sort(key=_sort_y)
-    for obj in sprites:
+        sprites.append(("obj", demo.hero, _sort_y(demo.hero)))
+    sprites.sort(key=lambda item: item[2])
+    for kind, obj, _key in sprites:
+        if kind == "drop":
+            blit_drop(canvas, obj, cam_x, cam_y, demo.drop_surfs)
+            continue
         if obj is demo.hero:
             anims = demo.hero_surfs
         else:
