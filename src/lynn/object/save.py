@@ -1,17 +1,23 @@
-"""FB object_etc.bas __do_menu_save / __handle_menu (JSON first cut)."""
+"""FB object_etc.bas __do_menu_save / __handle_menu.
+
+New saves are JSON. Original FB files are a 12-byte ZLIB header plus zlib
+payload (stdlib zlib; same as compress2).
+"""
 
 from __future__ import annotations
 
 import json
+import zlib
 from dataclasses import dataclass, field
 from pathlib import Path
 
 import lynn.events as events
 from lynn import clock
-from lynn.constants import TRUE, u_savepoint
+from lynn.constants import LL_EVENTS_MAX, TRUE, u_savepoint
 from lynn.object.char import CharType
 from lynn.object.dispatch import register_func
 from lynn.paths import project_root
+from lynn.vfile import VFile
 
 
 @dataclass
@@ -30,22 +36,122 @@ class SaveData:
     entry: int = 0
     happen: list[int] = field(default_factory=list)
     rooms: int = 0
+    hasVisited: list[int] = field(default_factory=list)
 
 
 def save_path(slot: int) -> Path:
     return project_root() / f"ll_save{slot + 1}.sav"
 
 
-def LLSystem_ReadSaveFile(name: str) -> SaveData | None:
+def example_save_dir() -> Path:
+    return project_root() / "tests" / "fixtures"
+
+
+def resolve_save_spec(spec: str) -> Path:
+    """Find a save for loading. `1` / `test_example_save1` → fixtures; else game-root or path."""
+    raw = spec.strip().replace("\\", "/")
+    if not raw:
+        raise FileNotFoundError("empty save spec")
+    names: list[str] = []
+    if raw.isdigit():
+        names.append(f"test_example_save{raw}.sav")
+        names.append(f"ll_save{raw}.sav")
+    else:
+        names.append(Path(raw).name)
+        if not Path(raw).name.lower().endswith(".sav"):
+            names.append(Path(raw).name + ".sav")
+            names.append(f"test_example_save{Path(raw).name}.sav")
+    candidates = [Path(raw)]
+    for name in names:
+        candidates.append(example_save_dir() / name)
+        candidates.append(project_root() / name)
+        candidates.append(project_root() / raw)
+    seen: set[Path] = set()
+    for cand in candidates:
+        try:
+            resolved = cand.resolve()
+        except OSError:
+            continue
+        if resolved in seen:
+            continue
+        seen.add(resolved)
+        if resolved.is_file():
+            return resolved
+    raise FileNotFoundError(f"save not found: {spec}")
+
+
+def apply_save_happen(data: SaveData) -> None:
+    """Restore llg(now) happen flags. Call after reset_events, before room spawn."""
+    for i in data.happen:
+        if 0 <= i < len(events.now):
+            events.now[i] = TRUE
+
+
+def apply_save_hero(hero, only, data: SaveData) -> None:
+    """Copy inventory / HP / gold from a save onto the live hero."""
+    if hero is not None:
+        hero.hp = int(data.hp)
+        hero.maxhp = int(data.maxhp)
+        hero.money = int(data.gold)
+        hero.key = int(data.key)
+    if only is not None:
+        only.has_weapon = int(data.weapon)
+        only.weapon = int(data.weapon)
+        only.hasItem = (list(data.hasItem) + [0] * 6)[:6]
+        only.has_bar = int(data.bar)
+        only.hasCostume = (list(data.hasCostume) + [0] * 9)[:9]
+        only.isWearing = int(data.isWearing)
+        only.b_key = int(data.b_key)
+
+
+def _resolve_save_path(name: str) -> Path | None:
     path = Path(name)
-    if not path.is_file():
-        path = project_root() / name
-    if not path.is_file():
-        return None
-    try:
-        raw = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return None
+    if path.is_file():
+        return path
+    path = project_root() / name
+    if path.is_file():
+        return path
+    return None
+
+
+def _s8(v: int) -> int:
+    return v - 256 if v >= 128 else v
+
+
+def _read_binary_save(blob: bytes) -> SaveData:
+    """FB zLib_DeCompress + VFile_Get layout in LLSystem_ReadSaveFile."""
+    if len(blob) < 12 or blob[:4] != b"ZLIB":
+        raise ValueError("not a Lynn ZLIB save")
+    uncomp = int.from_bytes(blob[4:8], "little", signed=True)
+    comp = int.from_bytes(blob[8:12], "little", signed=True)
+    payload = blob[12 : 12 + max(comp, 0)]
+    raw = zlib.decompress(payload)
+    if uncomp > 0 and len(raw) != uncomp:
+        raise ValueError(f"save size {len(raw)} != header {uncomp}")
+    vf = VFile(raw)
+    data = SaveData()
+    data.hp = vf.i32()
+    data.maxhp = vf.i32()
+    data.gold = vf.i32()
+    data.weapon = vf.i32()
+    data.hasItem = [vf.i32() for _ in range(6)]
+    data.bar = vf.i32()
+    data.hasCostume = [_s8(b) for b in vf.raw(9)]
+    data.isWearing = vf.i32()
+    data.key = vf.i32()
+    data.b_key = vf.i32()
+    data.map = vf.hstring()
+    data.entry = vf.i32()
+    happen = vf.raw(LL_EVENTS_MAX)
+    data.happen = [i for i, v in enumerate(happen) if v != 0]
+    data.rooms = vf.i32()
+    if data.rooms != 0:
+        data.hasVisited = [vf.u8() for _ in range(data.rooms)]
+    return data
+
+
+def _read_json_save(text: str) -> SaveData:
+    raw = json.loads(text)
     data = SaveData()
     for key in (
         "hp",
@@ -70,7 +176,25 @@ def LLSystem_ReadSaveFile(name: str) -> SaveData | None:
         data.hasCostume = data.hasCostume[:9]
     if isinstance(raw.get("happen"), list):
         data.happen = [int(x) for x in raw["happen"]]
+    if isinstance(raw.get("hasVisited"), list):
+        data.hasVisited = [int(x) for x in raw["hasVisited"]]
     return data
+
+
+def LLSystem_ReadSaveFile(name: str) -> SaveData | None:
+    path = _resolve_save_path(name)
+    if path is None:
+        return None
+    blob = path.read_bytes()
+    if blob.startswith(b"ZLIB"):
+        try:
+            return _read_binary_save(blob)
+        except (OSError, ValueError, EOFError, zlib.error):
+            return None
+    try:
+        return _read_json_save(blob.decode("utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+        return None
 
 
 def LLSystem_WriteSaveFile(name: str, entry: int) -> None:

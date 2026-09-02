@@ -46,7 +46,7 @@ PAN_SPEED = 4
 
 def main(argv: list[str] | None = None) -> int:
     args = list(sys.argv[1:] if argv is None else argv)
-    mode, map_spec, rest = parse_cli(args)
+    mode, map_spec, rest, save_spec = parse_cli(args)
     if mode in ("-h", "--help", "help", "/?"):
         print(_usage())
         return 0
@@ -57,6 +57,21 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     chdir_project_root()
+    save = None
+    if save_spec:
+        from lynn.object.save import LLSystem_ReadSaveFile, resolve_save_spec
+
+        try:
+            save_path = resolve_save_spec(save_spec)
+        except FileNotFoundError as exc:
+            print(exc, file=sys.stderr)
+            return 2
+        save = LLSystem_ReadSaveFile(str(save_path))
+        if save is None:
+            print(f"could not read save {save_path}", file=sys.stderr)
+            return 2
+        if not map_spec:
+            map_spec = save.map
     from lynn.audio import init_mixer, init_snd
 
     pygame.mixer.pre_init(44100, -16, 2, 512)
@@ -77,30 +92,49 @@ def main(argv: list[str] | None = None) -> int:
             canvas, frame_clock, scale_option,
             with_objects=(mode == "objects"),
             map_path=map_spec,
+            save=save,
         )
     pygame.quit()
     return code
 
 
-def parse_cli(argv: list[str]) -> tuple[str, str | None, list[str]]:
-    if not argv:
-        return "objects", None, []
-    mode = argv[0].lower()
-    rest = argv[1:]
+def parse_cli(argv: list[str]) -> tuple[str, str | None, list[str], str | None]:
+    save_spec = None
+    args: list[str] = []
+    i = 0
+    while i < len(argv):
+        a = argv[i]
+        if a in ("--save", "-s"):
+            if i + 1 >= len(argv):
+                return "help", None, [], None
+            save_spec = argv[i + 1]
+            i += 2
+            continue
+        if a.startswith("--save="):
+            save_spec = a.split("=", 1)[1]
+            i += 1
+            continue
+        args.append(a)
+        i += 1
+    if not args:
+        return "objects", None, [], save_spec
+    mode = args[0].lower()
+    rest = args[1:]
     if mode in ("test", "--test", "-t"):
-        return "test", None, rest
+        return "test", None, rest, save_spec
     if mode in ("map", "objects") and rest:
-        return mode, rest[0], rest[1:]
-    return mode, None, rest
+        return mode, rest[0], rest[1:], save_spec
+    return mode, None, rest, save_spec
 
 
 def _usage() -> str:
     return (
-        "Usage: python -m lynn [objects|map|palette|test] [map]\n"
+        "Usage: python -m lynn [objects|map|palette|test] [map] [--save spec]\n"
         f"  objects [map]  walk Lynn (default map: {DEFAULT_MAP})\n"
         "  map [map]      tiles only\n"
         "  palette        256-color ramp + lynn24.spr\n"
         "  test           pytest (extra args forwarded, including --map)\n"
+        "  --save spec    load a save (path, or N for a local example / ll_saveN.sav)\n"
         "  help           this text\n"
         "Map may be a stem (valley), file (valley.map), or path."
     )
@@ -135,8 +169,15 @@ def _run_palette(canvas, frame_clock, scale_option: int) -> int:
     return 0
 
 
-def _run_map(canvas, frame_clock, scale_option: int, with_objects: bool, map_path: str | None = None) -> int:
-    demo = load_map_demo(with_objects=with_objects, map_path=map_path)
+def _run_map(
+    canvas,
+    frame_clock,
+    scale_option: int,
+    with_objects: bool,
+    map_path: str | None = None,
+    save=None,
+) -> int:
+    demo = load_map_demo(with_objects=with_objects, map_path=map_path, save=save)
     room_i = demo.hero_room if demo.hero is not None else 0
     if demo.hero is not None:
         cam_x, cam_y = update_cam(demo.hero, demo.game_map.room[room_i])

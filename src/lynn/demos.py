@@ -90,8 +90,14 @@ class MapDemo:
     load_tileset: int = TRUE
 
 
-def load_map_demo(with_objects: bool = True, map_path: str | None = None) -> MapDemo:
+def load_map_demo(
+    with_objects: bool = True,
+    map_path: str | None = None,
+    save=None,
+) -> MapDemo:
     palette = load_pal("data/palette/ll.pal")
+    if save is not None and not map_path:
+        map_path = save.map
     path = resolve_map_path(map_path)
     game_map = load_mapV(str(path), load_tileset=True)
     if game_map.tileset is None or game_map.rooms == 0:
@@ -106,13 +112,22 @@ def load_map_demo(with_objects: bool = True, map_path: str | None = None) -> Map
         demo.objects_by_room = [[] for _ in game_map.room]
         return demo
     reset_events()
+    if save is not None:
+        from lynn.object.save import apply_save_happen
+
+        apply_save_happen(save)
     demo.objects_by_room = [[] for _ in game_map.room]
     for room_i in range(game_map.rooms):
         set_up_room_enemies(demo, room_i)
     hero = ctor_hero(load_images=True)
-    demo.hero_room = place_hero(hero, game_map, 0)
+    entry_i = int(save.entry) if save is not None else 0
+    demo.hero_room = place_hero(hero, game_map, entry_i)
     demo.hero = hero
     demo.hero_only = ctor_hero_only()
+    if save is not None:
+        from lynn.object.save import apply_save_hero
+
+        apply_save_hero(hero, demo.hero_only, save)
     bind_hero_only(demo.hero_only)
     bind_hero(hero)
     events.map_filename = Path(path).name
