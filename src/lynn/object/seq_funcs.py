@@ -428,6 +428,20 @@ def __after_slime(this: CharType) -> int:
     return 0
 
 
+def __after_moenia_townspeople(this: CharType) -> int:
+    """Park town NPCs off-map until happen 199 (Grult)."""
+    if events.now[199] != 0:
+        from lynn.object.combat import LLObject_ShiftState
+
+        LLObject_ShiftState(this, this.reset_state)
+        return 0
+    if this.shifty_lock == 0:
+        this.coords_x = 800
+        this.coords_y = 800
+        this.shifty_lock = TRUE
+    return 0
+
+
 def __fade_up_to_color(this: CharType) -> int:
     """FB palette restore after fade-to-black. Black overlay stands in for palette."""
     if this.fade_timer == 0:

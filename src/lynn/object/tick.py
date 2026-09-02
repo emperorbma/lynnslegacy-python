@@ -25,9 +25,34 @@ def tick_object(this: CharType) -> None:
     f.current_func[state] = f.current_func[state] + result
 
 
-def LLObject_CheckSpawn(obj: CharType) -> None:
+def spawn_pairs_met(pairs) -> int:
+    """FB wait/kill/active switch AND: each pair's now[index] vs code_state."""
     from lynn.constants import TRUE
     from lynn.events import now
+
+    if not pairs:
+        return TRUE
+    res = TRUE
+    for pair in pairs:
+        op = now[pair.code_index] != 0 if 0 <= pair.code_index < len(now) else False
+        if pair.code_state == 0:
+            op = not op
+        if not op:
+            return 0
+    return res
+
+
+def LLObject_SpawnWait(obj: CharType) -> int:
+    """FB LLObject_SpawnWait: wait switches met and not yet triggered."""
+    if obj.spawn_wait_trig != 0 or obj.spawn_info is None:
+        return 0
+    if obj.spawn_info.wait_n == 0:
+        return 0
+    return spawn_pairs_met(obj.spawn_info.wait_spawn)
+
+
+def LLObject_CheckSpawn(obj: CharType) -> None:
+    from lynn.constants import TRUE
     from lynn.object.dispatch import lookup_func
 
     if obj.spawn_cond == 0 or obj.spawn_info is None:
@@ -35,17 +60,19 @@ def LLObject_CheckSpawn(obj: CharType) -> None:
     if obj.spawn_kill_trig != 0:
         return
     info = obj.spawn_info
+    if obj.spawn_wait_trig == 0 and info.wait_n != 0:
+        if spawn_pairs_met(info.wait_spawn):
+            from lynn.object.xml_load import LLSystem_CopyNewObject
+
+            num = obj.num
+            LLSystem_CopyNewObject(obj)
+            obj.num = num
+            obj.coords_x = obj.x_origin
+            obj.coords_y = obj.y_origin
+            obj.spawn_wait_trig = TRUE
     if info.kill_n == 0:
         return
-    res = TRUE
-    for pair in info.kill_spawn:
-        op = now[pair.code_index] != 0 if 0 <= pair.code_index < len(now) else False
-        if pair.code_state == 0:
-            op = not op
-        if not op:
-            res = 0
-            break
-    if res != 0:
+    if spawn_pairs_met(info.kill_spawn):
         lookup_func("__make_dead")(obj)
         lookup_func("__cripple")(obj)
         obj.seq_release = 0

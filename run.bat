@@ -28,5 +28,5 @@ echo   palette        256-color ramp + lynn24.spr
 echo   config         key setup (data/controls.xml + ll.ini)
 echo   audio          live sound check (title.it); Esc quits
 echo   test           pytest (silent audio; e.g. run.bat test --map valley)
-echo   --save spec    load a save (path, or N for a local example / ll_saveN.sav)
+echo   --save spec    load a save (path, N for ll_saveN.sav, or example name)
 exit /b 0

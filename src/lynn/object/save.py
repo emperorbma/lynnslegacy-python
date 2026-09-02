@@ -47,25 +47,34 @@ def example_save_dir() -> Path:
     return project_root() / "tests" / "fixtures"
 
 
+def example_short_name(spec: str) -> str:
+    """`--save forest` → forest; strips .sav and a test_example_ prefix."""
+    stem = Path(spec.strip().replace("\\", "/")).name
+    if stem.lower().endswith(".sav"):
+        stem = stem[:-4]
+    prefix = "test_example_"
+    if stem.lower().startswith(prefix):
+        return stem[len(prefix) :]
+    return stem
+
+
 def resolve_save_spec(spec: str) -> Path:
-    """Find a save for loading. `1` / `test_example_save1` → fixtures; else game-root or path."""
+    """Find a save. `forest` → tests/fixtures/test_example_forest.sav; `1` → ll_save1.sav."""
     raw = spec.strip().replace("\\", "/")
     if not raw:
         raise FileNotFoundError("empty save spec")
-    names: list[str] = []
+    short = example_short_name(raw)
+    candidates: list[Path] = []
     if raw.isdigit():
-        names.append(f"test_example_save{raw}.sav")
-        names.append(f"ll_save{raw}.sav")
+        candidates.append(project_root() / f"ll_save{raw}.sav")
     else:
-        names.append(Path(raw).name)
-        if not Path(raw).name.lower().endswith(".sav"):
-            names.append(Path(raw).name + ".sav")
-            names.append(f"test_example_save{Path(raw).name}.sav")
-    candidates = [Path(raw)]
-    for name in names:
-        candidates.append(example_save_dir() / name)
-        candidates.append(project_root() / name)
-        candidates.append(project_root() / raw)
+        candidates.append(example_save_dir() / f"test_example_{short}.sav")
+    candidates.append(Path(raw))
+    candidates.append(example_save_dir() / Path(raw).name)
+    candidates.append(project_root() / Path(raw).name)
+    if not Path(raw).name.lower().endswith(".sav"):
+        candidates.append(example_save_dir() / f"{short}.sav")
+        candidates.append(project_root() / f"{short}.sav")
     seen: set[Path] = set()
     for cand in candidates:
         try:

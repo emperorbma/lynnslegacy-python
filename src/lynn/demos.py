@@ -211,8 +211,6 @@ _SPAWN_KILL_OPEN_ANIM = frozenset(
 
 
 def _cache_obj_anims(demo: MapDemo, obj, load_images: bool = True) -> None:
-    if obj.id in demo.obj_anim_surfs:
-        return
     if not load_images:
         demo.obj_anim_surfs[obj.id] = [[] for _ in obj.anim]
         return
@@ -228,8 +226,25 @@ def del_room_enemies(demo: MapDemo, room_i: int) -> None:
         demo.objects_by_room[room_i] = []
 
 
+_NULL_OBJECT = "data/object/null.xml"
+
+
+def _apply_wait_placeholder(obj, load_images: bool) -> None:
+    """FB set_up_room_enemies: wait not met → DeepCopy null.xml, keep id."""
+    from lynn.object.xml_load import LLSystem_CopyNewObject
+
+    real_id = obj.id
+    obj.id = _NULL_OBJECT
+    LLSystem_CopyNewObject(obj, load_images=load_images)
+    obj.id = real_id
+    obj.coords_x = obj.x_origin
+    obj.coords_y = obj.y_origin
+
+
 def set_up_room_enemies(demo: MapDemo, room_i: int, load_images: bool | None = None) -> None:
     """FB set_up_room_enemies: spawn this room from map stubs, then spawn-kill."""
+    from lynn.object.tick import LLObject_SpawnWait
+
     if load_images is None:
         load_images = demo.load_images != 0
     if not (0 <= room_i < len(demo.game_map.room)):
@@ -240,6 +255,9 @@ def set_up_room_enemies(demo: MapDemo, room_i: int, load_images: bool | None = N
         obj = spawn_from_stub(stub, load_images=load_images)
         obj.num = len(spawned)
         spawned.append(obj)
+        if obj.spawn_cond != 0 and obj.spawn_info is not None and obj.spawn_info.wait_n > 0:
+            if not LLObject_SpawnWait(obj):
+                _apply_wait_placeholder(obj, load_images=load_images)
         _cache_obj_anims(demo, obj, load_images=load_images)
         if obj.spawn_cond != 0:
             LLObject_CheckSpawn(obj)
@@ -540,6 +558,9 @@ def _blit_y_sorted(canvas, demo: MapDemo, room_i: int, cam_x: int, cam_y: int, s
             anims = demo.hero_surfs
         else:
             anims = demo.obj_anim_surfs.get(obj.id)
+            if anims is None or len(anims) != len(obj.anim):
+                _cache_obj_anims(demo, obj)
+                anims = demo.obj_anim_surfs.get(obj.id)
         if not anims:
             continue
         anim_i = obj.current_anim

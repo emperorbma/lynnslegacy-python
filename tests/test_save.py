@@ -17,6 +17,7 @@ from lynn.object.save import (
     LLSystem_WriteSaveFile,
     apply_save_happen,
     apply_save_hero,
+    example_short_name,
     resolve_save_spec,
 )
 from lynn.object.xml_load import LLSystem_ObjectFromXML
@@ -26,7 +27,7 @@ EXPECT_PATH = FIXTURES / "expect.json"
 
 
 def _example_save_paths() -> list[Path]:
-    return sorted(FIXTURES.glob("test_example_save*.sav"))
+    return sorted(FIXTURES.glob("test_example_*.sav"))
 
 
 def _example_save_expect() -> dict:
@@ -169,13 +170,17 @@ def test_example_save_state(name: str, expect: dict):
         assert data.rooms == expect["rooms"]
 
 
-def test_resolve_save_spec_example_number():
+def test_resolve_save_spec_example_name():
+    assert example_short_name("forest") == "forest"
+    assert example_short_name("test_example_limbo3.sav") == "limbo3"
     try:
-        path = resolve_save_spec("1")
+        path = resolve_save_spec("forest")
     except FileNotFoundError:
-        pytest.skip("local example save 1 not present")
-    assert path.name == "test_example_save1.sav"
+        pytest.skip("local example save forest not present")
+    assert path.name == "test_example_forest.sav"
     assert path.is_file()
+    limbo = resolve_save_spec("limbo3")
+    assert limbo.name == "test_example_limbo3.sav"
 
 
 @pytest.mark.parametrize(

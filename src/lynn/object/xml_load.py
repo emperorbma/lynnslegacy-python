@@ -164,6 +164,7 @@ def _assign_unique_id(obj: CharType) -> None:
     name = obj.id.replace("\\", "/").lower()
     if "/" in name:
         name = name.rsplit("/", 1)[-1]
+    obj.unique_id = 0
     for suffix, uid in _UNIQUE_ID_SUFFIX:
         if name.endswith(suffix):
             obj.unique_id = uid

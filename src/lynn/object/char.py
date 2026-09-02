@@ -97,6 +97,7 @@ class CharType:
     spawn_cond: int = 0
     spawn_info: object | None = None
     spawn_kill_trig: int = 0
+    spawn_wait_trig: int = 0
     chap: int = 0
     return_trig: int = 0
     invisible: int = 0

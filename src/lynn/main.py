@@ -197,7 +197,7 @@ def _usage() -> str:
         "  config         key setup (writes data/controls.xml and ll.ini)\n"
         "  audio          live sound check (title.it + a sample); Esc quits\n"
         "  test           pytest (extra args forwarded, including --map; silent audio)\n"
-        "  --save spec    load a save (path, or N for a local example / ll_saveN.sav)\n"
+        "  --save spec    load a save (path, N for ll_saveN.sav, or example name)\n"
         "  help           this text\n"
         "Map may be a stem (valley), file (valley.map), or path."
     )

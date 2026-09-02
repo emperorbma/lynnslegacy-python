@@ -36,7 +36,8 @@ run.bat test                 pytest (same as python -m lynn test; silent audio)
 run.bat test --map valley    demo/map tests against that map
 run.bat config               key setup (writes data/controls.xml and ll.ini)
 run.bat audio                live sound check (title.it); Esc quits
-run.bat --save ll_save1.sav  debug: boot from a save file (skips splash/title)
+run.bat --save forest        debug: local example tests/fixtures/test_example_forest.sav
+run.bat --save 1             debug: live slot ll_save1.sav (skips splash/title)
 .\.venv\Scripts\python.exe -m lynn [objects|map|palette|audio|config|test] [map] [--save spec]
 ```
 

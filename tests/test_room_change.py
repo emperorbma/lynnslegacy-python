@@ -13,6 +13,7 @@ from lynn.gfx.palette import load_pal
 from lynn.hero import ctor_hero
 from lynn.map.collision import check_teleports
 from lynn.map.loader import load_mapV
+from lynn.object.tick import tick_objects
 from lynn.paths import data_file, resolve_map_path
 
 
@@ -174,3 +175,48 @@ def test_del_then_setup_replaces_dead_objects():
     set_up_room_enemies(demo, 1, load_images=False)
     assert demo.objects_by_room[1][0] is not first
     assert demo.objects_by_room[1][0].dead == 0
+
+
+def _town_obj(objs, name: str):
+    name = name.lower()
+    for obj in objs:
+        if obj.id.replace("\\", "/").lower().endswith(name):
+            return obj
+    return None
+
+
+def test_town_npcs_park_offscreen_until_grult():
+    demo = _bare_demo()
+    set_up_room_enemies(demo, 4, load_images=False)
+    tick_objects(demo.objects_by_room[4])
+    npc = _town_obj(demo.objects_by_room[4], "npc1.xml")
+    assert npc is not None
+    assert (npc.coords_x, npc.coords_y) == (800, 800)
+    portal = _town_obj(demo.objects_by_room[4], "portalw.xml")
+    richard = _town_obj(demo.objects_by_room[4], "richard.xml")
+    assert portal is not None and richard is not None
+    assert (portal.coords_x, portal.coords_y) == (368, 600)
+    assert (richard.coords_x, richard.coords_y) == (376, 640)
+
+
+def test_town_npcs_walk_after_grult_happen():
+    demo = _bare_demo()
+    now[199] = TRUE
+    set_up_room_enemies(demo, 4, load_images=False)
+    tick_objects(demo.objects_by_room[4])
+    npc = _town_obj(demo.objects_by_room[4], "npc1.xml")
+    assert npc is not None
+    assert (npc.coords_x, npc.coords_y) == (320, 1000)
+
+
+def test_wait_spawn_holds_until_happen():
+    demo = _bare_demo("moenia")
+    set_up_room_enemies(demo, 22, load_images=False)
+    gold = _town_obj(demo.objects_by_room[22], "gold.xml")
+    assert gold is not None
+    assert gold.unique_id == 0
+    now[199] = TRUE
+    tick_objects(demo.objects_by_room[22])
+    gold = _town_obj(demo.objects_by_room[22], "gold.xml")
+    assert gold.unique_id == 19
+    assert gold.spawn_wait_trig != 0
