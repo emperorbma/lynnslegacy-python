@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 from lynn.paths import project_root
@@ -182,6 +183,19 @@ def sound_from_name(text: str) -> int:
     return SOUND_NAMES.get(text.strip().lower(), sound_null)
 
 
+def audio_output_enabled() -> bool:
+    """False under the dummy driver (pytest). Live output is the game or `lynn audio`."""
+    driver = os.environ.get("SDL_AUDIODRIVER", "").lower()
+    if driver in ("dummy", "disk", "none"):
+        return False
+    try:
+        import pygame
+
+        return pygame.mixer.get_init() is not None
+    except Exception:
+        return False
+
+
 def init_mixer() -> bool:
     """pygame.mixer.init. Safe when there is no audio device."""
     try:
@@ -252,6 +266,8 @@ def play_sample(s: int, v: int = 0) -> int:
         return 0
     if s < 0 or s >= len(snd) or snd[s] is None:
         return 0
+    if not audio_output_enabled():
+        return 1
     try:
         sample = snd[s]
         sample.set_volume(max(0.0, min(1.0, v / 100.0)))
@@ -311,11 +327,11 @@ def LLMusic_Start(songName: str) -> None:
         path = project_root() / name
     if not path.is_file():
         return
+    if not audio_output_enabled():
+        return
     try:
         import pygame
 
-        if pygame.mixer.get_init() is None:
-            return
         pygame.mixer.music.load(str(path))
         pygame.mixer.music.set_volume(music_volume / 100.0)
         pygame.mixer.music.play(-1)

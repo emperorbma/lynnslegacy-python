@@ -29,6 +29,13 @@ from lynn.object.xml_load import LLSystem_ObjectFromXML, spawn_from_stub
 from lynn.paths import project_root
 
 
+def test_audio_output_disabled_under_dummy_driver():
+    from lynn.audio import audio_output_enabled
+
+    assert os.environ.get("SDL_AUDIODRIVER", "").lower() == "dummy"
+    assert audio_output_enabled() is False
+
+
 def test_music_strings_title_and_forest():
     from lynn.audio import MUSIC_STRINGS, music_path
 

@@ -13,13 +13,19 @@ HUD_HEALTH = "data/pictures/hud/HUD_health.spr"
 HUD_ITEMS = "data/pictures/hud/HUD_items.spr"
 HUD_CASH = "data/pictures/hud/cash.spr"
 HUD_CASHNUMBERS = "data/pictures/hud/cashnumbers.spr"
+HUD_STATUS = (
+    "data/pictures/char/lynnstatus1.spr",
+    "data/pictures/char/lynnstatus2.spr",
+    "data/pictures/char/lynnstatus3.spr",
+)
 
 
 @dataclass
 class HudImages:
-    """FB load_hudImage: img(0) health pips, img(1) items, img(2) $, img(3) digits."""
+    """FB load_hudImage + load_status_images (savImages)."""
 
     img: list = field(default_factory=list)
+    sav_img: list = field(default_factory=list)
 
 
 def load_hud(palette: LLPalette) -> HudImages:
@@ -30,6 +36,7 @@ def load_hud(palette: LLPalette) -> HudImages:
         frame_surfaces(LLSystem_ImageLoad(HUD_CASH), palette),
         frame_surfaces(LLSystem_ImageLoad(HUD_CASHNUMBERS), palette),
     ]
+    hud.sav_img = [frame_surfaces(LLSystem_ImageLoad(path), palette) for path in HUD_STATUS]
     return hud
 
 

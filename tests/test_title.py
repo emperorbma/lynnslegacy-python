@@ -231,6 +231,8 @@ def test_jump_to_title_resets_happen_and_starts_seq():
     assert demo.hero_only.has_weapon == -1
     assert demo.hero_only.hasItem[0] == 0
     assert demo.hero_only.hasCostume[0] != 0
+    assert demo.hero.invisible != 0
+    assert demo.hero_only.invisibleEntry == 0
 
 
 def test_consume_pending_load_enters_saved_map(tmp_path, monkeypatch):
@@ -266,11 +268,15 @@ def test_consume_pending_load_enters_saved_map(tmp_path, monkeypatch):
     )
     demo.objects_by_room = [[] for _ in game_map.room]
     set_up_room_enemies(demo, 0, load_images=False)
+    hero.invisible = 1
+    only.invisibleEntry = TRUE
     events.pending_load = save
     assert consume_title_events(demo) is False
     assert Path_name(events.map_filename) == "forest_fall.map"
     assert demo.hero_room == 1
     assert demo.hero.menu_sel == 0
+    assert demo.hero.invisible == 0
+    assert only.invisibleEntry == 0
     assert events.pending_load is None
 
 
@@ -332,6 +338,31 @@ def test_title_begin_reaches_forest_fall_change_map():
     assert Path_name(hero.to_map) == "forest_fall.map"
     assert hero.to_entry == 0
     assert only.dropoutSequence == 0
+
+
+def test_save_slot_preview_draws_status_and_items(pygame_dummy):
+    from lynn.constants import SCREEN_H, SCREEN_W
+    from lynn.gfx.hud import load_hud
+    from lynn.gfx.palette import load_pal
+    from lynn.object.save import SaveData, blit_save_menu
+
+    chdir_project_root()
+    hud = load_hud(load_pal("data/palette/ll.pal"))
+    assert hud.sav_img and hud.sav_img[0]
+    canvas = pygame.Surface((SCREEN_W, SCREEN_H)).convert()
+    canvas.fill((0, 0, 0))
+    menu = CharType()
+    menu.menu_sel = 0
+    menu.save = [
+        SaveData(hp=6, maxhp=6, gold=42, weapon=0, hasItem=[TRUE, 0, 0, 0, 0, 0]),
+        None,
+        None,
+        None,
+    ]
+    blit_save_menu(canvas, menu, [], hud)
+    assert canvas.get_at((32 + 10, 9))[:3] != (0, 0, 0)
+    assert canvas.get_at((57 + 6, 26))[:3] != (0, 0, 0)
+    assert canvas.get_at((49 + 8 + 4, 8 + 4))[:3] != (0, 0, 0)
 
 
 def test_splash_image_is_320x200(pygame_dummy):

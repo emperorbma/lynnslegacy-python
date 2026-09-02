@@ -32,10 +32,11 @@ run.bat map                  forest_fall tiles only
 run.bat map valley           another map (stem, file, or path)
 run.bat objects inhouse      interior map
 run.bat palette              256-color ramp + lynn24.spr
-run.bat test                 pytest (same as python -m lynn test)
+run.bat test                 pytest (same as python -m lynn test; silent audio)
 run.bat test --map valley    demo/map tests against that map
+run.bat audio                live sound check (title.it); Esc quits
 run.bat --save ll_save1.sav  debug: boot from a save file (skips splash/title)
-.\.venv\Scripts\python.exe -m lynn [objects|map|palette|test] [map] [--save spec]
+.\.venv\Scripts\python.exe -m lynn [objects|map|palette|audio|test] [map] [--save spec]
 ```
 
 Keys:

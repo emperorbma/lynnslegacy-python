@@ -18,7 +18,6 @@ from lynn.object.save import (
     apply_save_happen,
     apply_save_hero,
     resolve_save_spec,
-    save_path,
 )
 from lynn.object.xml_load import LLSystem_ObjectFromXML
 
@@ -93,7 +92,7 @@ def test_write_and_read_json_save(tmp_path, monkeypatch):
     assert 3 in data.happen
 
 
-def test_do_menu_save_writes_slot():
+def test_do_menu_save_writes_slot(tmp_path, monkeypatch):
     reset_events()
     hero = ctor_hero(load_images=False)
     only = ctor_hero_only()
@@ -103,6 +102,7 @@ def test_do_menu_save_writes_slot():
 
     events.map_filename = "forest_fall.map"
     events.keys.enter_pulse = TRUE
+    monkeypatch.setattr("lynn.object.save.project_root", lambda: tmp_path)
     sp = CharType()
     sp.id = "data/object/savepoint.xml"
     LLSystem_ObjectFromXML(sp, load_images=False)
@@ -110,15 +110,11 @@ def test_do_menu_save_writes_slot():
     sp.menu_sel = 0
     clock.timer = 1.0
     lookup_func("__do_menu_save")(sp)
-    path = save_path(0)
-    try:
-        assert path.is_file()
-        data = LLSystem_ReadSaveFile("ll_save1.sav")
-        assert data is not None
-        assert data.entry == 1
-    finally:
-        if path.is_file():
-            path.unlink()
+    path = tmp_path / "ll_save1.sav"
+    assert path.is_file()
+    data = LLSystem_ReadSaveFile("ll_save1.sav")
+    assert data is not None
+    assert data.entry == 1
 
 
 @pytest.mark.parametrize(

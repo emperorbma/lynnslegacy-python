@@ -1,4 +1,4 @@
-from lynn.main import main, parse_cli, resolve_boot_map
+from lynn.main import _caption_for, main, parse_cli, resolve_boot_map
 from lynn.paths import DEFAULT_MAP, START_MAP
 
 
@@ -27,6 +27,7 @@ def test_parse_cli_map_default_and_override():
         ["--map", "valley.map"],
         None,
     )
+    assert parse_cli(["audio"]) == ("audio", None, [], None)
     assert parse_cli(["--save", "1"]) == ("objects", None, [], "1")
     assert parse_cli(["objects", "--save", "1"]) == ("objects", None, [], "1")
     assert parse_cli(["objects", "inhouse", "--save", "1"]) == (
@@ -44,6 +45,13 @@ def test_resolve_boot_map_default_is_splash_and_title():
     assert resolve_boot_map("objects", "forest_fall", None) == ("forest_fall", False)
     assert resolve_boot_map("map", None, None) == (DEFAULT_MAP, False)
     assert resolve_boot_map("palette", None, None) == (DEFAULT_MAP, False)
+
+
+def test_default_objects_caption_is_plain():
+    assert _caption_for("objects", None) == "Lynn's Legacy"
+    assert _caption_for("objects", START_MAP, quiet=True) == "Lynn's Legacy"
+    assert _caption_for("objects", "forest_fall") == "Lynn's Legacy - forest_fall"
+    assert "forest_fall" in _caption_for("map", None)
 
 
 def test_resolve_boot_map_save_skips_splash():

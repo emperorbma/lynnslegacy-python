@@ -1,4 +1,4 @@
-"""Window loop. `python -m lynn [objects|map|palette|test]`."""
+"""Window loop. `python -m lynn [objects|map|palette|audio|test]`."""
 
 from __future__ import annotations
 
@@ -53,6 +53,22 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if mode in ("test", "--test", "-t"):
         return _run_tests(rest)
+    if mode == "audio":
+        chdir_project_root()
+        from lynn.audio import init_mixer, init_snd
+
+        pygame.mixer.pre_init(44100, -16, 2, 512)
+        pygame.init()
+        init_mixer()
+        init_snd()
+        pygame.mouse.set_visible(False)
+        pygame.display.set_caption("Lynn's Legacy - audio")
+        _open_window()
+        frame_clock = pygame.time.Clock()
+        canvas = pygame.Surface((SCREEN_W, SCREEN_H)).convert()
+        code = _run_audio(canvas, frame_clock, 0)
+        pygame.quit()
+        return code
     if mode not in MODES:
         print(f"unknown mode {mode!r}\n{_usage()}", file=sys.stderr)
         return 2
@@ -81,7 +97,7 @@ def main(argv: list[str] | None = None) -> int:
     init_mixer()
     init_snd()
     pygame.mouse.set_visible(False)
-    pygame.display.set_caption(_caption_for(mode, map_spec))
+    pygame.display.set_caption(_caption_for(mode, map_spec, quiet=show_splash))
     _open_window()
     frame_clock = pygame.time.Clock()
     canvas = pygame.Surface((SCREEN_W, SCREEN_H)).convert()
@@ -102,6 +118,7 @@ def main(argv: list[str] | None = None) -> int:
             with_objects=(mode == "objects"),
             map_path=map_spec,
             save=save,
+            debug_caption=not show_splash,
         )
     pygame.quit()
     return code
@@ -149,11 +166,12 @@ def resolve_boot_map(mode: str, map_spec: str | None, save) -> tuple[str | None,
 
 def _usage() -> str:
     return (
-        "Usage: python -m lynn [objects|map|palette|test] [map] [--save spec]\n"
+        "Usage: python -m lynn [objects|map|palette|audio|test] [map] [--save spec]\n"
         f"  objects [map]  walk Lynn (default: splash + {START_MAP})\n"
         f"  map [map]      tiles only (default: {DEFAULT_MAP})\n"
         "  palette        256-color ramp + lynn24.spr\n"
-        "  test           pytest (extra args forwarded, including --map)\n"
+        "  audio          live sound check (title.it + a sample); Esc quits\n"
+        "  test           pytest (extra args forwarded, including --map; silent audio)\n"
         "  --save spec    load a save (path, or N for a local example / ll_saveN.sav)\n"
         "  help           this text\n"
         "Map may be a stem (valley), file (valley.map), or path."
@@ -167,16 +185,31 @@ def _run_tests(pytest_args: list[str]) -> int:
     return int(pytest.main(["-q", *pytest_args]))
 
 
-def _caption_for(mode: str, map_spec: str | None = None) -> str:
+def _caption_for(mode: str, map_spec: str | None = None, quiet: bool = False) -> str:
     if mode == "palette":
         return "Lynn's Legacy - palette / lynn24.spr"
-    if mode == "objects" and not map_spec:
-        label = START_MAP
-    else:
-        label = map_spec or DEFAULT_MAP
+    if quiet or (mode == "objects" and not map_spec):
+        return "Lynn's Legacy"
+    label = map_spec or DEFAULT_MAP
     if mode == "map":
         return f"Lynn's Legacy - {label} (tiles only)"
     return f"Lynn's Legacy - {label}"
+
+
+def _run_audio(canvas, frame_clock, scale_option: int) -> int:
+    """Play title.it and one sample. Not used by pytest."""
+    from lynn.audio import LLMusic_Start, play_sample, sound_switch
+
+    canvas.fill((0, 0, 0))
+    _present(canvas, scale_option)
+    LLMusic_Start("data/music/title.it")
+    play_sample(sound_switch)
+    running = True
+    while running:
+        scale_option, running = _common_events(scale_option, running)
+        _present(canvas, scale_option)
+        frame_clock.tick(60)
+    return 0
 
 
 def _run_palette(canvas, frame_clock, scale_option: int) -> int:
@@ -199,6 +232,7 @@ def _run_map(
     with_objects: bool,
     map_path: str | None = None,
     save=None,
+    debug_caption: bool = True,
 ) -> int:
     demo = load_map_demo(with_objects=with_objects, map_path=map_path, save=save)
     room_i = demo.hero_room if demo.hero is not None else 0
@@ -326,11 +360,15 @@ def _run_map(
                     cam_y += PAN_SPEED
                 cam_x, cam_y = _clamp_cam(room, cam_x, cam_y)
         others = demo.objects_by_room[room_i] if room_i < len(demo.objects_by_room) else []
-        shown = _map_caption(
-            demo.game_map.filename, room_i, demo.game_map.rooms, cam_x, cam_y, shown,
-            demo.objects_by_room[room_i] if room_i < len(demo.objects_by_room) else (),
-            demo.hero,
-        )
+        if debug_caption:
+            shown = _map_caption(
+                demo.game_map.filename, room_i, demo.game_map.rooms, cam_x, cam_y, shown,
+                demo.objects_by_room[room_i] if room_i < len(demo.objects_by_room) else (),
+                demo.hero,
+            )
+        elif shown != "Lynn's Legacy":
+            pygame.display.set_caption("Lynn's Legacy")
+            shown = "Lynn's Legacy"
         ll_clock.timer = time.perf_counter()
         from lynn.audio import tick_music
 

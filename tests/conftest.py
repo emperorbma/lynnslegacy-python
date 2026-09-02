@@ -1,4 +1,10 @@
+import os
+
 import pytest
+
+# Keep pytest off the real audio device. Live check: `python -m lynn audio`.
+os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
+os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
 
 from lynn.paths import DEFAULT_MAP, resolve_map_path
 

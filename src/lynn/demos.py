@@ -149,6 +149,17 @@ def load_map_demo(
     return demo
 
 
+def _apply_enter_visibility(hero, only) -> None:
+    """FB change_room case 2: show Lynn unless invisibleEntry is set."""
+    if hero is None:
+        return
+    if only is None or getattr(only, "invisibleEntry", 0) == 0:
+        hero.invisible = 0
+        return
+    only.invisibleEntry = 0
+    hero.invisible = 1
+
+
 def _start_current_room_song(demo: MapDemo) -> None:
     """FB ll_main_entry: llg(song) = now_room().song; LLMusic_Start."""
     from lynn.audio import start_room_song
@@ -273,6 +284,7 @@ def enter_map(
         demo.hero.switch_room = -1
         demo.hero.to_map = ""
         bind_hero(demo.hero)
+        _apply_enter_visibility(demo.hero, demo.hero_only)
     events.map_filename = Path(path).name
     events.hero_room = demo.hero_room
     _maybe_start_entry_seq(demo, entry_i)
@@ -331,6 +343,10 @@ def load_game_into_demo(demo: MapDemo, save) -> None:
     if demo.hero is not None:
         demo.hero.menu_sel = 0
         demo.hero.switch_room = -1
+        demo.hero.invisible = 0
+    if demo.hero_only is not None:
+        demo.hero_only.invisibleEntry = 0
+        demo.hero_only.action_lock = 0
     if demo.seq is None:
         events.do_hud = TRUE
         demo.do_hud = TRUE

@@ -129,9 +129,11 @@ def sequence_LoadGame(saved_info: SaveData | None) -> None:
 
 def _resolve_save_path(name: str) -> Path | None:
     path = Path(name)
-    if path.is_file():
-        return path
-    path = project_root() / name
+    if path.is_absolute():
+        return path if path.is_file() else None
+    rooted = project_root() / path
+    if rooted.is_file():
+        return rooted
     if path.is_file():
         return path
     return None
@@ -309,14 +311,14 @@ def __do_menu_save(this: CharType) -> int:
 def blit_title_menu(canvas, menu_obj: CharType, anims: list, hud) -> None:
     """FB __handle_menu cases 1–2: Begin/Continue/Quit or four file slots."""
     hero = events.hero
-    if hero is None or not anims:
+    if hero is None:
         return
     if hero.menu_sel == 1:
-        if anims[0]:
+        if anims and anims[0]:
             canvas.blit(anims[0][0], (32, 32))
         for menu_sels in range(3):
             anim_i = menu_sels * 2 + 1 + (1 if menu_obj.menu_sel == menu_sels else 0)
-            if 0 <= anim_i < len(anims) and anims[anim_i]:
+            if anims and 0 <= anim_i < len(anims) and anims[anim_i]:
                 canvas.blit(anims[anim_i][0], (64 * (menu_sels + 1), 96))
         return
     if hero.menu_sel == 2:
@@ -324,20 +326,36 @@ def blit_title_menu(canvas, menu_obj: CharType, anims: list, hud) -> None:
 
 
 def blit_save_menu(canvas, savepoint: CharType, anims: list, hud) -> None:
-    """FB __handle_menu case 2: four file slots + HUD overlay if occupied."""
+    """FB __handle_menu case 2: file slots, lynnstatus preview, items, HP, gold."""
     from lynn.gfx.hud import hud_pip_frame
 
-    if savepoint is None or not anims:
+    if savepoint is None:
         return
     for menu_sels in range(4):
         m_opt = menu_sels * 50
         anim_i = menu_sels * 2 + 7 + (1 if savepoint.menu_sel == menu_sels else 0)
-        if 0 <= anim_i < len(anims) and anims[anim_i]:
+        if anims and 0 <= anim_i < len(anims) and anims[anim_i]:
             canvas.blit(anims[anim_i][0], (0, m_opt))
         link = None
         if menu_sels < len(savepoint.save):
             link = savepoint.save[menu_sels]
-        if link is None or hud is None or not hud.img:
+        if link is None or hud is None:
+            continue
+        weap = int(link.weapon) % 3
+        if weap < 0:
+            weap = 0
+        sav = getattr(hud, "sav_img", None) or []
+        if 0 <= weap < len(sav) and sav[weap]:
+            canvas.blit(sav[weap][0], (32, m_opt))
+        items = hud.img[1] if hud.img and len(hud.img) > 1 else []
+        has_item = list(link.hasItem) + [0] * 6
+        for put_h in range(6):
+            if has_item[put_h] == 0:
+                continue
+            frame_i = put_h + 1
+            if items and 0 <= frame_i < len(items):
+                canvas.blit(items[frame_i], (57 + (put_h * 16), m_opt + 26))
+        if not hud.img:
             continue
         pips = hud.img[0] if hud.img else []
         if len(pips) >= 3:
