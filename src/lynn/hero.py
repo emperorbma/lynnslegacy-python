@@ -29,6 +29,7 @@ class MainCharType:
     has_bar: int = 0
     b_key: int = 0
     dropoutSequence: int = 0
+    invisibleEntry: int = 0
 
 DIR_UP = 0
 DIR_RIGHT = 1

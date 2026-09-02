@@ -169,8 +169,84 @@ def __chase(this: CharType) -> int:
     return 0
 
 
+def __home(this: CharType) -> int:
+    """FB object_move.bas: walk to dest_x/dest_y one axis at a time."""
+    room = events.current_room
+    others = events.current_others
+    this.moving = 0
+    x_home = int(this.dest_x)
+    y_home = int(this.dest_y)
+    if int(this.coords_x) == x_home and int(this.coords_y) == y_home:
+        this.walk_hold = 0
+        this.frame = 0
+        return 1
+    if room is None:
+        this.coords_x = x_home
+        this.coords_y = y_home
+        this.walk_hold = 0
+        this.frame = 0
+        return 1
+
+    def _back() -> None:
+        if this.moveBackwards != 0:
+            this.direction = (int(this.direction) + 2) & 3
+
+    if this.walk_hold == 0:
+        y_move = 0
+        if y_home > this.coords_y:
+            y_move = 1
+        elif y_home < this.coords_y:
+            y_move = -1
+        if y_move == -1:
+            this.direction = 0
+        elif y_move == 1:
+            this.direction = 2
+        if y_move != 0:
+            move_object(this, room, only_looking=0, moment=1, others=others)
+            _back()
+        x_move = 0
+        if x_home > this.coords_x:
+            x_move = 1
+        elif x_home < this.coords_x:
+            x_move = -1
+        if x_move == -1:
+            this.direction = 3
+        elif x_move == 1:
+            this.direction = 1
+        if x_move != 0:
+            move_object(this, room, only_looking=0, moment=1, others=others)
+            _back()
+        if int(this.coords_x) == x_home and int(this.coords_y) == y_home:
+            this.walk_hold = 0
+            this.frame = 0
+            this.moving = 0
+            return 1
+        this.walk_hold = clock.timer + (this.walk_speed or 0.059)
+        this.moving = 1
+    if clock.timer >= this.walk_hold:
+        this.walk_hold = 0
+    if LLObject_IncrementFrame(this) != 0:
+        this.frame = 0
+        rate = this.animControl[this.current_anim].rate if this.animControl else 0.08
+        this.frame_hold = clock.timer + rate
+    return 0
+
+
+def __move_backwards(this: CharType) -> int:
+    this.moveBackwards = -1
+    return 1
+
+
+def __move_normal(this: CharType) -> int:
+    this.moveBackwards = 0
+    return 1
+
+
 register_func("__randomize_path", __randomize_path)
 register_func("__walk", __walk)
 register_func("__copter_path", __copter_path)
 register_func("__make_face", __make_face)
 register_func("__chase", __chase)
+register_func("__home", __home)
+register_func("__move_backwards", __move_backwards)
+register_func("__move_normal", __move_normal)

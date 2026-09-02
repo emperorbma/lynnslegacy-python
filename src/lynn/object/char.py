@@ -100,6 +100,7 @@ class CharType:
     invincible: int = 0
     dest_x: int = 0
     dest_y: int = 0
+    moveBackwards: int = 0
     mod_lock: int = 0
     jump_count: int = 0
     fade_time: float = 0.0

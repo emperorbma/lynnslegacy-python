@@ -63,6 +63,17 @@ def __half_second_pause(this: CharType) -> int:
     return 0
 
 
+def __q_second_pause(this: CharType) -> int:
+    """FB object_time.bas: 0.25s hold."""
+    if this.pause == 0:
+        this.pause = clock.timer + 0.25
+        return 0
+    if clock.timer >= this.pause:
+        this.pause = 0
+        return 1
+    return 0
+
+
 register_func("__return_idle", __return_idle)
 register_func("__return_reset", __return_reset)
 register_func("__return_jump_npc", __return_jump_npc)
@@ -70,3 +81,4 @@ register_func("__return_reset_npc", __return_reset_npc)
 register_func("__poll_action", __poll_action)
 register_func("__second_pause", __second_pause)
 register_func("__half_second_pause", __half_second_pause)
+register_func("__q_second_pause", __q_second_pause)

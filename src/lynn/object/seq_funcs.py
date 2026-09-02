@@ -142,8 +142,118 @@ def _make_active_anim(n: int):
     return _fn
 
 
+def __dir_up(this: CharType) -> int:
+    this.direction = 0
+    return 1
+
+
+def __dir_right(this: CharType) -> int:
+    this.direction = 1
+    return 1
+
+
 def __dir_down(this: CharType) -> int:
     this.direction = 2
+    return 1
+
+
+def __dir_left(this: CharType) -> int:
+    this.direction = 3
+    return 1
+
+
+def __inc_sel_seq(this: CharType) -> int:
+    this.sel_seq += 1
+    return 1
+
+
+def __dec_sel_seq(this: CharType) -> int:
+    this.sel_seq -= 1
+    return 1
+
+
+def __give_100_gold(this: CharType) -> int:
+    hero = events.hero
+    if hero is not None:
+        hero.money += 100
+    return 1
+
+
+def __give_outfit(this: CharType) -> int:
+    only = events.hero_only
+    hero = events.hero
+    chap = int(this.chap)
+    if only is not None and 0 <= chap < len(only.hasCostume):
+        only.hasCostume[chap] = TRUE
+    if hero is not None:
+        prices = {1: 10, 2: 35, 4: 70, 5: 50}
+        hero.money -= prices.get(chap, 0)
+    return 1
+
+
+def __set_camera(this: CharType) -> int:
+    return 1
+
+
+def __invis_entry(this: CharType) -> int:
+    only = events.hero_only
+    if only is not None:
+        only.invisibleEntry = TRUE
+    return 1
+
+
+def __black_text_on(this: CharType) -> int:
+    return 1
+
+
+def __fade_off(this: CharType) -> int:
+    return 1
+
+
+def __kill_song(this: CharType) -> int:
+    return 1
+
+
+def __play_song(this: CharType) -> int:
+    return 1
+
+
+def __play_sound(this: CharType) -> int:
+    return 1
+
+
+def __set_fade(this: CharType) -> int:
+    return 1
+
+
+def __change_map(this: CharType) -> int:
+    """FB object_etc.bas: start a map-change tele from this.chap, drop the seq."""
+    only = events.hero_only
+    hero = events.hero
+    if only is not None:
+        only.dropoutSequence = TRUE
+    if hero is not None:
+        hero.switch_room = int(this.chap)
+        room = events.current_room
+        if room is not None and 0 <= hero.switch_room < len(room.teleport):
+            tele = room.teleport[hero.switch_room]
+            hero.to_map = tele.to_map
+            hero.to_entry = tele.to_room
+    return 1
+
+
+def __after_slime(this: CharType) -> int:
+    if events.now[1150] != 0:
+        this.sel_seq = 3
+        return 1
+    return 0
+
+
+def __fade_up_to_color(this: CharType) -> int:
+    """FB palette restore after fade-to-black. Instant until real palettes fade."""
+    events.fade_white = 0
+    this.fade_count = 0
+    this.fade_timer = 0
     return 1
 
 

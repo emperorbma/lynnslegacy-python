@@ -293,6 +293,9 @@ def _run_map(canvas, frame_clock, scale_option: int, with_objects: bool, map_pat
                     demo.hero_only.attacking = 0
                 hero_death_tick(demo.hero)
         if demo.seq is not None and demo.hero_only is not None:
+            from lynn.events import bind_room
+
+            bind_room(room, others)
             demo.seq = play_sequence(
                 demo.seq, demo.box, demo.hero_only, demo.palette, demo.menu
             )

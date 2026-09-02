@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 
 from lynn import clock
 import lynn.events as events
-from lynn.constants import FALSE, TRUE
+from lynn.constants import FALSE, TRUE, conf_Box
 from lynn.gfx.image import LLSystem_ImageLoad, frame_surface
 from lynn.gfx.menu import graphicalString
 from lynn.gfx.palette import LLPalette
@@ -145,7 +145,7 @@ def make_box(
     box.jump_switch = 0
     box.flashbox = 0
     box.flashhook = 0.0
-    box.confBox = TRUE if conf != 0 else 0
+    box.confBox = TRUE if conf == conf_Box or conf == TRUE else 0
     box.selected = 0
     if palette is not None and box.surf is None:
         header = LLSystem_ImageLoad("data/pictures/textbox.spr")
