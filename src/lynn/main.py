@@ -11,6 +11,7 @@ from lynn import clock as ll_clock
 from lynn.constants import SCREEN_H, SCREEN_W, TRUE
 from lynn.demos import (
     MODES,
+    consume_title_events,
     draw_map_demo,
     draw_palette_demo,
     load_map_demo,
@@ -39,7 +40,7 @@ from lynn.hero import (
     hero_walk_step,
     update_cam,
 )
-from lynn.paths import DEFAULT_MAP, chdir_project_root
+from lynn.paths import DEFAULT_MAP, START_MAP, chdir_project_root
 
 PAN_SPEED = 4
 
@@ -72,6 +73,7 @@ def main(argv: list[str] | None = None) -> int:
             return 2
         if not map_spec:
             map_spec = save.map
+    map_spec, show_splash = resolve_boot_map(mode, map_spec, save)
     from lynn.audio import init_mixer, init_snd
 
     pygame.mixer.pre_init(44100, -16, 2, 512)
@@ -84,6 +86,13 @@ def main(argv: list[str] | None = None) -> int:
     frame_clock = pygame.time.Clock()
     canvas = pygame.Surface((SCREEN_W, SCREEN_H)).convert()
     scale_option = 0
+
+    if show_splash:
+        from lynn.gfx.splash import init_splash
+
+        if not init_splash(canvas, lambda: _present(canvas, scale_option), frame_clock):
+            pygame.quit()
+            return 0
 
     if mode == "palette":
         code = _run_palette(canvas, frame_clock, scale_option)
@@ -127,11 +136,22 @@ def parse_cli(argv: list[str]) -> tuple[str, str | None, list[str], str | None]:
     return mode, None, rest, save_spec
 
 
+def resolve_boot_map(mode: str, map_spec: str | None, save) -> tuple[str | None, bool]:
+    """Default objects boot is splash + title.map. Explicit maps and --save skip splash."""
+    if save is not None and not map_spec:
+        return save.map, False
+    if map_spec:
+        return map_spec, False
+    if mode == "objects":
+        return START_MAP, True
+    return DEFAULT_MAP, False
+
+
 def _usage() -> str:
     return (
         "Usage: python -m lynn [objects|map|palette|test] [map] [--save spec]\n"
-        f"  objects [map]  walk Lynn (default map: {DEFAULT_MAP})\n"
-        "  map [map]      tiles only\n"
+        f"  objects [map]  walk Lynn (default: splash + {START_MAP})\n"
+        f"  map [map]      tiles only (default: {DEFAULT_MAP})\n"
         "  palette        256-color ramp + lynn24.spr\n"
         "  test           pytest (extra args forwarded, including --map)\n"
         "  --save spec    load a save (path, or N for a local example / ll_saveN.sav)\n"
@@ -150,7 +170,10 @@ def _run_tests(pytest_args: list[str]) -> int:
 def _caption_for(mode: str, map_spec: str | None = None) -> str:
     if mode == "palette":
         return "Lynn's Legacy - palette / lynn24.spr"
-    label = map_spec or DEFAULT_MAP
+    if mode == "objects" and not map_spec:
+        label = START_MAP
+    else:
+        label = map_spec or DEFAULT_MAP
     if mode == "map":
         return f"Lynn's Legacy - {label} (tiles only)"
     return f"Lynn's Legacy - {label}"
@@ -236,10 +259,10 @@ def _run_map(
                 elif event.key in (pygame.K_LCTRL, pygame.K_RCTRL):
                     if demo.hero is not None and demo.hero_only is not None:
                         start_hero_attack(demo.hero)
-                elif event.key in (pygame.K_LEFTBRACKET, pygame.K_PAGEUP):
+                elif not seq_busy and event.key in (pygame.K_LEFTBRACKET, pygame.K_PAGEUP):
                     room_i = (room_i - 1) % demo.game_map.rooms
                     cam_x, cam_y = _cam_for_room(demo.game_map, room_i)
-                elif event.key in (pygame.K_RIGHTBRACKET, pygame.K_PAGEDOWN):
+                elif not seq_busy and event.key in (pygame.K_RIGHTBRACKET, pygame.K_PAGEDOWN):
                     room_i = (room_i + 1) % demo.game_map.rooms
                     cam_x, cam_y = _cam_for_room(demo.game_map, room_i)
         if demo.hero_only is not None:
@@ -340,11 +363,18 @@ def _run_map(
             demo.seq = play_sequence(
                 demo.seq, demo.box, demo.hero_only, demo.palette, demo.menu
             )
-            if demo.seq is None:
-                demo.do_hud = TRUE
-                events.do_hud = TRUE
             for obj in others:
                 LLObject_CheckSpawn(obj)
+        if consume_title_events(demo):
+            running = False
+            continue
+        room_i = demo.hero_room if demo.hero is not None else room_i
+        if not (0 <= room_i < demo.game_map.rooms):
+            room_i = 0
+        room = demo.game_map.room[room_i]
+        others = demo.objects_by_room[room_i] if room_i < len(demo.objects_by_room) else []
+        if demo.hero is not None:
+            cam_x, cam_y = update_cam(demo.hero, room)
         if demo.menu_open == 0:
             if demo.seq is None:
                 tick_map_demo(demo, room_i)

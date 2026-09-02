@@ -21,6 +21,110 @@ def __do_nothing(this: CharType) -> int:
     return 1
 
 
+def __end(this: CharType) -> int:
+    events.request_quit = TRUE
+    return 0
+
+
+def __do_menu(this: CharType) -> int:
+    """FB object_etc.bas: title Begin / Continue / Quit."""
+    hero = events.hero
+    events.box_entity = this
+    if this.menu_lock != 0:
+        if events.keys.enter == 0:
+            if this.menu_sel == 0:
+                if hero is not None:
+                    hero.menu_sel = 0
+                this.return_trig = 1
+                return 0
+            if this.menu_sel == 1:
+                if hero is not None:
+                    hero.menu_sel = 2
+                this.menu_sel = 0
+                this.state_shift = 2
+                this.menu_lock = 0
+                return 0
+            this.menu_lock = 0
+    if hero is not None:
+        hero.menu_sel = 1
+    if events.keys.right != 0:
+        if this.walk_hold == 0:
+            this.menu_sel += 1
+            if this.menu_sel == 3:
+                this.menu_sel = 0
+            this.walk_hold = clock.timer + (this.walk_speed or 1)
+    elif events.keys.left != 0:
+        if this.walk_hold == 0:
+            this.menu_sel -= 1
+            if this.menu_sel == -1:
+                this.menu_sel = 2
+            this.walk_hold = clock.timer + (this.walk_speed or 1)
+    else:
+        this.walk_hold = 0
+    if clock.timer >= this.walk_hold:
+        this.walk_hold = 0
+    if events.keys.escape != 0:
+        events.request_quit = TRUE
+        return 0
+    if events.keys.enter != 0:
+        if this.menu_sel == 2:
+            events.request_quit = TRUE
+            return 0
+        this.menu_lock = 1
+    return 0
+
+
+def __do_menu_continue(this: CharType) -> int:
+    """FB object_etc.bas: title file slots. Enter on an occupied slot loads."""
+    hero = events.hero
+    only = events.hero_only
+    if hero is not None:
+        hero.menu_sel = 2
+    events.box_entity = this
+    if this.menu_lock != 0:
+        if events.keys.escape == 0:
+            this.menu_lock = 0
+            this.menu_sel = 0
+            this.read_lock = 0
+            this.state_shift = 1
+            if hero is not None:
+                hero.menu_sel = 1
+            return 0
+    if this.read_lock == 0:
+        from lynn.object.save import LLSystem_ReadSaveFile
+
+        this.save = [
+            LLSystem_ReadSaveFile("ll_save1.sav"),
+            LLSystem_ReadSaveFile("ll_save2.sav"),
+            LLSystem_ReadSaveFile("ll_save3.sav"),
+            LLSystem_ReadSaveFile("ll_save4.sav"),
+        ]
+        this.read_lock = TRUE
+    if events.keys.down != 0:
+        if this.walk_hold == 0:
+            this.menu_sel += 1
+            if this.menu_sel == 4:
+                this.menu_sel = 0
+            this.walk_hold = clock.timer + (this.walk_speed or 1)
+    elif events.keys.up != 0:
+        if this.walk_hold == 0:
+            this.menu_sel -= 1
+            if this.menu_sel == -1:
+                this.menu_sel = 3
+            this.walk_hold = clock.timer + (this.walk_speed or 1)
+    else:
+        this.walk_hold = 0
+    if clock.timer >= this.walk_hold:
+        this.walk_hold = 0
+    if events.keys.enter_pulse != 0:
+        if 0 <= this.menu_sel < len(this.save) and this.save[this.menu_sel] is not None:
+            if only is not None:
+                only.isLoading = TRUE
+    if events.keys.escape != 0:
+        this.menu_lock = 1
+    return 0
+
+
 def health_formula(maxhp: int) -> int:
     """FB healthFormula: 50 + (maxhp - 6) * 5."""
     return 50 + (int(maxhp) - 6) * 5
@@ -214,6 +318,49 @@ def __kill_song(this: CharType) -> int:
     return 1
 
 
+def __stop_sound(this: CharType) -> int:
+    return 1
+
+
+def __fade_music_out(this: CharType) -> int:
+    return 1
+
+
+def __chapter_1_on(this: CharType) -> int:
+    return 1
+
+
+def __chapter_1_off(this: CharType) -> int:
+    return 1
+
+
+def __color_on(this: CharType) -> int:
+    return 1
+
+
+def __color_off(this: CharType) -> int:
+    return 1
+
+
+def __flash(this: CharType) -> int:
+    """FB object--gfx_palette.bas: white palette hold ~0.125s."""
+    if this.pause == 0:
+        this.pause = clock.timer + 0.125
+        return 0
+    if clock.timer > this.pause:
+        this.pause = 0
+        return 1
+    return 0
+
+
+def __flash_down(this: CharType) -> int:
+    return 1
+
+
+def __flash_down_gray(this: CharType) -> int:
+    return 1
+
+
 def __play_song(this: CharType) -> int:
     return 1
 
@@ -223,6 +370,22 @@ def __play_sound(this: CharType) -> int:
 
 
 def __set_fade(this: CharType) -> int:
+    return 1
+
+
+def __set_vol_fade(this: CharType) -> int:
+    return 1
+
+
+def __set_white_fade(this: CharType) -> int:
+    return 1
+
+
+def __set_gray_fade(this: CharType) -> int:
+    return 1
+
+
+def __flicker(this: CharType) -> int:
     return 1
 
 

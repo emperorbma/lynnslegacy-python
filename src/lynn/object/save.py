@@ -82,6 +82,8 @@ def resolve_save_spec(spec: str) -> Path:
 
 def apply_save_happen(data: SaveData) -> None:
     """Restore llg(now) happen flags. Call after reset_events, before room spawn."""
+    for i in range(len(events.now)):
+        events.now[i] = 0
     for i in data.happen:
         if 0 <= i < len(events.now):
             events.now[i] = TRUE
@@ -102,6 +104,27 @@ def apply_save_hero(hero, only, data: SaveData) -> None:
         only.hasCostume = (list(data.hasCostume) + [0] * 9)[:9]
         only.isWearing = int(data.isWearing)
         only.b_key = int(data.b_key)
+
+
+def sequence_LoadGame(saved_info: SaveData | None) -> None:
+    """FB sequence_LoadGame: copy the slot onto the live hero, then change_room type 1."""
+    if saved_info is None:
+        return
+    apply_save_happen(saved_info)
+    apply_save_hero(events.hero, events.hero_only, saved_info)
+    hero = events.hero
+    only = events.hero_only
+    if hero is not None:
+        hero.to_map = saved_info.map
+        hero.to_entry = int(saved_info.entry)
+        hero.switch_room = -2
+        hero.chap = 0
+        hero.menu_sel = 0
+    if only is not None:
+        only.action_lock = 0
+        only.isLoading = 0
+    events.do_hud = TRUE
+    events.box_entity = None
 
 
 def _resolve_save_path(name: str) -> Path | None:
@@ -281,6 +304,23 @@ def __do_menu_save(this: CharType) -> int:
     if events.keys.escape != 0:
         this.menu_lock = 1
     return 0
+
+
+def blit_title_menu(canvas, menu_obj: CharType, anims: list, hud) -> None:
+    """FB __handle_menu cases 1–2: Begin/Continue/Quit or four file slots."""
+    hero = events.hero
+    if hero is None or not anims:
+        return
+    if hero.menu_sel == 1:
+        if anims[0]:
+            canvas.blit(anims[0][0], (32, 32))
+        for menu_sels in range(3):
+            anim_i = menu_sels * 2 + 1 + (1 if menu_obj.menu_sel == menu_sels else 0)
+            if 0 <= anim_i < len(anims) and anims[anim_i]:
+                canvas.blit(anims[anim_i][0], (64 * (menu_sels + 1), 96))
+        return
+    if hero.menu_sel == 2:
+        blit_save_menu(canvas, menu_obj, anims, hud)
 
 
 def blit_save_menu(canvas, savepoint: CharType, anims: list, hud) -> None:

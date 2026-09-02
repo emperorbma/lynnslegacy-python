@@ -31,6 +31,18 @@ def test_keyboard_selected_from_resume_is_one_hop():
     assert menu.selectedItem == 1
 
 
+def test_handle_title_sets_goto_title():
+    from lynn.gfx.menu import MainMenu
+    import lynn.events as events
+    from lynn.events import reset_events
+
+    reset_events()
+    only = ctor_hero_only()
+    menu = MainMenu(selectedItem=19)
+    assert handleKeybSelected(menu, only) == TRUE
+    assert events.goto_title == TRUE
+
+
 def test_handle_resume_closes_and_empty_weapon_does_not_equip():
     from lynn.gfx.menu import MainMenu
 

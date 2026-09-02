@@ -1,5 +1,5 @@
-from lynn.main import main, parse_cli
-from lynn.paths import DEFAULT_MAP
+from lynn.main import main, parse_cli, resolve_boot_map
+from lynn.paths import DEFAULT_MAP, START_MAP
 
 
 def test_help_exits_zero():
@@ -36,3 +36,19 @@ def test_parse_cli_map_default_and_override():
         "1",
     )
     assert DEFAULT_MAP == "forest_fall.map"
+    assert START_MAP == "title.map"
+
+
+def test_resolve_boot_map_default_is_splash_and_title():
+    assert resolve_boot_map("objects", None, None) == (START_MAP, True)
+    assert resolve_boot_map("objects", "forest_fall", None) == ("forest_fall", False)
+    assert resolve_boot_map("map", None, None) == (DEFAULT_MAP, False)
+    assert resolve_boot_map("palette", None, None) == (DEFAULT_MAP, False)
+
+
+def test_resolve_boot_map_save_skips_splash():
+    class _Save:
+        map = "limbo3.map"
+
+    assert resolve_boot_map("objects", None, _Save()) == ("limbo3.map", False)
+    assert resolve_boot_map("objects", "inhouse", _Save()) == ("inhouse", False)

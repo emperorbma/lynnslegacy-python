@@ -64,6 +64,7 @@ def test_home_and_inc_sel_seq_are_real():
 
 
 def test_home_reaches_dest_without_a_room():
+    reset_events()
     o = CharType()
     o.coords_x = 10
     o.coords_y = 20

@@ -232,6 +232,66 @@ def __home(this: CharType) -> int:
     return 0
 
 
+def __tile_up(this: CharType) -> int:
+    """FB object_move.bas: 16 one-pixel steps up, then callback."""
+    room = events.current_room
+    others = events.current_others
+    if this.walk_hold == 0:
+        this.direction = 0
+        if room is not None:
+            for _ in range(16):
+                move_object(this, room, only_looking=0, moment=1, others=others)
+        else:
+            this.coords_y -= 16
+        this.walk_hold = clock.timer + (this.walk_speed or 0.009)
+    if clock.timer >= this.walk_hold:
+        this.walk_hold = 0
+    return 1
+
+
+def __move_up(this: CharType) -> int:
+    """FB object_move.bas: one pixel up, then callback."""
+    room = events.current_room
+    others = events.current_others
+    if this.walk_hold == 0:
+        this.direction = 0
+        if room is not None:
+            move_object(this, room, only_looking=0, moment=1, others=others)
+        else:
+            this.coords_y -= 1
+        if LLObject_IncrementFrame(this) != 0:
+            this.frame = 0
+            rate = this.animControl[this.current_anim].rate if this.animControl else 0.08
+            this.frame_hold = clock.timer + rate
+        this.walk_hold = clock.timer + (this.walk_speed or 0.03)
+        return 1
+    if clock.timer >= this.walk_hold:
+        this.walk_hold = 0
+    return 0
+
+
+def __move_upright(this: CharType) -> int:
+    """FB object_move.bas: one pixel up-right (dir 5), then callback."""
+    room = events.current_room
+    others = events.current_others
+    if this.walk_hold == 0:
+        this.direction = 5
+        if room is not None:
+            move_object(this, room, only_looking=0, moment=1, others=others)
+        else:
+            this.coords_y -= 1
+            this.coords_x += 1
+        if LLObject_IncrementFrame(this) != 0:
+            this.frame = 0
+            rate = this.animControl[this.current_anim].rate if this.animControl else 0.08
+            this.frame_hold = clock.timer + rate
+        this.walk_hold = clock.timer + (this.walk_speed or 0.03)
+        return 1
+    if clock.timer >= this.walk_hold:
+        this.walk_hold = 0
+    return 0
+
+
 def __move_backwards(this: CharType) -> int:
     this.moveBackwards = -1
     return 1
@@ -248,5 +308,8 @@ register_func("__copter_path", __copter_path)
 register_func("__make_face", __make_face)
 register_func("__chase", __chase)
 register_func("__home", __home)
+register_func("__tile_up", __tile_up)
+register_func("__move_up", __move_up)
+register_func("__move_upright", __move_upright)
 register_func("__move_backwards", __move_backwards)
 register_func("__move_normal", __move_normal)

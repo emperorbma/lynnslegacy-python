@@ -17,6 +17,7 @@ from lynn.constants import (
     u_chest,
     u_gbutton,
     u_ghut,
+    u_menu,
     u_savepoint,
 )
 from lynn.gfx.blit import blit_object, blit_room_tiles
@@ -36,7 +37,7 @@ from lynn.map.loader import load_mapV
 from lynn.map.types import MapType
 from lynn.object.tick import LLObject_CheckSpawn, tick_objects
 from lynn.object.xml_load import spawn_from_stub
-from lynn.paths import DEFAULT_MAP, resolve_map_path
+from lynn.paths import DEFAULT_MAP, START_MAP, resolve_map_path
 
 POC_MAP = f"data/map/{DEFAULT_MAP}"
 PALETTE_CELLS = (16, 16)
@@ -142,7 +143,44 @@ def load_map_demo(
         frame_surfaces(anim, palette) if anim.frames else []
         for anim in hero.anim
     ]
+    if save is None and _is_title_map(events.map_filename):
+        _maybe_start_entry_seq(demo, entry_i)
     return demo
+
+
+def _is_title_map(name: str | None) -> bool:
+    if not name:
+        return False
+    return Path(str(name).replace("\\", "/")).name.lower() == START_MAP
+
+
+def _maybe_start_entry_seq(demo: MapDemo, entry_i: int) -> None:
+    """FB ll_main_entry / change_room case 5: play the dest entry sequence."""
+    from lynn.sequence import bind_sequence_ents
+
+    if not demo.game_map.entry or demo.hero is None:
+        return
+    entry = (
+        demo.game_map.entry[entry_i]
+        if entry_i < len(demo.game_map.entry)
+        else demo.game_map.entry[0]
+    )
+    if not entry.seq:
+        return
+    seq = entry.seq[0]
+    seq.current_command = 0
+    for cmd in seq.Command:
+        for ent in cmd.ent:
+            ent.ent_func = 0
+    room_objs = (
+        demo.objects_by_room[demo.hero_room]
+        if demo.hero_room < len(demo.objects_by_room)
+        else []
+    )
+    bind_sequence_ents(seq, demo.hero, room_objs)
+    demo.seq = seq
+    events.do_hud = 0
+    demo.do_hud = 0
 
 
 _SPAWN_KILL_OPEN_ANIM = frozenset(
@@ -226,6 +264,101 @@ def enter_map(
         bind_hero(demo.hero)
     events.map_filename = Path(path).name
     events.hero_room = demo.hero_room
+    _maybe_start_entry_seq(demo, entry_i)
+
+
+def jump_to_title(demo: MapDemo) -> None:
+    """FB jump_to_title: reset happen / inventory and enter title.map entry 0."""
+    from lynn.gfx.image import frame_surfaces
+
+    for i in range(len(events.now)):
+        events.now[i] = 0
+    load_images = demo.load_images != 0
+    hero = ctor_hero(load_images=load_images)
+    hero.fade_time = 0.003
+    if not hero.walk_speed:
+        hero.walk_speed = 0.009
+    demo.hero = hero
+    demo.hero_only = ctor_hero_only()
+    demo.hero_only.invisibleEntry = TRUE
+    demo.hero_only.selected_item = 0
+    hero.invisible = 1
+    bind_hero_only(demo.hero_only)
+    bind_hero(hero)
+    events.do_hud = 0
+    demo.do_hud = 0
+    events.box_entity = None
+    events.pending_load = None
+    events.goto_title = 0
+    demo.seq = None
+    demo.menu_open = 0
+    demo.menu_backdrop = None
+    if load_images:
+        demo.hero_surfs = [
+            frame_surfaces(anim, demo.palette) if anim.frames else []
+            for anim in hero.anim
+        ]
+    enter_map(demo, START_MAP, 0, load_images=load_images, load_tileset=demo.load_tileset != 0)
+
+
+def load_game_into_demo(demo: MapDemo, save) -> None:
+    """FB sequence_LoadGame + change_room type 1."""
+    from lynn.object.save import sequence_LoadGame
+
+    sequence_LoadGame(save)
+    dest = save.map if save is not None else ""
+    entry_i = int(save.entry) if save is not None else 0
+    if dest:
+        enter_map(
+            demo,
+            dest,
+            entry_i,
+            load_images=demo.load_images != 0,
+            load_tileset=demo.load_tileset != 0,
+        )
+    if demo.hero is not None:
+        demo.hero.menu_sel = 0
+        demo.hero.switch_room = -1
+    if demo.seq is None:
+        events.do_hud = TRUE
+        demo.do_hud = TRUE
+
+
+def consume_title_events(demo: MapDemo) -> bool:
+    """Apply pending load, Title-menu jump, or __change_map. True if the game should quit."""
+    if events.request_quit != 0:
+        return True
+    if demo.seq is not None:
+        return False
+    if events.pending_load is not None:
+        save = events.pending_load
+        events.pending_load = None
+        load_game_into_demo(demo, save)
+        return False
+    if events.goto_title != 0:
+        events.goto_title = 0
+        jump_to_title(demo)
+        return False
+    hero = demo.hero
+    if hero is not None and hero.to_map:
+        dest = hero.to_map
+        entry_i = int(hero.to_entry)
+        hero.to_map = ""
+        enter_map(
+            demo,
+            dest,
+            entry_i,
+            load_images=demo.load_images != 0,
+            load_tileset=demo.load_tileset != 0,
+        )
+        if demo.seq is None and not _is_title_map(events.map_filename):
+            events.do_hud = TRUE
+            demo.do_hud = TRUE
+        return False
+    if _is_title_map(events.map_filename):
+        events.do_hud = 0
+        demo.do_hud = 0
+    return False
 
 
 def try_hero_teleport(demo: MapDemo) -> None:
@@ -314,10 +447,16 @@ def draw_map_demo(canvas: pygame.Surface, demo: MapDemo, room_i: int, cam_x: int
     if demo.do_hud != 0 and demo.hud is not None and demo.hero is not None and demo.hero_only is not None:
         blit_hud(canvas, demo.hero, demo.hero_only, demo.hud)
     if save_open and events.box_entity is not None:
-        from lynn.object.save import blit_save_menu
+        from lynn.object.save import blit_save_menu, blit_title_menu
 
         sp = events.box_entity
-        blit_save_menu(canvas, sp, demo.obj_anim_surfs.get(sp.id, []), demo.hud)
+        anims = demo.obj_anim_surfs.get(sp.id, [])
+        if sp.unique_id == u_menu:
+            blit_title_menu(canvas, sp, anims, demo.hud)
+        else:
+            blit_save_menu(canvas, sp, anims, demo.hud)
+    elif not save_open:
+        events.box_entity = None
     if demo.box is not None:
         blit_box(canvas, demo.box)
 
@@ -334,7 +473,12 @@ def _blit_y_sorted(canvas, demo: MapDemo, room_i: int, cam_x: int, cam_y: int, s
     sprites = []
     if 0 <= room_i < len(demo.objects_by_room):
         for obj in demo.objects_by_room[room_i]:
+            if obj.unique_id == u_menu:
+                if save_open:
+                    events.box_entity = obj
+                continue
             if save_open and obj.unique_id == u_savepoint:
+                events.box_entity = obj
                 continue
             sprites.append(("obj", obj, _sort_y(obj)))
             if is_corpse_drop(obj):

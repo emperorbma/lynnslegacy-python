@@ -26,14 +26,15 @@ Runtime data lives in `data/` (uncompressed maps, sprites, objects, sounds, musi
 Double-click `run.bat`, or from the project root:
 
 ```text
-run.bat                      walk Lynn (default: forest_fall)
+run.bat                      splash, then title (Begin / Continue / Quit)
+run.bat objects forest_fall  skip title, walk the overworld
 run.bat map                  forest_fall tiles only
 run.bat map valley           another map (stem, file, or path)
 run.bat objects inhouse      interior map
 run.bat palette              256-color ramp + lynn24.spr
 run.bat test                 pytest (same as python -m lynn test)
 run.bat test --map valley    demo/map tests against that map
-run.bat --save ll_save1.sav  debug: boot from a save file
+run.bat --save ll_save1.sav  debug: boot from a save file (skips splash/title)
 .\.venv\Scripts\python.exe -m lynn [objects|map|palette|test] [map] [--save spec]
 ```
 
@@ -49,7 +50,7 @@ Keys:
 - F11 / Alt+Enter — toggle fullscreen
 - F12 — cycle integer scale (fit, then 1x–6x)
 
-Window close quits. Default map is `data/map/forest_fall.map` (chapter 1 overworld). `title.map` is the boot/menu sequence, not the overworld. `island3` is a later island state (`run.bat objects island3`).
+Window close quits. Default boot is the splash card, then `data/map/title.map` (Begin / Continue / Quit). Continue reads `ll_save1.sav`–`ll_save4.sav` next to `run.bat`. Pause → Title returns to that menu. `data/map/forest_fall.map` is chapter 1 overworld (`run.bat objects forest_fall`). `island3` is a later island state (`run.bat objects island3`).
 
 ## Porting conventions
 
@@ -64,4 +65,4 @@ Window close quits. Default map is `data/map/forest_fall.map` (chapter 1 overwor
 
 Chapter 1 overworld is playable: walk, tile and entity collision, camera, HUD, pause, sapling pickup and swing, contact damage, roamers and copters, signs and NPC talk (including shops), save points, loot, same-map room warps, and map-change doors (houses). Leaving a room respawns its enemies; happen flags keep unique pickups gone.
 
-Not started: `.it` music, title sequence, load from save, room-change fade.
+Not started: `.it` music, room-change fade.

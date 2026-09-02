@@ -22,8 +22,8 @@ exit /b %ERRORLEVEL%
 
 :usage
 echo Usage: run.bat [objects^|map^|palette^|test^|help] [map] [--save spec]
-echo   objects [map]  walk Lynn (default map: forest_fall)
-echo   map [map]      tiles only
+echo   objects [map]  walk Lynn (default: splash + title.map)
+echo   map [map]      tiles only (default: forest_fall)
 echo   palette        256-color ramp + lynn24.spr
 echo   test           pytest (e.g. run.bat test --map valley)
 echo   --save spec    load a save (path, or N for a local example / ll_saveN.sav)

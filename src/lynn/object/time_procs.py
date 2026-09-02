@@ -74,6 +74,36 @@ def __q_second_pause(this: CharType) -> int:
     return 0
 
 
+def __counted_jump(this: CharType) -> int:
+    """FB object_time.bas: loop the previous func jump_count times."""
+    if this.jump_count == this.jump_counter:
+        this.jump_counter = 0
+        return 1
+    this.jump_counter += 1
+    return -1
+
+
+def __counted_jump_2(this: CharType) -> int:
+    if this.jump_count == this.jump_counter:
+        this.jump_counter = 0
+        return 1
+    this.jump_counter += 1
+    return -2
+
+
+def __timed_jump(this: CharType) -> int:
+    if this.jump_timer == 0:
+        this.jump_timer = float(this.jump_time) + clock.timer
+    if clock.timer >= this.jump_timer:
+        this.jump_timer = 0
+        return 1
+    return -1
+
+
+def __jump_2_back(this: CharType) -> int:
+    return -1
+
+
 register_func("__return_idle", __return_idle)
 register_func("__return_reset", __return_reset)
 register_func("__return_jump_npc", __return_jump_npc)
@@ -82,3 +112,7 @@ register_func("__poll_action", __poll_action)
 register_func("__second_pause", __second_pause)
 register_func("__half_second_pause", __half_second_pause)
 register_func("__q_second_pause", __q_second_pause)
+register_func("__counted_jump", __counted_jump)
+register_func("__counted_jump_2", __counted_jump_2)
+register_func("__timed_jump", __timed_jump)
+register_func("__jump_2_back", __jump_2_back)

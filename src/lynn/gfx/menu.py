@@ -305,7 +305,7 @@ def keyboardSelected(menu: MainMenu, key_up: int, key_right: int, key_down: int,
 
 
 def handleKeybSelected(menu: MainMenu, hero_only: MainCharType) -> int:
-    """FB handleKeybSelected. TRUE if the pause loop should close. Title (19) is a no-op until enter_map."""
+    """FB handleKeybSelected. TRUE if the pause loop should close. Title (19) sets goto_title."""
     i = menu.selectedItem
     if i == 0 and hero_only.has_weapon >= 0:
         hero_only.weapon = 0
@@ -338,5 +338,10 @@ def handleKeybSelected(menu: MainMenu, hero_only: MainCharType) -> int:
     elif i == 14 and hero_only.hasCostume[5] != 0:
         hero_only.isWearing = 5
     elif i == 18:
+        return TRUE
+    elif i == 19:
+        import lynn.events as events
+
+        events.goto_title = TRUE
         return TRUE
     return 0

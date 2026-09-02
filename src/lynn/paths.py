@@ -27,6 +27,7 @@ def chdir_project_root() -> Path:
 
 
 DEFAULT_MAP = "forest_fall.map"
+START_MAP = "title.map"
 
 
 def resolve_map_path(spec: str | None = None) -> Path:

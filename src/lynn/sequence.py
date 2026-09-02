@@ -127,16 +127,24 @@ def sequence_FullReset(seq: SequenceType, hero_only) -> None:
     hero_only.action_lock = 0
 
 
-def _command_progressing(seq: SequenceType, box: BoxControl) -> int:
+def _command_progressing(seq: SequenceType, box: BoxControl, current_ent=None) -> int:
     cmd = seq.Command[seq.current_command]
+    progressing = TRUE
     for ent in cmd.ent:
         if ent.active_ent == SF_BOX:
             if box.activated != 0:
-                return 0
+                progressing = 0
         elif 0 <= ent.active_ent < len(seq.ent):
             if seq.ent[ent.active_ent].return_trig == 0:
-                return 0
-    return TRUE
+                progressing = 0
+    if current_ent is not None and current_ent.carries_all != 0:
+        if current_ent.active_ent == SF_BOX:
+            if box.activated == 0:
+                return TRUE
+        elif 0 <= current_ent.active_ent < len(seq.ent):
+            if seq.ent[current_ent.active_ent].return_trig != 0:
+                return TRUE
+    return progressing
 
 
 def play_sequence(seq: SequenceType | None, box: BoxControl, hero_only, palette=None, menu=None) -> SequenceType | None:
@@ -175,6 +183,19 @@ def play_sequence(seq: SequenceType | None, box: BoxControl, hero_only, palette=
                 ent.ent_func += result
                 if ent.ent_func >= (funcs.func_count[state] if state < len(funcs.func_count) else len(block)):
                     ent.ent_func = 0
+                if actor.state_shift != 0:
+                    ent.ent_state = actor.state_shift
+                    ent.ent_func = 0
+                    actor.state_shift = 0
+                if hero_only is not None and hero_only.isLoading != 0:
+                    hero_only.isLoading = 0
+                    slot = actor.menu_sel
+                    link = actor.save[slot] if 0 <= slot < len(actor.save) else None
+                    if link is not None:
+                        events.pending_load = link
+                    sequence_FullReset(seq, hero_only)
+                    events.do_hud = TRUE
+                    return None
                 if hero_only.dropoutSequence != 0:
                     hero_only.dropoutSequence = 0
                     nxt = events.pending_seq
@@ -188,10 +209,14 @@ def play_sequence(seq: SequenceType | None, box: BoxControl, hero_only, palette=
                     sequence_FullReset(seq, hero_only)
                     events.do_hud = TRUE
                     return None
-        if _command_progressing(seq, box) != 0:
+        if _command_progressing(seq, box, ent) != 0:
             for e2 in cmd.ent:
                 if e2.active_ent != SF_BOX and 0 <= e2.active_ent < len(seq.ent):
-                    seq.ent[e2.active_ent].return_trig = 0
+                    actor = seq.ent[e2.active_ent]
+                    actor.return_trig = 0
+                    actor.jump_counter = 0
+                    actor.jump_timer = 0.0
+                    actor.walk_hold = 0
                 e2.ent_func = 0
                 e2.ent_state = e2.hold_state
             seq.current_command += 1

@@ -19,6 +19,9 @@ fade_white = 0
 pending_seq = None
 current_seq = None
 seq_box = None
+pending_load = None
+request_quit = 0
+goto_title = 0
 
 
 @dataclass
@@ -36,7 +39,7 @@ keys = KeyState()
 
 
 def reset_events() -> None:
-    global hero_only, hero, current_room, current_others, do_hud, box_entity, map_filename, hero_room, fade_white, pending_seq, current_seq, seq_box
+    global hero_only, hero, current_room, current_others, do_hud, box_entity, map_filename, hero_room, fade_white, pending_seq, current_seq, seq_box, pending_load, request_quit, goto_title
     for i in range(len(now)):
         now[i] = 0
     hero_only = None
@@ -51,6 +54,9 @@ def reset_events() -> None:
     pending_seq = None
     current_seq = None
     seq_box = None
+    pending_load = None
+    request_quit = 0
+    goto_title = 0
     keys.up = keys.down = keys.enter = keys.escape = keys.enter_pulse = 0
     keys.left = keys.right = 0
 

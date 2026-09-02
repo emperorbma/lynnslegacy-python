@@ -106,6 +106,9 @@ class CharType:
     moveBackwards: int = 0
     mod_lock: int = 0
     jump_count: int = 0
+    jump_counter: int = 0
+    jump_timer: float = 0.0
+    jump_time: float = 0.0
     fade_time: float = 0.0
     fade_timer: float = 0.0
     fade_count: int = 0
