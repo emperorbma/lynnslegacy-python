@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from lynn.constants import FALSE, TRUE
+from lynn.constants import FALSE, TRUE, u_lynn
 from lynn.macros import LLObject_CalculateFrame, quad_calc, testbit
 from lynn.map.types import RoomType, TeleportType
 from lynn.object.char import CharType
@@ -56,6 +56,128 @@ def check_against_teles(o: CharType, room: RoomType) -> int:
         o.to_map = tele.to_map
         o.to_entry = tele.to_room
     return tele_i
+
+
+def _in_dir_small(d: int) -> int:
+    if d < 0:
+        return 3
+    if d > 3:
+        return 0
+    return d
+
+
+def quad_seek(tile_x: int, tile_y: int, quad: int, d: int) -> tuple[int, int, int]:
+    """FB quad_seek: the neighboring collision quad in direction d."""
+    opt = (-2, 1, 2, -1)[d] if 0 <= d < 4 else 0
+    to_quad = opt + quad
+    to_tile_x = tile_x
+    to_tile_y = tile_y
+    if d == 0:
+        if to_quad < 0:
+            to_tile_y -= 1
+            to_quad = 2 if to_quad == -2 else 3
+    elif d == 1:
+        if (abs(to_quad) & 1) == 0:
+            to_tile_x += 1
+            to_quad = 0 if to_quad == 2 else 2
+    elif d == 2:
+        if to_quad > 3:
+            to_tile_y += 1
+            to_quad = 0 if to_quad == 4 else 1
+    elif d == 3:
+        if (abs(to_quad) & 1) != 0:
+            to_tile_x -= 1
+            to_quad = 3 if to_quad == 1 else 1
+    return to_tile_x, to_tile_y, to_quad
+
+
+def _quad_solid(room: RoomType, layer: int, tx: int, ty: int, quad: int) -> int:
+    if layer >= len(room.layout):
+        return TRUE
+    layout = room.layout[layer]
+    t_index = ty * room.x + tx
+    if t_index < 0 or t_index >= len(layout):
+        return TRUE
+    return TRUE if testbit(layout[t_index], 15 - quad) != 0 else FALSE
+
+
+def check_psf(o: CharType, d: int, room: RoomType) -> None:
+    """FB check_psf: when a wall blocks one side, slide into the open gap."""
+    import lynn.events as events
+
+    d = _in_dir_small(d)
+    tmp_dir = o.direction
+    tmp_d = d
+    tx_2 = 8
+    ty_2 = 8
+    x_crawl = 0
+    y_crawl = 0
+    if (d & 1) == 0:
+        if events.keys.left != 0 or events.keys.right != 0:
+            return
+        pnts = int(o.perimeter_x) >> 3
+        x_crawl = tx_2
+    else:
+        if events.keys.up != 0 or events.keys.down != 0:
+            return
+        pnts = int(o.perimeter_y) >> 3
+        y_crawl = ty_2
+    po_x = int(o.coords_x)
+    po_y = int(o.coords_y)
+    if d == 1:
+        po_x += int(o.perimeter_x) - tx_2
+    elif d == 2:
+        po_x += int(o.perimeter_x)
+        po_y += int(o.perimeter_y) - ty_2
+    elif d == 3:
+        po_y += int(o.perimeter_y)
+    pol = 1 if (d >> 1) == 0 else -1
+    others = events.current_others
+    for layercheck in range(3):
+        crawl = 0
+        x_opt = (crawl * x_crawl * pol) + po_x
+        y_opt = (crawl * y_crawl * pol) + po_y
+        slider_x = x_opt >> 4
+        slider_y = y_opt >> 4
+        slider_q = quad_calc(x_opt >> 3, y_opt >> 3)
+        chkr_x, chkr_y, chkr_q = quad_seek(slider_x, slider_y, slider_q, d)
+        po_quad = _quad_solid(room, layercheck, chkr_x, chkr_y, chkr_q)
+        mi_quad = 0
+        for crawl in range(1, pnts):
+            x_opt = (crawl * x_crawl * pol) + po_x
+            y_opt = (crawl * y_crawl * pol) + po_y
+            slider_x = x_opt >> 4
+            slider_y = y_opt >> 4
+            slider_q = quad_calc(x_opt >> 3, y_opt >> 3)
+            chkr_x, chkr_y, chkr_q = quad_seek(slider_x, slider_y, slider_q, d)
+            if _quad_solid(room, layercheck, chkr_x, chkr_y, chkr_q) != 0:
+                mi_quad = TRUE
+        crawl = pnts
+        x_opt = (crawl * x_crawl * pol) + po_x
+        y_opt = (crawl * y_crawl * pol) + po_y
+        slider_x = x_opt >> 4
+        slider_y = y_opt >> 4
+        slider_q = quad_calc(x_opt >> 3, y_opt >> 3)
+        chkr_x, chkr_y, chkr_q = quad_seek(slider_x, slider_y, slider_q, d)
+        op_quad = _quad_solid(room, layercheck, chkr_x, chkr_y, chkr_q)
+        d = tmp_d
+        if po_quad != 0 and op_quad != 0:
+            return
+        if po_quad != 0 and op_quad == 0:
+            o.direction = _in_dir_small(o.direction + 1)
+            o.is_psfing = TRUE if move_object(o, room, moment=1, recurring=1, others=others) != 0 else FALSE
+            o.direction = tmp_dir
+            return
+        if po_quad == 0 and op_quad != 0:
+            o.direction = _in_dir_small(o.direction - 1)
+            o.is_psfing = TRUE if move_object(o, room, moment=1, recurring=1, others=others) != 0 else FALSE
+            o.direction = tmp_dir
+            return
+        if po_quad == 0 and op_quad == 0 and mi_quad != 0:
+            o.direction = _in_dir_small(o.direction + 1)
+            o.is_psfing = TRUE if move_object(o, room, moment=1, recurring=1, others=others) != 0 else FALSE
+            o.direction = tmp_dir
+            return
 
 
 def check_walk(o: CharType, d: int, room: RoomType, psfing: int = 0) -> int:
@@ -120,6 +242,10 @@ def check_walk(o: CharType, d: int, room: RoomType, psfing: int = 0) -> int:
                     psf_free = FALSE
                 else:
                     tile_free = FALSE
+
+    if tile_free == FALSE and psfing == 0:
+        if o.unique_id == u_lynn:
+            check_psf(o, d, room)
 
     if psfing != 0:
         return psf_free

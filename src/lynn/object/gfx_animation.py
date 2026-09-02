@@ -2,10 +2,21 @@
 
 from __future__ import annotations
 
+import random
+
 from lynn import clock
 from lynn.object.char import CharType
 from lynn.object.dispatch import register_func
 from lynn.object.gfx_frame import LLObject_IncrementFrame
+
+
+def __gen_frame(this: CharType) -> int:
+    """FB object_modification.bas: randomize this anim's rate in [low_frame, high_frame]."""
+    lo = float(this.low_frame)
+    hi = float(this.high_frame)
+    if this.animControl and this.current_anim < len(this.animControl):
+        this.animControl[this.current_anim].rate = (random.random() * (hi - lo)) + lo
+    return 1
 
 
 def __idle_animate(this: CharType) -> int:
@@ -34,6 +45,7 @@ def __active_animate(this: CharType) -> int:
     return 0
 
 
+register_func("__gen_frame", __gen_frame)
 register_func("__idle_animate", __idle_animate)
 register_func("__active_animate", __active_animate)
 register_func("__active_animate_x", __active_animate)

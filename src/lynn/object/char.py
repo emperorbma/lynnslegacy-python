@@ -53,6 +53,9 @@ class CharType:
     animControl: list[LLObject_ImageHeader] = field(default_factory=list)
     funcs: EFuncs = field(default_factory=EFuncs)
     uni_directional: int = 0
+    low_frame: float = 0.0
+    high_frame: float = 0.0
+    is_psfing: int = 0
     no_cam: int = 0
     perimeter_x: int = 0
     perimeter_y: int = 0

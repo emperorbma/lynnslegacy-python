@@ -102,6 +102,7 @@ def hero_walk_step(
     """One FB-style 1px step if walk_hold elapsed. keys_dir is 0..3 or None."""
     if clock.timer > hero.walk_hold:
         hero.walk_hold = 0
+        hero.is_psfing = 0
     if keys_dir is None:
         hero.moving = 0
         return 0
@@ -109,7 +110,7 @@ def hero_walk_step(
         return 0
     hero.direction = keys_dir
     moved = move_object(hero, room, only_looking=0, moment=1, others=others)
-    if moved == 0:
+    if moved == 0 and hero.is_psfing == 0:
         hero.moving = 0
         return 0
     hero.moving = 1

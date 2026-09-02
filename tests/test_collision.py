@@ -1,4 +1,6 @@
-from lynn.hero import ctor_hero, place_hero, try_same_map_room_teleport
+from lynn import clock
+from lynn.events import bind_room, reset_events
+from lynn.hero import DIR_UP, ctor_hero, hero_walk_step, place_hero, try_same_map_room_teleport
 from lynn.macros import quad_calc
 from lynn.macros import testbit as ll_testbit
 from lynn.map.collision import (
@@ -45,6 +47,7 @@ def test_island3_spawn_has_an_open_direction():
 
 def test_move_object_stays_put_when_blocked():
     m, hero, room = _hero_at_entry()
+    hero.unique_id = 0
     blocked = [d for d in range(4) if check_walk(hero, d, room) == 0]
     if not blocked:
         # Carve a fake solid wall in front of dir 0.
@@ -225,3 +228,47 @@ def test_forest_fall_map_tele_sets_to_map_and_entry():
     x0, y0 = hero.coords_x, hero.coords_y
     assert try_same_map_room_teleport(hero, m, 0) == 0
     assert (hero.coords_x, hero.coords_y) == (x0, y0)
+
+
+def test_town_door_slides_into_the_opening():
+    """FB check_psf: 1px off the doorway gap, holding up slides into the tele."""
+    reset_events()
+    m, hero = _forest_fall()
+    room = m.room[4]
+    bind_room(room, [])
+    door = room.teleport[3]
+    assert door.to_map.replace("\\", "/").endswith("inhouse.map")
+    hero.coords_x = door.x
+    hero.coords_y = door.y + 6
+    hero.direction = DIR_UP
+    hit = False
+    for i in range(40):
+        clock.timer = i * 0.02
+        hero_walk_step(hero, room, DIR_UP, [])
+        if check_teleports(hero, room.teleport) == 3:
+            hit = True
+            break
+    assert hit
+    assert hero.coords_x != door.x or hero.coords_y != door.y + 6
+
+
+def test_gen_frame_randomizes_static_rate():
+    import lynn.object  # noqa: F401
+    from lynn.object.dispatch import lookup_func
+    from lynn.object.tick import tick_object
+    from lynn.object.xml_load import spawn_from_stub
+    from types import SimpleNamespace
+
+    assert lookup_func("__gen_frame") is not lookup_func("__noop")
+    stub = SimpleNamespace(
+        id="data/object/static.xml",
+        x_origin=0,
+        y_origin=0,
+        direction=0,
+    )
+    obj = spawn_from_stub(stub, load_images=False)
+    assert obj.low_frame == 0.03
+    assert obj.high_frame == 0.08
+    tick_object(obj)
+    rate = obj.animControl[0].rate
+    assert obj.low_frame <= rate <= obj.high_frame
