@@ -260,6 +260,8 @@ def blit_box(canvas, box: BoxControl) -> None:
     if 0 <= box.current_line < len(box.rows):
         shown = box.rows[box.current_line][: box.opcount + 1]
         graphicalString(canvas, box.font_menu, shown, TEXT_X, TEXT_Y + page_row * LINE_H)
+    if box.state == TEXTBOX_REGULAR:
+        _text_beep(box)
     if box.state == TEXTBOX_CONFIRMATION and box.confBox != 0:
         yes = "> Yes" if box.selected == 0 else "  Yes"
         no = "> No" if box.selected == 1 else "  No"

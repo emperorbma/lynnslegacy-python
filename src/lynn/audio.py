@@ -144,6 +144,8 @@ last_channel: object | None = None
 last_song: str = ""
 music_volume: int = 100
 _looping: dict[int, object] = {}
+_ONESHOT_BASE = 8
+_oneshot_rot = 0
 
 
 class _SilentChannel:
@@ -258,12 +260,12 @@ def init_snd() -> None:
 
 
 def _apply_vol_tweaks() -> None:
-    """FB lazy_macro default volumes (0-100 → 0-1)."""
+    """FB lazy_macro default volumes. Keep sample gain at 1; play_sample sets the channel."""
 
     def _set(idx: int, vol: int) -> None:
         sample = snd[idx] if 0 <= idx < len(snd) else None
-        if sample is not None:
-            sample.set_volume(vol / 100.0)
+        if sample is not None and hasattr(sample, "set_volume"):
+            sample.set_volume(1.0)
 
     for idx in (sound_lynn_attack_1, sound_lynn_attack_2, sound_lynn_attack_3, sound_lynn_attack_4):
         _set(idx, 45)
@@ -356,37 +358,52 @@ def play_sample(s: int, v: int = 0):
         import pygame
 
         sample = snd[s]
-        sample.set_volume(vol)
-        channel = None
-        if loops:
-            # Reserved 0–7 so title.it (mixer.music) and one-shots cannot steal sea/crickets.
-            for i in range(8):
-                ch = pygame.mixer.Channel(i)
-                if not ch.get_busy():
-                    channel = ch
-                    break
-            if channel is None:
-                channel = pygame.mixer.Channel(0)
-            channel.set_volume(vol)
-            channel.play(sample, loops=loops)
-        else:
-            channel = sample.play(loops=0)
-            if channel is not None:
-                channel.set_volume(vol)
-        if channel is not None:
-            last_channel = channel
+        # FB BASS_ChannelSetAttributes on the playback channel only. Setting both
+        # Sound and Channel volume multiplies (dialog 25*25 → ~6% and inaudible).
+        if hasattr(sample, "set_volume"):
+            sample.set_volume(1.0)
+        channel = _mixer_channel(loops != 0)
+        if channel is None:
+            last_channel = _SilentChannel(vol)
             if loops:
-                _looping[int(s)] = channel
-            return channel
+                _looping[int(s)] = last_channel
+            return last_channel
+        channel.set_volume(vol)
+        channel.play(sample, loops=loops)
+        last_channel = channel
+        if loops:
+            _looping[int(s)] = channel
+        return channel
     except Exception:
         last_channel = _SilentChannel(vol)
         if loops:
             _looping[int(s)] = last_channel
         return last_channel
-    last_channel = _SilentChannel(vol)
-    if loops:
-        _looping[int(s)] = last_channel
-    return last_channel
+
+
+def _mixer_channel(looping: bool):
+    """FB BASS_SampleGetChannel: a free mixer voice. Looping stays on reserved 0–7."""
+    import pygame
+
+    global _oneshot_rot
+    n = pygame.mixer.get_num_channels()
+    if looping:
+        for i in range(min(_ONESHOT_BASE, n)):
+            ch = pygame.mixer.Channel(i)
+            if not ch.get_busy():
+                return ch
+        return pygame.mixer.Channel(0) if n else None
+    start = min(_ONESHOT_BASE, n)
+    for i in range(start, n):
+        ch = pygame.mixer.Channel(i)
+        if not ch.get_busy():
+            return ch
+    if n <= start:
+        ch = pygame.mixer.find_channel(True)
+        return ch
+    idx = start + (_oneshot_rot % (n - start))
+    _oneshot_rot += 1
+    return pygame.mixer.Channel(idx)
 
 
 def check_env_sounds() -> None:

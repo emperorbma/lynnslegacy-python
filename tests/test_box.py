@@ -1,3 +1,5 @@
+import pytest
+
 from lynn.gfx.box import parse_text, wrap_lines, _center_line, make_box, tick_box, BoxControl, TEXTBOX_CONFIRMATION
 from lynn import clock
 from lynn.constants import TRUE
@@ -41,6 +43,19 @@ def test_center_line_pads_left():
     assert centered.strip() == line
     assert centered.startswith(" ")
     assert len(centered) < 38
+
+
+def test_play_sample_uses_channel_volume_only():
+    """FB BASS_ChannelSetAttributes: dialog 25 is 25%, not Sound*Channel."""
+    from lynn.audio import play_sample, sound_texttemp
+    from lynn import audio
+
+    play_sample(sound_texttemp, 25)
+    assert audio.last_play == (sound_texttemp, 25)
+    ch = audio.last_channel
+    assert ch is not None
+    if hasattr(ch, "get_volume"):
+        assert ch.get_volume() == pytest.approx(0.25)
 
 
 def test_typewriter_plays_texttemp():
