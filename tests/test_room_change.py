@@ -199,6 +199,34 @@ def test_town_npcs_park_offscreen_until_grult():
     assert (richard.coords_x, richard.coords_y) == (376, 640)
 
 
+def test_towntrig_touch_places_npcs_at_the_pond():
+    """Walking onto towntrig runs the intro seq that warps the parked NPCs in."""
+    from lynn.gfx.box import BoxControl
+    from lynn.hero import ctor_hero_only
+    from lynn.sequence import play_sequence, try_touch_sequence
+
+    demo = _bare_demo()
+    set_up_room_enemies(demo, 4, load_images=False)
+    objs = demo.objects_by_room[4]
+    tick_objects(objs)
+    trig = _town_obj(objs, "towntrig.xml")
+    assert trig is not None
+    assert trig.touch_sequence != 0
+    hero = demo.hero
+    hero.coords_x = trig.coords_x
+    hero.coords_y = trig.coords_y
+    only = ctor_hero_only()
+    seq = try_touch_sequence(hero, objs)
+    assert seq is not None
+    seq.current_command = 1
+    play_sequence(seq, BoxControl(), only)
+    npc = _town_obj(objs, "npc1.xml")
+    richard = _town_obj(objs, "richard.xml")
+    assert npc is not None and richard is not None
+    assert (npc.coords_x, npc.coords_y) == (320, 600)
+    assert (richard.coords_x, richard.coords_y) == (352, 584)
+
+
 def test_town_npcs_walk_after_grult_happen():
     demo = _bare_demo()
     now[199] = TRUE

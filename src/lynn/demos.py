@@ -482,7 +482,9 @@ def tick_map_demo(demo: MapDemo, room_i: int) -> None:
 
             lookup_func("__do_vol_fade")(demo.hero)
         demo.do_hud = events.do_hud
-        from lynn.audio import tick_music
+        from lynn.audio import check_env_sounds, tick_music
+
+        check_env_sounds()
 
         tick_music()
 

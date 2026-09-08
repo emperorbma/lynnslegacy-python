@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from lynn.paths import project_root
+from lynn.paths import project_root, resolve_data_path
 
 sound_null = 0
 sound_bassdrop = 1
@@ -246,10 +246,9 @@ def init_snd() -> None:
         return
     if pygame.mixer.get_init() is None:
         return
-    folder = project_root() / "data" / "sounds"
     for idx, filename, _loop in _SAMPLE_FILES:
-        path = folder / filename
-        if not path.is_file():
+        path = resolve_data_path(f"data/sounds/{filename}")
+        if path is None:
             continue
         try:
             snd[idx] = pygame.mixer.Sound(str(path))
@@ -390,6 +389,31 @@ def play_sample(s: int, v: int = 0):
     return last_channel
 
 
+def check_env_sounds() -> None:
+    """FB check_env_sounds: loop greystatic while overlapping a live static tile."""
+    from lynn.constants import u_static
+    import lynn.events as events
+    from lynn.map.collision import check_bounds
+
+    near = False
+    hero = events.hero
+    if hero is not None:
+        origin = (hero.coords_x, hero.coords_y, hero.perimeter_x, hero.perimeter_y)
+        for obj in events.current_others or []:
+            if obj.unique_id != u_static or obj.dead != 0:
+                continue
+            target = (obj.coords_x, obj.coords_y, obj.perimeter_x, obj.perimeter_y)
+            if check_bounds(origin, target) == 0:
+                near = True
+                break
+    if near:
+        play_sample(sound_greystatic, 50)
+        return
+    ch = _looping.get(sound_greystatic)
+    if ch is not None:
+        stop_channel(ch)
+
+
 def sounds_dir() -> Path:
     return project_root() / "data" / "sounds"
 
@@ -435,10 +459,8 @@ def LLMusic_Start(songName: str) -> None:
         LLMusic_Stop()
         last_song = ""
         return
-    path = Path(name)
-    if not path.is_file():
-        path = project_root() / name
-    if not path.is_file():
+    path = resolve_data_path(name)
+    if path is None:
         return
     if not audio_output_enabled():
         return

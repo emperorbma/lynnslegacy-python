@@ -108,6 +108,41 @@ def test_play_song_uses_chap_index():
     assert audio.last_song.replace("\\", "/").endswith("title.it")
 
 
+def test_sound_and_music_paths_ignore_case():
+    from lynn.paths import chdir_project_root, resolve_data_path
+
+    chdir_project_root()
+    assert resolve_data_path("data/sounds/Mace0.ogg") is not None
+    assert resolve_data_path("data/music/Title.it") is not None
+
+
+def test_static_unique_id_and_env_sound():
+    from lynn import audio
+    from lynn.audio import check_env_sounds, looping_sound_count, sound_greystatic
+    from lynn.constants import u_static
+    from lynn.events import bind_hero, bind_room, reset_events
+    from lynn.object.char import CharType
+    from lynn.object.xml_load import LLSystem_ObjectFromXML
+
+    reset_events()
+    obj = CharType()
+    obj.id = "data/object/static.xml"
+    LLSystem_ObjectFromXML(obj, load_images=False)
+    assert obj.unique_id == u_static
+    obj.coords_x = 10
+    obj.coords_y = 10
+    obj.perimeter_x = 16
+    obj.perimeter_y = 16
+    hero = ctor_hero(load_images=False)
+    hero.coords_x = 10
+    hero.coords_y = 10
+    bind_hero(hero)
+    bind_room(None, [obj])
+    check_env_sounds()
+    assert audio.last_play == (sound_greystatic, 50)
+    assert looping_sound_count() >= 1
+
+
 def test_sound_enum_and_name_lookup():
     assert sound_null == 0
     assert sound_from_name("sound_mace_0") == sound_mace_0

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import lynn.events as events
-from lynn.constants import FALSE, TRUE, conf_Box, u_healthguy
+from lynn.constants import FALSE, TRUE, conf_Box, u_fkeydoor, u_healthguy, u_keydoor
 from lynn.gfx.box import BoxControl, make_box, tick_box
 from lynn.map.collision import check_bounds
 from lynn.map.types import SequenceType
@@ -79,14 +79,50 @@ def try_action_sequence(hero: CharType, hero_only, room_objs: list[CharType]) ->
             from lynn.object.seq_funcs import __healthguy_branch
 
             __healthguy_branch(obj)
-        sel = obj.sel_seq if 0 <= obj.sel_seq < len(obj.seq) else 0
-        seq = obj.seq[sel]
-        seq.current_command = 0
-        for cmd in seq.Command:
-            for ent in cmd.ent:
-                ent.ent_func = 0
-        bind_sequence_ents(seq, hero, room_objs)
-        return seq
+        started = _start_obj_seq(obj, hero, room_objs)
+        if started is not None:
+            return started
+    return None
+
+
+def _start_obj_seq(obj: CharType, hero: CharType, room_objs: list[CharType]) -> SequenceType | None:
+    if not obj.seq:
+        return None
+    sel = obj.sel_seq if 0 <= obj.sel_seq < len(obj.seq) else 0
+    seq = obj.seq[sel]
+    seq.current_command = 0
+    for cmd in seq.Command:
+        for ent in cmd.ent:
+            ent.ent_func = 0
+    bind_sequence_ents(seq, hero, room_objs)
+    return seq
+
+
+def try_touch_sequence(hero: CharType, room_objs: list[CharType]) -> SequenceType | None:
+    """FB LLObject_TouchSequence: fire on overlap, no action key."""
+    if hero.switch_room != -1:
+        return None
+    for obj in room_objs:
+        if getattr(obj, "touch_sequence", 0) == 0:
+            continue
+        if obj.dead != 0 or obj.seq_release != 0:
+            continue
+        if LLObject_isTouching(hero, obj) != 0:
+            continue
+        if obj.spawn_cond != 0 and obj.spawn_info is not None and obj.spawn_info.active_n:
+            from lynn.object.tick import spawn_pairs_met
+
+            if spawn_pairs_met(obj.spawn_info.active_spawn) == 0:
+                continue
+        if obj.unique_id == u_keydoor and getattr(hero, "key", 0) == 0:
+            continue
+        if obj.unique_id == u_fkeydoor:
+            only = events.hero_only
+            if only is None or getattr(only, "b_key", 0) == 0:
+                continue
+        started = _start_obj_seq(obj, hero, room_objs)
+        if started is not None:
+            return started
     return None
 
 

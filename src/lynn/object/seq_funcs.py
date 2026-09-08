@@ -21,6 +21,12 @@ def __do_nothing(this: CharType) -> int:
     return 1
 
 
+def __release_seq(this: CharType) -> int:
+    """FB object_modification.bas: lock this object's sequence after it fires."""
+    this.seq_release = 1
+    return 1
+
+
 def __end(this: CharType) -> int:
     events.request_quit = TRUE
     return 0

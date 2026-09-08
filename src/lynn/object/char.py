@@ -101,6 +101,7 @@ class CharType:
     # XML scratch
     frame_sound: int = 0
     action_sequence: int = 0
+    touch_sequence: int = 0
     seq_here: int = 0
     seq: list = field(default_factory=list)
     sel_seq: int = 0

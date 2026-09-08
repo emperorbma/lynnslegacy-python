@@ -31,7 +31,7 @@ from lynn.object.combat import (
 from lynn.object.combat_funcs import __flashy
 import lynn.events as events
 from lynn.object.tick import LLObject_CheckSpawn
-from lynn.sequence import play_sequence, try_action_sequence
+from lynn.sequence import play_sequence, try_action_sequence, try_touch_sequence
 from lynn.hero import (
     DIR_DOWN,
     DIR_LEFT,
@@ -353,6 +353,8 @@ def _run_map(
             and demo.hero_only is not None
         ):
             started = try_action_sequence(demo.hero, demo.hero_only, others)
+            if started is None:
+                started = try_touch_sequence(demo.hero, others)
             if started is not None:
                 demo.seq = started
                 demo.do_hud = 0
