@@ -14,6 +14,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from lynn.gfx.palette import LLPalette
+from lynn.paths import resolve_data_path
 
 
 @dataclass
@@ -66,8 +67,8 @@ def LLSystem_ImageLoad(
     rc: int | None = None,
 ) -> LLSystem_ImageHeader:
     header = LLSystem_ImageHeader(filename=filename.replace("\\", "/"))
-    path = Path(filename)
-    if not path.is_file():
+    path = resolve_data_path(filename)
+    if path is None:
         return header
 
     data = path.read_bytes()
@@ -103,8 +104,8 @@ def LLSystem_ImageLoad(
             )
         )
 
-    col_path = Path(_kill_file_ext(filename) + ".col")
-    if col_path.is_file():
+    col_path = resolve_data_path(_kill_file_ext(str(path)) + ".col")
+    if col_path is not None:
         _load_col(header, col_path.read_bytes())
 
     return header

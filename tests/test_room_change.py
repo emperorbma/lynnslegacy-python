@@ -209,6 +209,18 @@ def test_town_npcs_walk_after_grult_happen():
     assert (npc.coords_x, npc.coords_y) == (320, 1000)
 
 
+def test_wait_spawn_recaches_when_real_frames_replace_null():
+    from lynn.demos import _obj_anims_stale
+    from lynn.gfx.image import LLSystem_ImageHeader
+    from lynn.object.char import CharType
+
+    obj = CharType()
+    obj.anim = [LLSystem_ImageHeader(frames=8)]
+    assert _obj_anims_stale(None, obj)
+    assert _obj_anims_stale([[]], obj)
+    assert not _obj_anims_stale([[0] * 8], obj)
+
+
 def test_wait_spawn_holds_until_happen():
     demo = _bare_demo("moenia")
     set_up_room_enemies(demo, 22, load_images=False)

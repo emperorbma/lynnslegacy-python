@@ -34,6 +34,18 @@ def test_hud_pip_frame_damaged():
     assert [hud_pip_frame(3, 6, p) for p in range(8)] == [0, 0, 0, 1, 1, 1, 2, 2]
 
 
+def test_imageload_finds_fb_mixed_case_hud():
+    from lynn.gfx.image import LLSystem_ImageLoad
+    from lynn.paths import chdir_project_root
+
+    chdir_project_root()
+    # FB/Windows: HUD_health.spr. Data tree (and LOVE): hud_health.spr.
+    health = LLSystem_ImageLoad("data/pictures/hud/HUD_health.spr")
+    items = LLSystem_ImageLoad("data/pictures/hud/HUD_items.spr")
+    assert health.frames == 3
+    assert items.frames >= 1
+
+
 def test_ctor_hero_only_is_empty_new_game():
     only = ctor_hero_only()
     assert only.has_weapon == -1
@@ -47,7 +59,7 @@ def test_ctor_hero_only_is_empty_new_game():
 
 
 @pytest.mark.skipif(
-    not (project_root() / "data/pictures/hud/HUD_health.spr").is_file(),
+    not (project_root() / "data/pictures/hud/hud_health.spr").is_file(),
     reason="no hud sprites",
 )
 def test_blit_hud_new_game_layout(pygame_dummy):

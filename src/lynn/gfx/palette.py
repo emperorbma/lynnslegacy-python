@@ -10,6 +10,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from lynn.paths import resolve_data_path
+
 
 PALETTE_SIZE = 256
 PALETTE_BYTES = PALETTE_SIZE * 3
@@ -36,11 +38,11 @@ class LLPalette:
 
 def load_pal(filename: str | Path, bypass_errors: int = 0) -> LLPalette:
     # Function load_pal
-    path = Path(filename)
+    path = resolve_data_path(filename)
     pal = LLPalette()
-    if not path.is_file():
+    if path is None:
         if bypass_errors == 0:
-            raise FileNotFoundError(path)
+            raise FileNotFoundError(filename)
         return pal
 
     raw = path.read_bytes()

@@ -9,8 +9,8 @@ from lynn.gfx.palette import LLPalette
 from lynn.hero import MainCharType
 from lynn.object.char import CharType
 
-HUD_HEALTH = "data/pictures/hud/HUD_health.spr"
-HUD_ITEMS = "data/pictures/hud/HUD_items.spr"
+HUD_HEALTH = "data/pictures/hud/hud_health.spr"
+HUD_ITEMS = "data/pictures/hud/hud_items.spr"
 HUD_CASH = "data/pictures/hud/cash.spr"
 HUD_CASHNUMBERS = "data/pictures/hud/cashnumbers.spr"
 HUD_STATUS = (

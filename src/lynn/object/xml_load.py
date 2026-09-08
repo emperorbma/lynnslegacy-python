@@ -9,13 +9,14 @@ from lynn.audio import sound_enemyhit, sound_enemykill, sound_from_name
 from lynn.gfx.image import LLSystem_ImageHeader, LLSystem_ImageLoad
 from lynn.object.char import CharType, LLObject_FrameControl, LLObject_ImageHeader
 from lynn.object.dispatch import BLOCK_MACROS, lookup_func
-from lynn.paths import project_root
+from lynn.paths import project_root, resolve_data_path
 
 
 def _resolve(rel: str) -> Path:
+    found = resolve_data_path(rel)
+    if found is not None:
+        return found
     p = Path(rel.replace("\\", "/"))
-    if p.is_file():
-        return p
     return project_root() / p
 
 _IMAGE_CACHE: dict[str, LLSystem_ImageHeader] = {}

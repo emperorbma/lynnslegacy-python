@@ -20,6 +20,37 @@ def data_file(*parts: str) -> Path:
     return data_root() / rel
 
 
+def resolve_data_path(filename: str | Path | None) -> Path | None:
+    """Find a data file the way Windows and the LÖVE port do.
+
+    Maps and FB strings keep mixed-case names (`HUD_health.spr`, `House.spr`);
+    the shipped tree is lowercase. LOVE loads with `fileName:lower()`.
+    """
+    if filename is None:
+        return None
+    raw = str(filename).replace("\\", "/").strip()
+    if not raw:
+        return None
+    names = [raw]
+    lowered = raw.lower()
+    if lowered != raw:
+        names.append(lowered)
+    seen: set[str] = set()
+    for name in names:
+        rel = Path(name)
+        candidates = [rel]
+        if not rel.is_absolute():
+            candidates.append(project_root() / name)
+        for cand in candidates:
+            key = str(cand)
+            if key in seen:
+                continue
+            seen.add(key)
+            if cand.is_file():
+                return cand
+    return None
+
+
 def chdir_project_root() -> Path:
     root = project_root()
     os.chdir(root)
@@ -41,6 +72,7 @@ def resolve_map_path(spec: str | None = None) -> Path:
         project_root() / raw,
         data_root() / "map" / name,
         data_root() / "map" / Path(raw).name,
+        data_root() / "map" / name.lower(),
         Path(raw).expanduser().resolve(),
     ]
     seen: set[Path] = set()

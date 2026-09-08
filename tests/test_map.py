@@ -34,6 +34,19 @@ def test_selected_map_parses(map_path):
     assert len(m.room[0].layout) == 3
 
 
+def test_mixed_case_tilesets_load_on_linux():
+    """Maps store FB names (House.spr, Moenia.spr); the data tree is lowercase."""
+    from lynn.gfx.image import LLSystem_ImageLoad
+    from lynn.paths import chdir_project_root
+
+    chdir_project_root()
+    house = load_mapV(str(resolve_map_path("inhouse")), load_tileset=True)
+    assert house.tileset is not None
+    assert house.tileset.frames == 256
+    moenia = LLSystem_ImageLoad("data/pictures/tiles/Moenia.spr")
+    assert moenia.frames == 256
+
+
 def test_island3_header_and_spawn():
     path = resolve_map_path("island3")
     if not path.is_file():

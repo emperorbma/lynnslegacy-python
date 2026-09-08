@@ -220,6 +220,13 @@ def _cache_obj_anims(demo: MapDemo, obj, load_images: bool = True) -> None:
     ]
 
 
+def _obj_anims_stale(anims, obj) -> bool:
+    """Wait-spawn copies null.xml then the real object; same anim count, new frames."""
+    if anims is None or len(anims) != len(obj.anim):
+        return True
+    return any(len(anims[i]) != obj.anim[i].frames for i in range(len(obj.anim)))
+
+
 def del_room_enemies(demo: MapDemo, room_i: int) -> None:
     """FB del_room_enemies: drop live objects for this room."""
     if 0 <= room_i < len(demo.objects_by_room):
@@ -567,7 +574,7 @@ def _blit_y_sorted(canvas, demo: MapDemo, room_i: int, cam_x: int, cam_y: int, s
             anims = demo.hero_surfs
         else:
             anims = demo.obj_anim_surfs.get(obj.id)
-            if anims is None or len(anims) != len(obj.anim):
+            if _obj_anims_stale(anims, obj):
                 _cache_obj_anims(demo, obj)
                 anims = demo.obj_anim_surfs.get(obj.id)
         if not anims:
