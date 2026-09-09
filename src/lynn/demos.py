@@ -133,6 +133,8 @@ def load_map_demo(
     bind_hero(hero)
     events.map_filename = Path(path).name
     events.hero_room = demo.hero_room
+    if 0 <= demo.hero_room < len(game_map.room):
+        events.dark = game_map.room[demo.hero_room].dark
     events.do_hud = TRUE
     demo.hud = load_hud(palette)
     demo.do_hud = TRUE
@@ -317,6 +319,8 @@ def enter_map(
         demo.hero.frame = 0
         bind_hero(demo.hero)
         _apply_enter_visibility(demo.hero, demo.hero_only)
+        if 0 <= demo.hero_room < len(game_map.room):
+            events.dark = game_map.room[demo.hero_room].dark
     events.do_chap = 0
     events.fade_black = 0
     events.map_filename = Path(path).name
@@ -461,6 +465,7 @@ def try_hero_teleport(demo: MapDemo) -> None:
         demo.hero_room = dest_room
         events.hero_room = dest_room
         set_up_room_enemies(demo, dest_room, load_images=load_images)
+        events.dark = demo.game_map.room[dest_room].dark
     hero.coords_x = tele.dx
     hero.coords_y = tele.dy
     hero.switch_room = -1
@@ -584,7 +589,31 @@ def _blit_y_sorted(canvas, demo: MapDemo, room_i: int, cam_x: int, cam_y: int, s
         anim_i = obj.current_anim
         if anim_i < 0 or anim_i >= len(anims) or not anims[anim_i]:
             continue
+        proj = getattr(obj, "projectile", None)
+        proj_i = int(getattr(obj, "proj_anim", 0) or 0)
+        proj_on = proj is not None and (
+            proj.active != 0 or getattr(obj, "grult_proj_trig", 0) != 0
+        )
+        if (
+            proj_on
+            and (proj is None or proj.overChar == 0)
+            and 0 <= proj_i < len(anims)
+            and anims[proj_i]
+        ):
+            from lynn.object.projectile import blit_enemy_proj
+
+            blit_enemy_proj(canvas, obj, cam_x, cam_y, anims[proj_i])
         blit_object(canvas, obj, cam_x, cam_y, anims[anim_i])
+        if (
+            proj_on
+            and proj is not None
+            and proj.overChar != 0
+            and 0 <= proj_i < len(anims)
+            and anims[proj_i]
+        ):
+            from lynn.object.projectile import blit_enemy_proj
+
+            blit_enemy_proj(canvas, obj, cam_x, cam_y, anims[proj_i])
         expl_i = int(getattr(obj, "expl_anim", 0) or 0)
         if getattr(obj, "cur_expl", 0) > 0 and 0 <= expl_i < len(anims) and anims[expl_i]:
             from lynn.gfx.blit import blit_explosions

@@ -23,6 +23,7 @@ class MainCharType:
     hasItem: list[int] = field(default_factory=lambda: [0] * 6)
     has_weapon: int = -1
     selected_item: int = 0
+    powder: int = 0
     weapon: int = -1
     hasCostume: list[int] = field(default_factory=lambda: [0] * 9)
     isWearing: int = 0
@@ -63,6 +64,7 @@ def ctor_hero_only() -> MainCharType:
     only.has_weapon = -1
     only.hasItem = [0] * 6
     only.selected_item = 0
+    only.powder = 0
     only.hasCostume = [0] * 9
     only.hasCostume[0] = TRUE
     only.isWearing = 0
@@ -148,3 +150,33 @@ def try_same_map_room_teleport(hero: CharType, game_map: MapType, room_i: int) -
     hero.coords_y = tele.dy
     hero.switch_room = -1
     return dest_room
+
+
+def item_l_key(only: MainCharType) -> None:
+    """FB item_l_key_in_sub: cycle selected_item down, skip empty slots."""
+    last_selected = only.selected_item
+    while True:
+        only.selected_item -= 1
+        if only.selected_item == -1:
+            only.selected_item = 6
+        if only.selected_item == last_selected:
+            break
+        if only.selected_item == 0:
+            continue
+        if only.hasItem[only.selected_item - 1]:
+            break
+
+
+def item_r_key(only: MainCharType) -> None:
+    """FB item_r_key_in_sub: cycle selected_item up, skip empty slots."""
+    last_selected = only.selected_item
+    while True:
+        only.selected_item += 1
+        if only.selected_item == 7:
+            only.selected_item = 0
+        if only.selected_item == last_selected:
+            break
+        if only.selected_item == 0:
+            continue
+        if only.hasItem[only.selected_item - 1]:
+            break

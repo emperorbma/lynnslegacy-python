@@ -2,6 +2,8 @@ from pathlib import Path
 
 import pytest
 
+import lynn.object  # noqa: F401
+import lynn.object.move_ai  # noqa: F401
 from lynn.object.char import CharType
 from lynn.object.dispatch import BLOCK_MACROS, lookup_func
 from lynn.object.xml_load import LLSystem_ObjectFromXML
@@ -41,6 +43,30 @@ def test_bat_proc_ids_and_dead_drop_block():
     assert obj.funcs.func_count[2] == len(BLOCK_MACROS["dead_drop_block"])
     assert obj.funcs.func_count[3] == len(BLOCK_MACROS["fire_block"])
     assert obj.animControl[0].dir_frames == 4
+    assert lookup_func("__bat_path") is not lookup_func("__noop")
+    assert lookup_func("__cond_jump") is not lookup_func("__noop")
+    assert obj.funcs.func[0][4] is lookup_func("__bat_path")
+
+
+def test_mole_and_poltergeist_load_projectiles():
+    from lynn.constants import PROJECTILE_BEAM, PROJECTILE_ORB
+
+    mole = _load("mole.xml")
+    assert mole.proj_style == PROJECTILE_BEAM
+    assert mole.projectile is not None
+    assert mole.projectile.projectiles == 2
+    assert mole.projectile.length == 20
+    assert mole.projectile.strength == 2
+    assert lookup_func("__trigger_projectile") is not lookup_func("__noop")
+    assert lookup_func("__directional_animate_x") is not lookup_func("__noop")
+    assert lookup_func("__up_face") is not lookup_func("__noop")
+
+    ghost = _load("poltergeist.xml")
+    assert ghost.proj_style == PROJECTILE_ORB
+    assert ghost.froggy == 1
+    assert ghost.jump_state == 1
+    assert lookup_func("__make_align") is not lookup_func("__noop")
+    assert lookup_func("__timed_jump_2") is not lookup_func("__noop")
 
 
 @pytest.mark.skipif(not (OBJ / "lynn.xml").is_file(), reason="lynn.xml missing")

@@ -27,6 +27,7 @@ from lynn.object.combat import (
     hero_death_tick,
     hero_hurt_tick,
     start_hero_attack,
+    start_item_use,
 )
 from lynn.object.combat_funcs import __flashy
 import lynn.events as events
@@ -38,6 +39,8 @@ from lynn.hero import (
     DIR_RIGHT,
     DIR_UP,
     hero_walk_step,
+    item_l_key,
+    item_r_key,
     update_cam,
 )
 from lynn.controls import (
@@ -318,12 +321,25 @@ def _run_map(
                 elif event.key in pygame_keys_for(chart.atkkey):
                     if demo.hero is not None and demo.hero_only is not None:
                         start_hero_attack(demo.hero)
+                elif event.key in pygame_keys_for(chart.itmkey):
+                    if demo.hero is not None and demo.hero_only is not None and not seq_busy:
+                        start_item_use(demo.hero)
+                elif event.key in pygame_keys_for(chart.item_up) or event.key == pygame.K_COMMA:
+                    if demo.hero_only is not None and demo.menu_open == 0:
+                        item_l_key(demo.hero_only)
+                elif event.key in pygame_keys_for(chart.item_down) or event.key == pygame.K_PERIOD:
+                    if demo.hero_only is not None and demo.menu_open == 0:
+                        item_r_key(demo.hero_only)
                 elif not seq_busy and event.key in (pygame.K_LEFTBRACKET, pygame.K_PAGEUP):
                     room_i = (room_i - 1) % demo.game_map.rooms
                     cam_x, cam_y = _cam_for_room(demo.game_map, room_i)
                 elif not seq_busy and event.key in (pygame.K_RIGHTBRACKET, pygame.K_PAGEDOWN):
                     room_i = (room_i + 1) % demo.game_map.rooms
                     cam_x, cam_y = _cam_for_room(demo.game_map, room_i)
+            elif event.type == pygame.KEYUP:
+                if event.key in pygame_keys_for(chart.itmkey):
+                    if demo.hero_only is not None:
+                        demo.hero_only.powder = 0
         if demo.hero_only is not None:
             demo.hero_only.action = action_pulse
         if demo.menu_open != 0 and demo.menu is not None and demo.hero_only is not None:
@@ -345,6 +361,9 @@ def _run_map(
             or (demo.hero is not None and demo.hero.menu_sel != 0)
             or (demo.hero is not None and demo.hero.dead != 0)
         )
+        if demo.hero_only is not None:
+            if demo.hero_only.selected_item == 0 and demo.hero_only.hasItem[0]:
+                demo.hero_only.selected_item = 1
         if (
             demo.seq is None
             and demo.menu_open == 0
@@ -353,8 +372,6 @@ def _run_map(
             and demo.hero_only is not None
         ):
             started = try_action_sequence(demo.hero, demo.hero_only, others)
-            if started is None:
-                started = try_touch_sequence(demo.hero, others)
             if started is not None:
                 demo.seq = started
                 demo.do_hud = 0
@@ -375,6 +392,7 @@ def _run_map(
                 try_hero_teleport(demo)
                 room_i = demo.hero_room
                 room = demo.game_map.room[room_i]
+                others = demo.objects_by_room[room_i] if room_i < len(demo.objects_by_room) else []
                 cam_x, cam_y = update_cam(demo.hero, room)
             else:
                 if scancode_held(keys, chart.lkey):
@@ -386,6 +404,23 @@ def _run_map(
                 if scancode_held(keys, chart.dkey):
                     cam_y += PAN_SPEED
                 cam_x, cam_y = _clamp_cam(room, cam_x, cam_y)
+        if (
+            demo.seq is None
+            and demo.menu_open == 0
+            and not locked
+            and demo.hero is not None
+            and demo.hero_only is not None
+        ):
+            started = try_touch_sequence(demo.hero, others)
+            if started is not None:
+                demo.seq = started
+                demo.do_hud = 0
+                events.do_hud = 0
+        if demo.seq is None and events.pending_seq is not None:
+            demo.seq = events.pending_seq
+            events.pending_seq = None
+            demo.do_hud = 0
+            events.do_hud = 0
         others = demo.objects_by_room[room_i] if room_i < len(demo.objects_by_room) else []
         if debug_caption:
             shown = _map_caption(

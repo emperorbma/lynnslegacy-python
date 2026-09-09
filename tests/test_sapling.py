@@ -14,6 +14,7 @@ from lynn.sequence import (
     is_facing,
     play_sequence,
     try_action_sequence,
+    try_touch_sequence,
 )
 
 
@@ -113,6 +114,33 @@ def test_y_sort_puts_south_sprite_on_top():
     south.coords_y = 247
     south.perimeter_y = 16
     assert _sort_y(north) < _sort_y(south)
+
+
+def test_r1_bushes_south_of_sapling_have_touch_dialogue():
+    m, hero, _only, objs, _sapling = _room1_sapling()
+    bushes = [o for o in objs if o.id.endswith("bush.xml") and o.coords_y == 496]
+    assert len(bushes) == 3
+    bush = bushes[1]
+    assert bush.coords_x == 160
+    assert bush.touch_sequence != 0
+    assert bush.seq
+    text = bush.seq[0].Command[0].ent[0].text
+    assert "thick bushes" in text
+    assert "break" in text
+
+
+def test_touch_sequence_fires_standing_against_the_bush():
+    _m, hero, _only, objs, _sapling = _room1_sapling()
+    bushes = [o for o in objs if o.id.endswith("bush.xml") and o.coords_y == 496]
+    bush = next(o for o in bushes if o.coords_x == 160)
+    hero.perimeter_x = 16
+    hero.perimeter_y = 16
+    hero.coords_x = 160
+    hero.coords_y = 480
+    assert LLObject_isTouching(hero, bush) == 0
+    seq = try_touch_sequence(hero, objs)
+    assert seq is not None
+    assert "thick bushes" in seq.Command[0].ent[0].text
 
 
 def test_fade_to_white_reaches_full():

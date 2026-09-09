@@ -20,6 +20,13 @@ def __return_reset(this: CharType) -> int:
     return 0
 
 
+def __return_jump(this: CharType) -> int:
+    """FB object_time.bas: switch to jump_state without advancing."""
+    this.funcs.current_func[this.funcs.active_state] = 0
+    this.funcs.active_state = this.jump_state
+    return 0
+
+
 def __return_jump_npc(this: CharType) -> int:
     this.funcs.current_func[this.funcs.active_state] = 0
     this.funcs.active_state = this.jump_state
@@ -100,12 +107,30 @@ def __timed_jump(this: CharType) -> int:
     return -1
 
 
+def __timed_jump_2(this: CharType) -> int:
+    """FB object_time.bas: wait jump_time, rewind two funcs each tick."""
+    if this.jump_timer == 0:
+        this.jump_timer = float(this.jump_time) + clock.timer
+    if clock.timer >= this.jump_timer:
+        this.jump_timer = 0
+        return 1
+    return -2
+
+
+def __cond_jump(this: CharType) -> int:
+    """FB object_time.bas: 50% rewind one func, else advance."""
+    import random
+
+    return -1 if int(random.random() * 2) < 1 else 1
+
+
 def __jump_2_back(this: CharType) -> int:
     return -1
 
 
 register_func("__return_idle", __return_idle)
 register_func("__return_reset", __return_reset)
+register_func("__return_jump", __return_jump)
 register_func("__return_jump_npc", __return_jump_npc)
 register_func("__return_reset_npc", __return_reset_npc)
 register_func("__poll_action", __poll_action)
@@ -115,4 +140,6 @@ register_func("__q_second_pause", __q_second_pause)
 register_func("__counted_jump", __counted_jump)
 register_func("__counted_jump_2", __counted_jump_2)
 register_func("__timed_jump", __timed_jump)
+register_func("__timed_jump_2", __timed_jump_2)
+register_func("__cond_jump", __cond_jump)
 register_func("__jump_2_back", __jump_2_back)

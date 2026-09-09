@@ -191,6 +191,46 @@ def __give_weapon(this: CharType) -> int:
     return 1
 
 
+def __give_item(this: CharType) -> int:
+    """FB object_etc.bas: hasItem[chap] = TRUE."""
+    only = events.hero_only
+    if only is None:
+        return 1
+    chap = int(this.chap)
+    if 0 <= chap < len(only.hasItem):
+        only.hasItem[chap] = TRUE
+    return 1
+
+
+def __play_seq(this: CharType) -> int:
+    """FB object_etc.bas: llg(seq) = this.seq + sel_seq."""
+    from lynn.sequence import bind_sequence_ents
+
+    if not this.seq:
+        return 1
+    sel = this.sel_seq if 0 <= this.sel_seq < len(this.seq) else 0
+    seq = this.seq[sel]
+    seq.current_command = 0
+    for cmd in seq.Command:
+        for ent in cmd.ent:
+            ent.ent_func = 0
+    bind_sequence_ents(seq, events.hero, events.current_others or [])
+    events.pending_seq = seq
+    return 1
+
+
+def __big_color_up(this: CharType) -> int:
+    """FB object--gfx_palette.bas: gtorch lights the room (dark=1)."""
+    events.dark = 1
+    return 1
+
+
+def __big_color_down(this: CharType) -> int:
+    """FB object--gfx_palette.bas: gtorch burns out (dark=4)."""
+    events.dark = 4
+    return 1
+
+
 def __set_happen(this: CharType) -> int:
     chap = int(this.chap)
     if 0 <= chap < len(events.now):
@@ -253,6 +293,12 @@ def _make_active_anim(n: int):
 
 
 def __dir_up(this: CharType) -> int:
+    this.direction = 0
+    return 1
+
+
+def __up_face(this: CharType) -> int:
+    """FB object_modification.bas: face up."""
     this.direction = 0
     return 1
 

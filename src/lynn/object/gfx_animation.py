@@ -157,9 +157,20 @@ def __explode_lynn(this: CharType) -> int:
     return 0
 
 
+def __directional_animate_x(this: CharType) -> int:
+    """FB object--gfx_animation.bas: play directional anim, reset frame on edge."""
+    if LLObject_IncrementFrame(this) != 0:
+        this.frame = 0
+        rate = this.animControl[this.current_anim].rate if this.animControl else 0.08
+        this.frame_hold = clock.timer + rate
+        return 1
+    return 0
+
+
 register_func("__gen_frame", __gen_frame)
 register_func("__idle_animate", __idle_animate)
 register_func("__active_animate", __active_animate)
 register_func("__active_animate_x", __active_animate)
 register_func("__explode", __explode)
 register_func("__explode_lynn", __explode_lynn)
+register_func("__directional_animate_x", __directional_animate_x)

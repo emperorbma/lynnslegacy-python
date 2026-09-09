@@ -23,6 +23,8 @@ def tick_object(this: CharType) -> None:
         return
     result = block[idx](this)
     f.current_func[state] = f.current_func[state] + result
+    if f.current_func[state] < 0:
+        f.current_func[state] = 0
 
 
 def spawn_pairs_met(pairs) -> int:
@@ -80,7 +82,12 @@ def LLObject_CheckSpawn(obj: CharType) -> None:
 
 
 def tick_objects(objs: list[CharType]) -> None:
+    from lynn.audio import play_sample
+    from lynn.constants import u_grult
+    from lynn.object.boss import LLObject_CheckGTorchLit, tick_grult
+    from lynn.object.combat import LLObject_ClearDamage, LLObject_ShiftState
     from lynn.object.control import in_proximity, out_proximity
+    from lynn.object.dispatch import lookup_func
 
     for obj in objs:
         if obj.spawn_cond != 0:
@@ -94,18 +101,30 @@ def tick_objects(objs: list[CharType]) -> None:
             else:
                 obj.funcs.active_state = out_proximity(obj)
         tick_object(obj)
+        proj = obj.projectile
+        if proj is not None and proj.active != 0:
+            lookup_func("__do_proj")(obj)
         if obj.vol_fade_trig != 0:
-            from lynn.object.dispatch import lookup_func
-
             lookup_func("__do_vol_fade")(obj)
+        if getattr(obj, "grult_proj_trig", 0) != 0:
+            lookup_func("__do_grult_proj")(obj)
+            LLObject_CheckGTorchLit(obj)
+        if obj.unique_id == u_grult:
+            tick_grult(obj)
         if obj.hurt != 0:
             state = obj.funcs.active_state
             count = obj.funcs.func_count[state] if state < len(obj.funcs.func_count) else 0
             if count and obj.funcs.current_func[state] >= count:
-                from lynn.object.combat import LLObject_ClearDamage, LLObject_ShiftState
-
                 LLObject_ShiftState(obj, obj.reset_state)
+                if obj.unique_id == u_grult:
+                    LLObject_ShiftState(obj, obj.stun_state)
+                    if 0 <= obj.stun_state < len(obj.funcs.current_func):
+                        obj.funcs.current_func[obj.stun_state] = 2
                 LLObject_ClearDamage(obj)
                 obj.invisible = 0
                 obj.flash_count = 0
                 obj.flash_timer = 0
+        if obj.dead == 0 and obj.hp <= 0 and obj.death_state:
+            if obj.dead_sound != 0:
+                play_sample(obj.dead_sound)
+            LLObject_ShiftState(obj, obj.death_state)

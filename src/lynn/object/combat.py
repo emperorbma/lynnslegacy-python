@@ -3,7 +3,15 @@
 from __future__ import annotations
 
 import lynn.events as events
-from lynn.constants import DF_MAIN_CHAR, DF_ROOM_ENEMY, DF_TEMP_ENEMY, TRUE
+from lynn.constants import (
+    DF_MAIN_CHAR,
+    DF_PROJ,
+    DF_ROOM_ENEMY,
+    DF_TEMP_ENEMY,
+    TRUE,
+    u_bush,
+    u_grult,
+)
 from lynn.macros import LLObject_CalculateFrame
 from lynn.map.collision import check_bounds
 from lynn.object.char import CharType
@@ -96,6 +104,45 @@ def _face_strength(enemy: CharType, specific: int) -> int:
     return int(enemy.strength)
 
 
+def _derive_powder(h: CharType, only) -> None:
+    """FB DeriveHurt DF_MAIN_CHAR powder branch."""
+    if h.invincible != 0:
+        if only.selected_item == 1:
+            if h.fire_weak != 0:
+                if h.torch != 0:
+                    st = h.funcs.active_state
+                    cur = h.funcs.current_func[st] if 0 <= st < len(h.funcs.current_func) else 0
+                    if cur == 0:
+                        h.jump_timer = 0
+                        LLObject_ShiftState(h, h.hit_state)
+                else:
+                    h.hp = 0
+        else:
+            if h.ice_weak != 0:
+                if h.torch != 0:
+                    if h.funcs.active_state == h.hit_state:
+                        h.jump_timer = 0
+                        LLObject_ShiftState(h, h.reset_state)
+                else:
+                    h.hp = 0
+        LLObject_ClearDamage(h)
+        return
+    if only.selected_item == 1:
+        if h.fire_weak != 0:
+            if h.melt == 0:
+                LLObject_ShiftState(h, h.fire_state)
+            else:
+                LLObject_ShiftState(h, h.thaw_state)
+        LLObject_ClearDamage(h)
+        return
+    if h.ice_weak != 0:
+        LLObject_ShiftState(h, h.ice_state)
+        if h.unique_id == u_bush:
+            h.melt = 1
+        h.hurt = 0
+    LLObject_ClearDamage(h)
+
+
 def LLObject_DeriveHurt(h: CharType) -> None:
     only = events.hero_only
     weap = only.weapon if only is not None else 0
@@ -105,13 +152,50 @@ def LLObject_DeriveHurt(h: CharType) -> None:
             return
         h.hurt = _face_strength(enemy, h.dmg_specific)
         return
+    if (h.dmg_id & DF_PROJ) != 0 and (h.dmg_id & DF_ROOM_ENEMY) != 0:
+        enemy = _damager(h)
+        if enemy is None or enemy.projectile is None:
+            return
+        h.hurt = int(enemy.projectile.strength)
+        return
+    if h.dmg_id == DF_MAIN_CHAR and only is not None and only.powder != 0:
+        _derive_powder(h, only)
+        return
     if h.invincible != 0:
+        if weap >= 1 and h.mace_weak != 0:
+            h.hp = 0
+            LLObject_ClearDamage(h)
+            return
+        if weap >= 2 and h.star_weak != 0:
+            h.hp = 0
+            LLObject_ClearDamage(h)
+            return
+    faces = _faces(h)
+    if faces == 0:
+        if h.invincible != 0:
+            return
+        if h.mace_weak != 0 and weap < 1:
+            return
+        if h.star_weak != 0 and weap < 2:
+            return
+        h.hurt = 2 ** weap
+        return
+    if _face_invincible(h, h.dmg_specific) != 0:
         return
     if h.mace_weak != 0 and weap < 1:
         return
     if h.star_weak != 0 and weap < 2:
         return
     h.hurt = 2 ** weap
+
+
+def _face_invincible(o: CharType, face_i: int) -> int:
+    fi = o.frame_check
+    if o.anim and o.current_anim < len(o.anim):
+        frames = o.anim[o.current_anim].frame
+        if 0 <= fi < len(frames) and 0 <= face_i < len(frames[fi].face):
+            return int(frames[fi].face[face_i].invincible)
+    return 0
 
 
 def _set_fly_from(h: CharType, origin_x: float, origin_y: float) -> None:
@@ -186,20 +270,41 @@ def LLObject_MAINAttack(enemies: list[CharType], hr: CharType) -> None:
         if enemy is hr or enemy.dead != 0 or enemy.dmg_id != 0:
             continue
         enemy.frame_check = LLObject_CalculateFrame(enemy)
+        enemy_faces = _faces(enemy)
+        hit = False
         for face_i in range(hero_faces):
             origin = LLObject_VectorPairEx(hr, face_i)
-            target = LLObject_VectorPair(enemy)
-            if check_bounds(origin, target) != 0:
-                continue
-            enemy.dmg_id = DF_MAIN_CHAR
-            enemy.dmg_index = 0
-            LLObject_DamageCalc(enemy)
-            if enemy.hp > 0:
+            if enemy_faces <= 0:
+                target = LLObject_VectorPair(enemy)
+                if check_bounds(origin, target) != 0:
+                    continue
+                enemy.dmg_id = DF_MAIN_CHAR
+                enemy.dmg_index = 0
+                enemy.dmg_specific = 0
+                LLObject_DamageCalc(enemy)
+                hit = True
+            else:
+                for check_fields in range(enemy_faces):
+                    target = LLObject_VectorPairEx(enemy, check_fields)
+                    if check_bounds(origin, target) != 0:
+                        continue
+                    if _face_invincible(enemy, check_fields) != 0:
+                        continue
+                    enemy.dmg_id = DF_MAIN_CHAR
+                    enemy.dmg_index = 0
+                    enemy.dmg_specific = check_fields
+                    LLObject_DamageCalc(enemy)
+                    hit = True
+                    if enemy.dmg_id != 0:
+                        break
+            if enemy.hp > 0 and enemy.unique_id != u_grult and hit:
                 dx = enemy.coords_x - hr.coords_x
                 dy = enemy.coords_y - hr.coords_y
                 enemy.fly_x = 1 if dx > 0 else (-1 if dx < 0 else 0)
                 enemy.fly_y = 1 if dy > 0 else (-1 if dy < 0 else 0)
             if enemy.dmg_id != 0:
+                break
+            if hit:
                 break
 
 
@@ -210,6 +315,28 @@ def start_hero_attack(hr: CharType) -> None:
     if only.action_lock != 0 or hr.dead != 0:
         return
     only.attacking = TRUE
+    hr.attack_state = 6
+    if 0 <= hr.attack_state < len(hr.funcs.current_func):
+        hr.funcs.current_func[hr.attack_state] = 0
+
+
+def start_item_use(hr: CharType) -> None:
+    """FB act_key_in_sub: powder attack_state 8/9 while itmkey is held."""
+    only = events.hero_only
+    if only is None or only.attacking != 0:
+        return
+    if only.action_lock != 0 or hr.dead != 0:
+        return
+    if only.selected_item == 1:
+        only.attacking = TRUE
+        hr.attack_state = 8
+        only.powder = only.selected_item
+    elif only.selected_item == 2:
+        only.attacking = TRUE
+        hr.attack_state = 9
+        only.powder = only.selected_item
+    else:
+        return
     if 0 <= hr.attack_state < len(hr.funcs.current_func):
         hr.funcs.current_func[hr.attack_state] = 0
 
@@ -253,6 +380,10 @@ def LLObject_MAINDamage(hr: CharType, enemies: list[CharType] | None = None) -> 
         return
     room_enemies = enemies if enemies is not None else (events.current_others or [])
     LLObject_ObjectDamage(room_enemies, hr, DF_ROOM_ENEMY)
+    if hr.dmg_id == 0:
+        from lynn.object.projectile import LLObject_ProjectileDamage
+
+        LLObject_ProjectileDamage(room_enemies, hr)
 
 
 def hero_hurt_tick(hr: CharType) -> None:

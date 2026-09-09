@@ -53,3 +53,45 @@ def test_room1_roamer_changes_coords():
         tick_objects(roamers)
     end = [(o.coords_x, o.coords_y) for o in roamers]
     assert start != end
+
+
+def test_moenia_bats_change_coords():
+    from lynn.object.dispatch import lookup_func
+
+    m = load_mapV(str(resolve_map_path("moenia")), load_tileset=False)
+    room = m.room[0]
+    bats = []
+    for stub in room.enemy:
+        if not stub.id.replace("\\", "/").endswith("bat.xml"):
+            continue
+        obj = spawn_from_stub(stub, load_images=False)
+        bats.append(obj)
+    assert bats
+    assert lookup_func("__bat_path") is not lookup_func("__noop")
+    bind_room(room, bats)
+    start = [(o.coords_x, o.coords_y) for o in bats]
+    for i in range(800):
+        clock.timer = i * 0.05
+        tick_objects(bats)
+    end = [(o.coords_x, o.coords_y) for o in bats]
+    assert start != end
+
+
+def test_trigger_projectile_sets_active():
+    from lynn.constants import PROJECTILE_ORB
+    from lynn.object.dispatch import lookup_func
+
+    ghost = CharType()
+    ghost.id = "data/object/poltergeist.xml"
+    from lynn.object.xml_load import LLSystem_ObjectFromXML
+
+    LLSystem_ObjectFromXML(ghost, load_images=False)
+    ghost.direction = 1
+    ghost.coords_x = 80
+    ghost.coords_y = 80
+    lookup_func("__trigger_projectile")(ghost)
+    assert ghost.projectile is not None
+    assert ghost.projectile.active == PROJECTILE_ORB
+    lookup_func("__do_proj")(ghost)
+    assert ghost.projectile.travelled >= 1
+    assert ghost.projectile.coords[0] != [0, 0]

@@ -9,6 +9,25 @@ from lynn.gfx.image import LLSystem_ImageHeader
 
 
 @dataclass
+class EntityProjectile:
+    """FB ll_entity_projectile."""
+
+    refreshTime: float = 0.0
+    plock: int = 0
+    projectiles: int = 0
+    saveDirection: int = 0
+    direction: int = 0
+    length: int = 0
+    travelled: int = 0
+    invisible: int = 0
+    overChar: int = 0
+    sound: int = 0
+    strength: int = 0
+    active: int = 0
+    coords: list = field(default_factory=list)
+
+
+@dataclass
 class MatExpl:
     """FB object_structures.bi mat_expl — one particle in __explode."""
 
@@ -150,8 +169,8 @@ class CharType:
     dmg_specific: int = 0
     hurt: int = 0
     frame_check: int = 0
-    fly_x: int = 0
-    fly_y: int = 0
+    fly_x: float = 0.0
+    fly_y: float = 0.0
     fly_count: int = 0
     fly_timer: float = 0.0
     fly_length: int = 0
@@ -159,7 +178,7 @@ class CharType:
     fly_hold: int = 0
     mad_walk_speed: float = 0.0
     diag_chase: int = 0
-    degree: int = 0
+    degree: float = 0.0
     sway: float = 0.0
     swaying: int = 0
     flash_timer: float = 0.0
@@ -168,6 +187,20 @@ class CharType:
     flash_time: float = 0.02
     mace_weak: int = 0
     star_weak: int = 0
+    fire_weak: int = 0
+    ice_weak: int = 0
+    torch: int = 0
+    melt: int = 0
+    fire_state: int = 0
+    ice_state: int = 0
+    thaw_state: int = 0
+    stun_state: int = 0
+    proj_state: int = 0
+    radius: int = 0
+    light_sensitive: int = 0
+    elite: int = 0
+    grult_proj_trig: int = 0
+    stun_return_trig: int = 0
     psycho: int = 0
     dropped: int = 0
     drop_x: int = 0
@@ -208,3 +241,6 @@ class CharType:
     pause_hold: float = 0.0
     key: int = 0
     save: list = field(default_factory=list)
+    proj_style: int = 0
+    proj_anim: int = 0
+    projectile: EntityProjectile | None = None

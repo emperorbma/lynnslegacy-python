@@ -6,8 +6,9 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 from lynn.audio import sound_enemyhit, sound_enemykill, sound_from_name
+from lynn.constants import PROJ_STYLE_COUNTS
 from lynn.gfx.image import LLSystem_ImageHeader, LLSystem_ImageLoad
-from lynn.object.char import CharType, LLObject_FrameControl, LLObject_ImageHeader
+from lynn.object.char import CharType, EntityProjectile, LLObject_FrameControl, LLObject_ImageHeader
 from lynn.object.dispatch import BLOCK_MACROS, lookup_func
 from lynn.paths import project_root, resolve_data_path
 
@@ -107,6 +108,10 @@ def LLSystem_ObjectFromXML(obj: CharType, load_images: bool = True) -> CharType:
             _fp_text(obj, path, text)
         elif path[1] == "snd":
             _snd_text(obj, path, text)
+        elif path[1] == "proj_style":
+            _proj_style(obj, text)
+        elif path[1] in ("proj_dur", "proj_str", "proj_invis", "proj_over", "proj_sound") and obj.projectile is not None:
+            _proj_field(obj, path[1], text)
         elif len(path) == 2:
             converted = _xml_number(text)
             if converted is None:
@@ -115,7 +120,8 @@ def LLSystem_ObjectFromXML(obj: CharType, load_images: bool = True) -> CharType:
                 else:
                     setattr(obj, path[1], text)
             else:
-                setattr(obj, path[1], converted)
+                attr = "isBoss" if path[1] == "isboss" else path[1]
+                setattr(obj, attr, converted)
 
     def close(name: str) -> None:
         if name.lower() == "fp" and obj.funcs.states:
@@ -151,6 +157,9 @@ _UNIQUE_ID_SUFFIX = (
     ("gbutton.xml", 6),
     ("button.xml", 5),
     ("bush.xml", 9),
+    ("ltorch.xml", 15),
+    ("gtorch.xml", 16),
+    ("torch.xml", 14),
     ("gold.xml", 19),
     ("silver.xml", 20),
     ("health.xml", 21),
@@ -160,10 +169,12 @@ _UNIQUE_ID_SUFFIX = (
     ("static.xml", 25),
     ("menu.xml", 28),
     ("crate.xml", 30),
+    ("grult.xml", 32),
     ("ghut.xml", 33),
     ("hotrock.xml", 34),
     ("coldrock.xml", 35),
     ("greyrock.xml", 36),
+    ("mole.xml", 38),
     ("healthguy.xml", 70),
     ("lynn.xml", 77),
 )
@@ -215,6 +226,32 @@ def _sprite_text(obj: CharType, path: list[str], text: str, load_images: bool) -
             _stamp_frame_sound(anim, ctrl, obj.frame_sound, "sound", sound_from_name(text), uni=True)
         elif kind == "vol":
             _stamp_frame_sound(anim, ctrl, obj.frame_sound, "vol", int(_xml_number(text) or 0), uni=True)
+
+
+def _proj_style(obj: CharType, text: str) -> None:
+    style, count = PROJ_STYLE_COUNTS.get(text.strip().lower(), (0, 0))
+    obj.proj_style = style
+    obj.projectile = EntityProjectile(
+        projectiles=count,
+        coords=[[0, 0] for _ in range(max(count, 1))],
+    )
+
+
+def _proj_field(obj: CharType, name: str, text: str) -> None:
+    proj = obj.projectile
+    if proj is None:
+        return
+    val = int(_xml_number(text) or 0)
+    if name == "proj_dur":
+        proj.length = val
+    elif name == "proj_str":
+        proj.strength = val
+    elif name == "proj_invis":
+        proj.invisible = val
+    elif name == "proj_over":
+        proj.overChar = val
+    elif name == "proj_sound":
+        proj.sound = val
 
 
 def _snd_text(obj: CharType, path: list[str], text: str) -> None:

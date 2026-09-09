@@ -81,6 +81,47 @@ def _in_dir_small(d: int) -> int:
     return d
 
 
+def __bat_path(this: CharType) -> int:
+    """FB object_move.bas: walk_buffer = walk_length, random diagonal dir 4–7."""
+    this.walk_buffer = int(this.walk_length) if this.walk_length else 50
+    this.direction = int(random.random() * 4) + 4
+    return 1
+
+
+def __make_align(this: CharType) -> int:
+    """FB object_move.bas: one-step nudge onto the hero's row or column, then callback."""
+    hero = events.hero
+    room = events.current_room
+    others = events.current_others
+    if hero is None:
+        return 1
+    hx = hero.coords_x + (int(hero.perimeter_x) >> 1)
+    hy = hero.coords_y + (int(hero.perimeter_y) >> 1)
+    ex = this.coords_x + (int(this.perimeter_x) >> 1)
+    ey = this.coords_y + (int(this.perimeter_y) >> 1)
+    aligned = (abs(hy - ey) < 48 and abs(hx - ex) < 8) or (abs(hx - ex) < 48 and abs(hy - ey) < 8)
+    if aligned == 0:
+        dir_hold = this.direction
+        if this.walk_hold == 0 and room is not None:
+            if hx < ex:
+                this.direction = 3
+                move_object(this, room, only_looking=0, moment=1, others=others)
+            elif hx > ex:
+                this.direction = 1
+                move_object(this, room, only_looking=0, moment=1, others=others)
+            if hy < ey:
+                this.direction = 0
+                move_object(this, room, only_looking=0, moment=1, others=others)
+            elif hy > ey:
+                this.direction = 2
+                move_object(this, room, only_looking=0, moment=1, others=others)
+            this.walk_hold = clock.timer + (this.walk_speed or 0.035)
+        if clock.timer >= this.walk_hold:
+            this.walk_hold = 0
+        this.direction = dir_hold
+    return 1
+
+
 def __make_face(this: CharType) -> int:
     """FB object_move.bas: face the hero on the longer axis."""
     hero = events.hero
@@ -305,6 +346,8 @@ def __move_normal(this: CharType) -> int:
 register_func("__randomize_path", __randomize_path)
 register_func("__walk", __walk)
 register_func("__copter_path", __copter_path)
+register_func("__bat_path", __bat_path)
+register_func("__make_align", __make_align)
 register_func("__make_face", __make_face)
 register_func("__chase", __chase)
 register_func("__home", __home)
