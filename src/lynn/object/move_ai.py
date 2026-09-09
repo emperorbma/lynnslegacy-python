@@ -6,12 +6,60 @@ import random
 
 import lynn.events as events
 from lynn import clock
-from lynn.map.collision import move_object
+from lynn.map.collision import check_bounds, move_object
 from lynn.object.char import CharType
 from lynn.object.dispatch import register_func
 from lynn.object.gfx_frame import LLObject_IncrementFrame
 
 MO_JUST_CHECKING = -1
+
+
+def __push(this: CharType) -> int:
+    """FB object_move.bas: if Lynn faces this pushable, slide it one pixel."""
+    hero = events.hero
+    room = events.current_room
+    others = events.current_others
+    if hero is None:
+        return 0
+    x_opt = 0
+    y_opt = 0
+    d = int(hero.direction)
+    if d == 0:
+        y_opt = -1
+    elif d == 1:
+        x_opt = 1
+    elif d == 2:
+        y_opt = 1
+    elif d == 3:
+        x_opt = -1
+    main_char = (
+        hero.coords_x + x_opt,
+        hero.coords_y + y_opt,
+        hero.perimeter_x,
+        hero.perimeter_y,
+    )
+    rock = (this.coords_x, this.coords_y, this.perimeter_x, this.perimeter_y)
+    if check_bounds(main_char, rock) != 0:
+        return 0
+    holding = (
+        (d == 0 and events.keys.up)
+        or (d == 1 and events.keys.right)
+        or (d == 2 and events.keys.down)
+        or (d == 3 and events.keys.left)
+    )
+    if holding:
+        hero.is_pushing = d + 1
+    if this.walk_hold == 0:
+        this.direction = d
+        if room is not None:
+            move_object(this, room, only_looking=0, moment=1, others=others)
+        else:
+            this.coords_x += x_opt
+            this.coords_y += y_opt
+        this.walk_hold = clock.timer + (this.walk_speed or 0.027)
+    if clock.timer >= this.walk_hold:
+        this.walk_hold = 0
+    return 0
 
 
 def __randomize_path(this: CharType) -> int:
@@ -343,6 +391,7 @@ def __move_normal(this: CharType) -> int:
     return 1
 
 
+register_func("__push", __push)
 register_func("__randomize_path", __randomize_path)
 register_func("__walk", __walk)
 register_func("__copter_path", __copter_path)

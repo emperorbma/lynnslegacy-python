@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from lynn.constants import FALSE, TRUE, u_lynn
+from lynn.constants import FALSE, TRUE, u_lynn, u_pushrock
 from lynn.macros import LLObject_CalculateFrame, quad_calc, testbit
 from lynn.map.types import RoomType, TeleportType
 from lynn.object.char import CharType
@@ -244,7 +244,7 @@ def check_walk(o: CharType, d: int, room: RoomType, psfing: int = 0) -> int:
                     tile_free = FALSE
 
     if tile_free == FALSE and psfing == 0:
-        if o.unique_id == u_lynn:
+        if o.unique_id == u_lynn or o.unique_id == u_pushrock:
             check_psf(o, d, room)
 
     if psfing != 0:

@@ -61,6 +61,7 @@ u_keydoor = 22
 u_fkeydoor = 23
 u_bardoor = 24
 u_static = 25
+u_pushrock = 27
 u_menu = 28
 u_savepoint = 29
 u_crate = 30

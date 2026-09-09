@@ -87,6 +87,8 @@ class CharType:
     low_frame: float = 0.0
     high_frame: float = 0.0
     is_psfing: int = 0
+    is_pushing: int = 0
+    pushable: int = 0
     no_cam: int = 0
     perimeter_x: int = 0
     perimeter_y: int = 0

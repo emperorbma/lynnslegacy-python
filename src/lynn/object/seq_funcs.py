@@ -238,6 +238,14 @@ def __set_happen(this: CharType) -> int:
     return 1
 
 
+def __off_happen(this: CharType) -> int:
+    """FB object_etc.bas: clear now[chap]."""
+    chap = int(this.chap)
+    if 0 <= chap < len(events.now):
+        events.now[chap] = 0
+    return 1
+
+
 def __make_visible(this: CharType) -> int:
     this.invisible = 0
     return 1

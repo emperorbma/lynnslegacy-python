@@ -9,10 +9,12 @@ from lynn.constants import (
     PROJECTILE_FIREBALL,
     TRUE,
     u_coldrock,
+    u_gbutton,
     u_grult,
     u_gtorch,
+    u_pushrock,
 )
-from lynn.events import bind_hero, bind_hero_only, reset_events
+from lynn.events import bind_hero, bind_hero_only, bind_room, reset_events
 import lynn.events as events
 from lynn.hero import ctor_hero_only, item_l_key, item_r_key
 from lynn.object.char import CharType
@@ -177,3 +179,65 @@ def test_grult_fireball_spawns_at_mouth():
     clock.timer = 1.0
     lookup_func("__do_grult_proj")(boss)
     assert boss.projectile.coords[0] != [152, 136]
+
+
+def _open_room(w: int = 20, h: int = 20):
+    from lynn.map.types import RoomType
+
+    room = RoomType()
+    room.x = w
+    room.y = h
+    room.layout = [[0] * (w * h) for _ in range(3)]
+    return room
+
+
+def test_pushrock_loads_pushable():
+    rock = _load("pushrock.xml")
+    assert rock.unique_id == u_pushrock
+    assert rock.pushable != 0
+    assert rock.impassable != 0
+    assert lookup_func("__off_happen") is not lookup_func("__noop")
+
+
+def test_push_rock_slides_when_lynn_faces_it():
+    from lynn.object.move_ai import __push
+
+    reset_events()
+    room = _open_room()
+    hero = CharType()
+    hero.coords_x = 160
+    hero.coords_y = 160
+    hero.perimeter_x = 16
+    hero.perimeter_y = 16
+    hero.direction = 1
+    rock = _load("pushrock.xml")
+    rock.coords_x = 176
+    rock.coords_y = 160
+    rock.num = 0
+    bind_hero(hero)
+    bind_room(room, [rock])
+    events.keys.right = TRUE
+    clock.timer = 1.0
+    __push(rock)
+    assert rock.coords_x == 177
+    assert hero.is_pushing == 2
+
+
+def test_gbutton_presses_when_rock_overlaps():
+    reset_events()
+    room = _open_room()
+    rock = _load("pushrock.xml")
+    rock.coords_x = 80
+    rock.coords_y = 80
+    button = _load("gbutton.xml")
+    button.coords_x = 80
+    button.coords_y = 80
+    button.chap = 10
+    button.num = 1
+    objs = [rock, button]
+    bind_room(room, objs)
+    tick_objects(objs)
+    tick_objects(objs)
+    assert button.unique_id == u_gbutton
+    assert button.funcs.active_state == 1
+    assert events.now[10] != 0

@@ -81,19 +81,50 @@ def LLObject_CheckSpawn(obj: CharType) -> None:
         obj.spawn_kill_trig = TRUE
 
 
+def _objects_touching(a: CharType, b: CharType) -> int:
+    from lynn.map.collision import check_bounds
+
+    return check_bounds(
+        (a.coords_x, a.coords_y, a.perimeter_x, a.perimeter_y),
+        (b.coords_x, b.coords_y, b.perimeter_x, b.perimeter_y),
+    )
+
+
+def _tick_gbutton(obj: CharType, objs: list[CharType]) -> None:
+    """FB act_enemies: gbutton state 1 if Lynn or a pushrock overlaps it."""
+    import lynn.events as events
+    from lynn.constants import u_pushrock
+
+    pressed = 0
+    hero = events.hero
+    if hero is not None and _objects_touching(hero, obj) == 0:
+        pressed = 1
+    if pressed == 0:
+        for other in objs:
+            if other.unique_id == u_pushrock and _objects_touching(other, obj) == 0:
+                pressed = 1
+                break
+    obj.funcs.active_state = 1 if pressed else 0
+
+
 def tick_objects(objs: list[CharType]) -> None:
     from lynn.audio import play_sample
-    from lynn.constants import u_grult
+    from lynn.constants import u_gbutton, u_grult
     from lynn.object.boss import LLObject_CheckGTorchLit, tick_grult
     from lynn.object.combat import LLObject_ClearDamage, LLObject_ShiftState
     from lynn.object.control import in_proximity, out_proximity
     from lynn.object.dispatch import lookup_func
+    from lynn.object.move_ai import __push
 
     for obj in objs:
         if obj.spawn_cond != 0:
             LLObject_CheckSpawn(obj)
         if obj.spawn_kill_trig != 0:
             continue
+        if getattr(obj, "pushable", 0) != 0:
+            __push(obj)
+        if obj.unique_id == u_gbutton:
+            _tick_gbutton(obj, objs)
         if obj.dead == 0 and obj.froggy != 0:
             if obj.mad == 0:
                 if obj.funcs.active_state < obj.reset_state:

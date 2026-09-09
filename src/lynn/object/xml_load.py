@@ -167,6 +167,7 @@ _UNIQUE_ID_SUFFIX = (
     ("keydoor.xml", 22),
     ("bardoor.xml", 24),
     ("static.xml", 25),
+    ("pushrock.xml", 27),
     ("menu.xml", 28),
     ("crate.xml", 30),
     ("grult.xml", 32),
