@@ -147,49 +147,101 @@ def LLSystem_ObjectFromXML(obj: CharType, load_images: bool = True) -> CharType:
     return obj
 
 
-# FB UniqueCheck: Right(id, Len(name & ".xml")) so hsavepoint.xml matches savepoint.
-_UNIQUE_ID_SUFFIX = (
-    ("bluechestitem.xml", 4),
-    ("crate_health.xml", 31),
-    ("savepoint.xml", 29),
-    ("chest.xml", 2),
-    ("bluechest.xml", 3),
-    ("gbutton.xml", 6),
-    ("button.xml", 5),
-    ("bush.xml", 9),
-    ("ltorch.xml", 15),
-    ("gtorch.xml", 16),
-    ("torch.xml", 14),
-    ("gold.xml", 19),
-    ("silver.xml", 20),
-    ("health.xml", 21),
-    ("fkeydoor.xml", 23),
-    ("keydoor.xml", 22),
-    ("bardoor.xml", 24),
-    ("static.xml", 25),
-    ("pushrock.xml", 27),
-    ("menu.xml", 28),
-    ("crate.xml", 30),
-    ("grult.xml", 32),
-    ("ghut.xml", 33),
-    ("hotrock.xml", 34),
-    ("coldrock.xml", 35),
-    ("greyrock.xml", 36),
-    ("mole.xml", 38),
-    ("healthguy.xml", 70),
-    ("lynn.xml", 77),
+# FB UniqueCheck order (engine--object.bas). First suffix match wins, so
+# overlapping names come first (bluechest before chest, gtorch before torch).
+_UNIQUE_CHECK_NAMES = (
+    "beamcrystal",
+    "bluechest",
+    "chest",
+    "bluechestitem",
+    "gbutton",
+    "button",
+    "bshape",
+    "gshape",
+    "bush",
+    "tguard",
+    "bguard",
+    "eguard",
+    "cguard",
+    "ltorch",
+    "gtorch",
+    "torch",
+    "ibug",
+    "beetle",
+    "fbug",
+    "gold",
+    "silver",
+    "crate_health",
+    "charger",
+    "health",
+    "fkeydoor",
+    "keydoor",
+    "bardoor",
+    "static",
+    "pushrock",
+    "menu",
+    "savepoint",
+    "crate",
+    "grult",
+    "ghut",
+    "hotrock",
+    "coldrock",
+    "greyrock",
+    "bombrock",
+    "mole",
+    "sign",
+    "dyssius",
+    "anger",
+    "angerfireball",
+    "sparkle",
+    "sterach",
+    "swordie",
+    "lynn",
+    "slimeman",
+    "antiwall2",
+    "antiwall",
+    "pmouth",
+    "boss5_right",
+    "boss5_left",
+    "boss5_down",
+    "boss5_crystal",
+    "pekkle_blue",
+    "pekkle_red",
+    "pekkle_grey",
+    "pekkle_big",
+    "pekkle_bomb",
+    "goldblock",
+    "divine_ball",
+    "divine_bug",
+    "divine",
+    "kambot",
+    "auto",
+    "mech",
+    "godstat",
+    "haywire",
+    "biglarva",
+    "cell",
+    "statue",
+    "battleseed",
+    "healthguy",
+    "ferus",
+    "steelstrider",
+    "core",
 )
 
 
 def _assign_unique_id(obj: CharType) -> None:
-    name = obj.id.replace("\\", "/").lower()
-    if "/" in name:
-        name = name.rsplit("/", 1)[-1]
+    import lynn.constants as C
+
+    raw = obj.id.replace("\\", "/").lower()
+    name = raw.rsplit("/", 1)[-1] if "/" in raw else raw
     obj.unique_id = 0
-    for suffix, uid in _UNIQUE_ID_SUFFIX:
-        if name.endswith(suffix):
-            obj.unique_id = uid
+    for stem in _UNIQUE_CHECK_NAMES:
+        if name.endswith(stem + ".xml"):
+            obj.unique_id = getattr(C, "u_" + stem)
             return
+    if raw.endswith("data/object/ferus.xml"):
+        obj.unique_id = C.u_ferus
 
 
 def _sprite_text(obj: CharType, path: list[str], text: str, load_images: bool) -> None:

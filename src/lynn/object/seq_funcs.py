@@ -4,12 +4,35 @@ from __future__ import annotations
 
 import lynn.events as events
 from lynn import clock
-from lynn.constants import TRUE
+from lynn.constants import (
+    TRUE,
+    u_bluechest,
+    u_bluechestitem,
+    u_button,
+    u_chest,
+    u_coldrock,
+    u_gbutton,
+    u_ghut,
+    u_greyrock,
+    u_hotrock,
+)
 from lynn.object.char import CharType
 from lynn.object.dispatch import register_func
 
-# FB unique_id values that stay visible after __cripple (chests, rocks, buttons, ghut).
-_CRIPPLE_KEEP_VISIBLE = frozenset({2, 3, 4, 5, 6, 33, 34, 35, 36})
+# FB object_modification.bas __cripple keep-visible cases.
+_CRIPPLE_KEEP_VISIBLE = frozenset(
+    {
+        u_ghut,
+        u_chest,
+        u_bluechest,
+        u_bluechestitem,
+        u_hotrock,
+        u_coldrock,
+        u_greyrock,
+        u_button,
+        u_gbutton,
+    }
+)
 
 
 def __return_trig(this: CharType) -> int:
