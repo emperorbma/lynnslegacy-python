@@ -47,32 +47,65 @@ def blit_drop(canvas, obj: CharType, cam_x: int, cam_y: int, drop_surfs: list) -
     canvas.blit(drop_surfs[anim_i], (int(obj.drop_x) - cam_x, int(obj.drop_y) - cam_y))
 
 
+def hero_touches_loot(hero: CharType, x: float, y: float) -> bool:
+    """FB blit_enemy_loot: weapon faces if present, else the body box."""
+    from lynn.macros import LLObject_CalculateFrame
+    from lynn.object.combat import LLObject_VectorPair, LLObject_VectorPairEx, _faces
+
+    target = (x, y, 8, 8)
+    hero.frame_check = LLObject_CalculateFrame(hero)
+    n = _faces(hero)
+    if n <= 0:
+        return check_bounds(LLObject_VectorPair(hero), target) == 0
+    for face_i in range(n):
+        if check_bounds(LLObject_VectorPairEx(hero, face_i), target) == 0:
+            return True
+    return False
+
+
+def grant_loot(hero: CharType, kind: int, obj: CharType) -> None:
+    if kind == 1:
+        if hero.hp < hero.maxhp:
+            hero.hp += 1
+        from lynn.audio import play_sample, sound_healthgrab
+
+        play_sample(sound_healthgrab)
+    elif kind == 2:
+        hero.money += int(obj.n_gold) * 5
+        from lynn.audio import play_sample, sound_cashget
+
+        play_sample(sound_cashget)
+    elif kind == 3:
+        hero.money += int(obj.n_silver)
+        from lynn.audio import play_sample, sound_cashget
+
+        play_sample(sound_cashget)
+
+
+def LLObject_GrabItems(obj: CharType) -> None:
+    """FB LLObject_GrabItems: unique gold/silver/health piles on the floor."""
+    import lynn.events as events
+    from lynn.object.dispatch import lookup_func
+
+    hero = events.hero
+    if obj.dead != 0 or hero is None or obj.dropped == 0:
+        return
+    if not hero_touches_loot(hero, obj.coords_x, obj.coords_y):
+        return
+    grant_loot(hero, obj.dropped, obj)
+    obj.dropped = 0
+    lookup_func("__make_dead")(obj)
+    lookup_func("__cripple")(obj)
+
+
 def blit_enemy_loot(canvas, enemies: list[CharType], hero: CharType | None, cam_x: int, cam_y: int, drop_surfs: list) -> None:
-    """Pick up drops. Drawing is done in the y-sorted pass."""
+    """Pick up corpse drops. Drawing is done in the y-sorted pass."""
     for obj in enemies:
         if not is_corpse_drop(obj):
             continue
         if hero is None:
             continue
-        kind = obj.dropped
-        origin = (hero.coords_x, hero.coords_y, hero.perimeter_x, hero.perimeter_y)
-        target = (obj.drop_x, obj.drop_y, 8, 8)
-        if check_bounds(origin, target) != 0:
+        if not hero_touches_loot(hero, obj.drop_x, obj.drop_y):
             continue
-        if kind == 1:
-            if hero.hp < hero.maxhp:
-                hero.hp += 1
-            from lynn.audio import play_sample, sound_healthgrab
-
-            play_sample(sound_healthgrab)
-        elif kind == 2:
-            hero.money += int(obj.n_gold) * 5
-            from lynn.audio import play_sample, sound_cashget
-
-            play_sample(sound_cashget)
-        elif kind == 3:
-            hero.money += int(obj.n_silver)
-            from lynn.audio import play_sample, sound_cashget
-
-            play_sample(sound_cashget)
+        grant_loot(hero, obj.dropped, obj)
         obj.dropped = 0

@@ -135,7 +135,7 @@ def _tick_gbutton(obj: CharType, objs: list[CharType]) -> None:
 
 def tick_objects(objs: list[CharType]) -> None:
     from lynn.audio import play_sample
-    from lynn.constants import u_gbutton, u_grult
+    from lynn.constants import u_gbutton, u_gold, u_grult, u_health, u_silver
     from lynn.object.boss import LLObject_CheckGTorchLit, tick_grult
     from lynn.object.combat import LLObject_ClearDamage, LLObject_ShiftState
     from lynn.object.control import in_proximity, out_proximity
@@ -151,6 +151,10 @@ def tick_objects(objs: list[CharType]) -> None:
             __push(obj)
         if obj.unique_id == u_gbutton:
             _tick_gbutton(obj, objs)
+        if obj.unique_id in (u_gold, u_silver, u_health):
+            from lynn.gfx.loot import LLObject_GrabItems
+
+            LLObject_GrabItems(obj)
         if obj.dead == 0 and obj.froggy != 0:
             if obj.mad == 0:
                 if obj.funcs.active_state < obj.reset_state:

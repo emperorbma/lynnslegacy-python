@@ -1,12 +1,19 @@
 import lynn.object  # noqa: F401
 
+from lynn.constants import TRUE, u_gold
+from lynn.events import bind_hero, reset_events
+from lynn.gfx.image import LLSystem_FaceType, LLSystem_FrameShell, LLSystem_ImageHeader
 from lynn.hero import ctor_hero
 from lynn.map.collision import check_bounds
 from lynn.object.char import CharType
 from lynn.object.combat_funcs import __drop
-from lynn.constants import u_gold
 from lynn.demos import _sort_y
-from lynn.gfx.loot import blit_enemy_loot, drop_sort_y, is_corpse_drop
+from lynn.gfx.loot import (
+    LLObject_GrabItems,
+    blit_enemy_loot,
+    drop_sort_y,
+    is_corpse_drop,
+)
 
 
 def test_drop_always_health_when_d_health_100():
@@ -77,6 +84,56 @@ def test_drop_y_sorts_with_hero():
     south.dropped = 3
     south.drop_y = 120
     assert drop_sort_y(north) < _sort_y(hero) < drop_sort_y(south)
+
+
+def _hero_with_reach_face():
+    hero = ctor_hero(load_images=False)
+    hero.coords_x = 0
+    hero.coords_y = 0
+    hero.perimeter_x = 16
+    hero.perimeter_y = 16
+    hero.current_anim = 0
+    face = LLSystem_FaceType(x=16, y=0, w=16, h=16)
+    frame = LLSystem_FrameShell(faces=1, face=[face])
+    header = LLSystem_ImageHeader(frame=[frame], frames=1)
+    hero.anim = [header]
+    hero.animControl = []
+    return hero
+
+
+def test_swing_face_picks_up_corpse_drop():
+    hero = _hero_with_reach_face()
+    hero.hp = 5
+    hero.maxhp = 6
+    heart = CharType()
+    heart.dropped = 1
+    heart.drop_x = 20
+    heart.drop_y = 4
+    blit_enemy_loot(None, [heart], hero, 0, 0, [object(), object(), object()])
+    assert heart.dropped == 0
+    assert hero.hp == 6
+
+
+def test_unique_gold_pile_is_grabbed():
+    reset_events()
+    hero = ctor_hero(load_images=False)
+    hero.coords_x = 160
+    hero.coords_y = 140
+    hero.perimeter_x = 16
+    hero.perimeter_y = 16
+    hero.money = 0
+    bind_hero(hero)
+    pile = CharType()
+    pile.unique_id = u_gold
+    pile.dropped = 2
+    pile.n_gold = 1
+    pile.coords_x = 164
+    pile.coords_y = 144
+    pile.dead = 0
+    LLObject_GrabItems(pile)
+    assert pile.dropped == 0
+    assert hero.money == 5
+    assert pile.dead != 0
 
 
 def test_unique_gold_is_not_a_corpse_overlay():
