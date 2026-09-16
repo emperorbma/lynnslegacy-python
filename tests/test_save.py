@@ -95,6 +95,87 @@ def test_write_and_read_json_save(tmp_path, monkeypatch):
     assert 3 in data.happen
 
 
+def test_json_save_migrates_to_zlib_on_read(tmp_path, monkeypatch):
+    import json as jsonlib
+
+    monkeypatch.delenv("LYNN_SAVE_JSON", raising=False)
+    path = tmp_path / "ll_save1.sav"
+    path.write_text(
+        jsonlib.dumps(
+            {
+                "hp": 5,
+                "maxhp": 6,
+                "gold": 9,
+                "weapon": 0,
+                "hasItem": [0, 0, 0, 0, 0, 0],
+                "bar": 0,
+                "hasCostume": [-1, 0, 0, 0, 0, 0, 0, 0, 0],
+                "isWearing": 0,
+                "key": 1,
+                "b_key": 0,
+                "map": "moenia.map",
+                "entry": 0,
+                "happen": [3, 150],
+                "rooms": 0,
+            }
+        ),
+        encoding="utf-8",
+    )
+    data = LLSystem_ReadSaveFile(str(path))
+    assert data is not None
+    assert data.hp == 5
+    assert data.key == 1
+    assert 150 in data.happen
+    assert path.read_bytes()[:4] == b"ZLIB"
+    again = LLSystem_ReadSaveFile(str(path))
+    assert again is not None
+    assert again.map == "moenia.map"
+
+
+def test_convert_save_zlib_json_roundtrip(tmp_path, monkeypatch):
+    from lynn.object.save import convert_save, detect_save_format
+
+    reset_events()
+    hero = ctor_hero(load_images=False)
+    hero.hp = 4
+    only = ctor_hero_only()
+    only.has_weapon = 0
+    bind_hero(hero)
+    bind_hero_only(only)
+    events.map_filename = "forest_fall.map"
+    events.now[4] = TRUE
+    monkeypatch.setattr("lynn.object.save.project_root", lambda: tmp_path)
+    monkeypatch.delenv("LYNN_SAVE_JSON", raising=False)
+    sav = tmp_path / "slot.sav"
+    LLSystem_WriteSaveFile(str(sav), 7)
+    assert detect_save_format(sav) == "zlib"
+    js = convert_save(sav, to="json")
+    assert js.suffix == ".json"
+    assert detect_save_format(js) == "json"
+    back = convert_save(js, to="zlib", dest=tmp_path / "round.sav")
+    data = LLSystem_ReadSaveFile(str(back))
+    assert data is not None
+    assert data.hp == 4
+    assert data.entry == 7
+    assert 4 in data.happen
+
+
+def test_debug_json_write(tmp_path, monkeypatch):
+    reset_events()
+    bind_hero(ctor_hero(load_images=False))
+    bind_hero_only(ctor_hero_only())
+    events.map_filename = "forest_fall.map"
+    monkeypatch.setattr("lynn.object.save.project_root", lambda: tmp_path)
+    monkeypatch.setenv("LYNN_SAVE_JSON", "1")
+    path = tmp_path / "dbg.sav"
+    LLSystem_WriteSaveFile(str(path), 0)
+    text = path.read_text(encoding="utf-8")
+    assert text.lstrip().startswith("{")
+    data = LLSystem_ReadSaveFile(str(path))
+    assert data is not None
+    assert path.read_text(encoding="utf-8").lstrip().startswith("{")
+
+
 def test_orig_binary_save_loads():
     from lynn.paths import project_root
 

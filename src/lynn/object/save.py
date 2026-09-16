@@ -1,12 +1,14 @@
 """FB object_etc.bas __do_menu_save / __handle_menu.
 
 Saves are the original 12-byte ZLIB header plus zlib payload (compress2
-level 9). JSON files from the early Python port are still readable.
+level 9). JSON from the early Python port is still readable and is rewritten
+to ZLIB on load. Set LYNN_SAVE_JSON=1 to keep writing JSON for debugging.
 """
 
 from __future__ import annotations
 
 import json
+import os
 import struct
 import zlib
 from dataclasses import dataclass, field
@@ -216,6 +218,11 @@ def _read_json_save(text: str) -> SaveData:
     return data
 
 
+def json_save_debug() -> bool:
+    """LYNN_SAVE_JSON=1 keeps the old JSON files for inspection."""
+    return os.environ.get("LYNN_SAVE_JSON", "").strip().lower() in ("1", "true", "yes")
+
+
 def LLSystem_ReadSaveFile(name: str) -> SaveData | None:
     path = _resolve_save_path(name)
     if path is None:
@@ -227,9 +234,15 @@ def LLSystem_ReadSaveFile(name: str) -> SaveData | None:
         except (OSError, ValueError, EOFError, zlib.error):
             return None
     try:
-        return _read_json_save(blob.decode("utf-8"))
+        data = _read_json_save(blob.decode("utf-8"))
     except (OSError, UnicodeDecodeError, json.JSONDecodeError):
         return None
+    if not json_save_debug():
+        try:
+            path.write_bytes(_zlib_wrap(_payload_from_data(data)))
+        except OSError:
+            pass
+    return data
 
 
 def _pack_i32(v: int) -> bytes:
@@ -241,43 +254,62 @@ def _pack_hstring(text: str) -> bytes:
     return struct.pack("<H", len(raw)) + raw
 
 
-def _happen_bytes() -> bytes:
-    buf = bytearray(LL_EVENTS_MAX)
-    for i, v in enumerate(events.now[:LL_EVENTS_MAX]):
-        if v != 0:
-            buf[i] = 0xFF
-    return bytes(buf)
-
-
 def _costume_bytes(costumes: list[int]) -> bytes:
     padded = (list(costumes) + [0] * 9)[:9]
     return bytes((int(c) & 0xFF) for c in padded)
 
 
-def _build_save_payload(entry: int) -> bytes:
+def _payload_from_data(data: SaveData) -> bytes:
     """FB LLSystem_WriteSaveFile VFile_Put order."""
+    items = (list(data.hasItem) + [0] * 6)[:6]
+    happen = bytearray(LL_EVENTS_MAX)
+    for i in data.happen:
+        if 0 <= int(i) < LL_EVENTS_MAX:
+            happen[int(i)] = 0xFF
+    parts = [
+        _pack_i32(data.hp),
+        _pack_i32(data.maxhp),
+        _pack_i32(data.gold),
+        _pack_i32(data.weapon),
+        *(_pack_i32(v) for v in items),
+        _pack_i32(data.bar),
+        _costume_bytes(data.hasCostume),
+        _pack_i32(data.isWearing),
+        _pack_i32(data.key),
+        _pack_i32(data.b_key),
+        _pack_hstring(data.map),
+        _pack_i32(data.entry),
+        bytes(happen),
+        _pack_i32(data.rooms),
+    ]
+    if data.rooms:
+        vis = (list(data.hasVisited) + [0] * data.rooms)[: data.rooms]
+        parts.append(bytes(int(v) & 0xFF for v in vis))
+    return b"".join(parts)
+
+
+def snapshot_save(entry: int) -> SaveData:
     hero = events.hero
     only = events.hero_only
-    parts = [
-        _pack_i32(int(hero.hp) if hero is not None else 6),
-        _pack_i32(int(hero.maxhp) if hero is not None else 6),
-        _pack_i32(int(hero.money) if hero is not None else 0),
-        _pack_i32(int(only.has_weapon) if only is not None else -1),
-    ]
     items = list(only.hasItem) if only is not None else [0] * 6
-    items = (items + [0] * 6)[:6]
-    parts.extend(_pack_i32(v) for v in items)
-    parts.append(_pack_i32(int(only.has_bar) if only is not None else 0))
-    parts.append(_costume_bytes(list(only.hasCostume) if only is not None else [0] * 9))
-    parts.append(_pack_i32(int(only.isWearing) if only is not None else 0))
-    parts.append(_pack_i32(int(hero.key) if hero is not None else 0))
-    parts.append(_pack_i32(int(only.b_key) if only is not None else 0))
-    parts.append(_pack_hstring(events.map_filename))
-    parts.append(_pack_i32(int(entry)))
-    parts.append(_happen_bytes())
-    rooms = 0
-    parts.append(_pack_i32(rooms))
-    return b"".join(parts)
+    costumes = list(only.hasCostume) if only is not None else [0] * 9
+    return SaveData(
+        hp=int(hero.hp) if hero is not None else 6,
+        maxhp=int(hero.maxhp) if hero is not None else 6,
+        gold=int(hero.money) if hero is not None else 0,
+        weapon=int(only.has_weapon) if only is not None else -1,
+        hasItem=(items + [0] * 6)[:6],
+        bar=int(only.has_bar) if only is not None else 0,
+        hasCostume=(costumes + [0] * 9)[:9],
+        isWearing=int(only.isWearing) if only is not None else 0,
+        key=int(hero.key) if hero is not None else 0,
+        b_key=int(only.b_key) if only is not None else 0,
+        map=events.map_filename,
+        entry=int(entry),
+        happen=[i for i, v in enumerate(events.now) if v != 0],
+        rooms=0,
+        hasVisited=[],
+    )
 
 
 def _zlib_wrap(raw: bytes) -> bytes:
@@ -286,12 +318,101 @@ def _zlib_wrap(raw: bytes) -> bytes:
     return b"ZLIB" + struct.pack("<ii", len(raw), len(comp)) + comp
 
 
+def _write_json_save(path: Path, data: SaveData) -> None:
+    payload = {
+        "hp": data.hp,
+        "maxhp": data.maxhp,
+        "gold": data.gold,
+        "weapon": data.weapon,
+        "hasItem": list(data.hasItem),
+        "bar": data.bar,
+        "hasCostume": list(data.hasCostume),
+        "isWearing": data.isWearing,
+        "key": data.key,
+        "b_key": data.b_key,
+        "map": data.map,
+        "entry": data.entry,
+        "happen": list(data.happen),
+        "rooms": data.rooms,
+        "hasVisited": list(data.hasVisited),
+    }
+    path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+
+
+def detect_save_format(path: Path | str) -> str:
+    """Return 'zlib', 'json', or 'unknown'."""
+    p = Path(path)
+    if not p.is_file():
+        return "unknown"
+    blob = p.read_bytes()
+    if blob.startswith(b"ZLIB"):
+        return "zlib"
+    try:
+        text = blob.decode("utf-8").lstrip()
+    except UnicodeDecodeError:
+        return "unknown"
+    if text.startswith("{") or text.startswith("["):
+        return "json"
+    return "unknown"
+
+
+def load_save_data(path: Path | str) -> SaveData:
+    """Read ZLIB or JSON without rewriting the file."""
+    p = Path(path)
+    blob = p.read_bytes()
+    if blob.startswith(b"ZLIB"):
+        return _read_binary_save(blob)
+    return _read_json_save(blob.decode("utf-8"))
+
+
+def write_save_data(path: Path | str, data: SaveData, fmt: str) -> None:
+    p = Path(path)
+    kind = fmt.lower()
+    if kind == "json":
+        _write_json_save(p, data)
+        return
+    if kind in ("zlib", "sav", "binary"):
+        p.write_bytes(_zlib_wrap(_payload_from_data(data)))
+        return
+    raise ValueError(f"unknown save format {fmt!r}")
+
+
+def convert_save(
+    src: Path | str,
+    dest: Path | str | None = None,
+    to: str | None = None,
+) -> Path:
+    """Convert a save the other way (zlib ↔ json). Default dest is sibling path."""
+    src_path = Path(src)
+    src_fmt = detect_save_format(src_path)
+    if src_fmt == "unknown":
+        raise ValueError(f"not a Lynn save: {src_path}")
+    if to is None:
+        to = "json" if src_fmt == "zlib" else "zlib"
+    to = to.lower()
+    if to in ("sav", "binary"):
+        to = "zlib"
+    data = load_save_data(src_path)
+    if dest is None:
+        if to == "json":
+            dest_path = src_path.with_suffix(".json")
+        else:
+            dest_path = src_path.with_suffix(".sav")
+    else:
+        dest_path = Path(dest)
+    write_save_data(dest_path, data, to)
+    return dest_path
+
+
 def LLSystem_WriteSaveFile(name: str, entry: int) -> None:
-    raw = _build_save_payload(entry)
+    data = snapshot_save(entry)
     path = Path(name)
     if not path.is_absolute():
         path = project_root() / name
-    path.write_bytes(_zlib_wrap(raw))
+    if json_save_debug():
+        write_save_data(path, data, "json")
+        return
+    write_save_data(path, data, "zlib")
 
 
 def __do_menu_save(this: CharType) -> int:
