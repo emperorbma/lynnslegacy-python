@@ -79,6 +79,32 @@ def LLObject_CheckSpawn(obj: CharType) -> None:
         lookup_func("__cripple")(obj)
         obj.seq_release = 0
         obj.spawn_kill_trig = TRUE
+        _persist_opened_after_spawn_kill(obj)
+
+
+def _persist_opened_after_spawn_kill(obj: CharType) -> None:
+    """FB set_up_room_enemies: chests/buttons stay on the open sprite."""
+    from lynn.constants import (
+        u_bluechest,
+        u_bluechestitem,
+        u_button,
+        u_chest,
+        u_gbutton,
+        u_ghut,
+    )
+    from lynn.object.combat import LLObject_ShiftState
+
+    if obj.unique_id in (
+        u_chest,
+        u_bluechest,
+        u_bluechestitem,
+        u_ghut,
+        u_button,
+        u_gbutton,
+    ):
+        obj.current_anim = 1
+    if obj.unique_id == u_ghut:
+        LLObject_ShiftState(obj, 3)
 
 
 def _objects_touching(a: CharType, b: CharType) -> int:

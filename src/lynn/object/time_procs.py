@@ -39,6 +39,29 @@ def __return_reset_npc(this: CharType) -> int:
     return 1
 
 
+def __check_key(this: CharType) -> int:
+    """FB object_time.bas: consume a small key, or abort the door sequence."""
+    import lynn.events as events
+
+    hero = events.hero
+    if hero is None or hero.key == 0:
+        this.return_trig = 1
+        return 1
+    hero.key -= 1
+    return 1
+
+
+def __check_b_key(this: CharType) -> int:
+    """FB object_time.bas: fancy key is a flag; missing it aborts without advancing."""
+    import lynn.events as events
+
+    only = events.hero_only
+    if only is None or only.b_key == 0:
+        this.return_trig = 1
+        return 0
+    return 1
+
+
 def __poll_action(this: CharType) -> int:
     import lynn.events as events
 
@@ -134,6 +157,8 @@ register_func("__return_jump", __return_jump)
 register_func("__return_jump_npc", __return_jump_npc)
 register_func("__return_reset_npc", __return_reset_npc)
 register_func("__poll_action", __poll_action)
+register_func("__check_key", __check_key)
+register_func("__check_b_key", __check_b_key)
 register_func("__second_pause", __second_pause)
 register_func("__half_second_pause", __half_second_pause)
 register_func("__q_second_pause", __q_second_pause)

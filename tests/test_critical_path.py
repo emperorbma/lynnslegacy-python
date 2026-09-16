@@ -139,9 +139,11 @@ def _cut_south_bushes(demo: MapDemo) -> None:
     for i in range(40):
         clock.timer = i * 0.05
         tick_objects(_objs(demo))
-        if all(b.impassable == 0 or b.dead != 0 for b in bushes):
+        if all(b.invisible != 0 for b in bushes):
             break
-    assert all(b.impassable == 0 or b.dead != 0 for b in bushes)
+    assert all(b.dead != 0 for b in bushes)
+    assert all(b.impassable == 0 for b in bushes)
+    assert all(b.invisible != 0 for b in bushes)
 
 
 def _drain_entry_seq(demo: MapDemo) -> None:

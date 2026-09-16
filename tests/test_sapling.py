@@ -1,7 +1,7 @@
 import lynn.object  # noqa: F401  registers seq funcs
 
 from lynn import clock
-from lynn.constants import TRUE
+from lynn.constants import DF_MAIN_CHAR, TRUE, u_bush
 from lynn.events import bind_hero_only, now, reset_events
 import lynn.events as events
 from lynn.gfx.box import BoxControl
@@ -127,6 +127,63 @@ def test_r1_bushes_south_of_sapling_have_touch_dialogue():
     text = bush.seq[0].Command[0].ent[0].text
     assert "thick bushes" in text
     assert "break" in text
+
+
+def test_cut_bushes_vanish_this_visit_and_respawn_on_reenter():
+    """Cut bushes are gone in this room visit; a fresh spawn brings them back."""
+    from lynn.demos import MapDemo, set_up_room_enemies
+    from lynn.gfx.blit import blit_object
+    from lynn.gfx.palette import load_pal
+    from lynn.object.combat import LLObject_DamageCalc
+    from lynn.object.tick import tick_objects
+    from lynn.paths import data_file
+    import pygame
+
+    reset_events()
+    m = load_mapV(str(resolve_map_path("forest_fall")), load_tileset=False)
+    demo = MapDemo(
+        palette=load_pal(data_file("palette", "ll.pal")),
+        game_map=m,
+        tile_surfs=[],
+        load_images=0,
+        load_tileset=0,
+    )
+    demo.hero = ctor_hero(load_images=False)
+    demo.hero_only = ctor_hero_only()
+    demo.hero_only.has_weapon = 0
+    demo.hero_only.weapon = 0
+    bind_hero_only(demo.hero_only)
+    demo.hero_room = 1
+    set_up_room_enemies(demo, 1, load_images=False)
+    objs = demo.objects_by_room[1]
+    bushes = [o for o in objs if o.unique_id == u_bush and int(o.coords_y) == 496]
+    assert len(bushes) == 3
+    for bush in bushes:
+        bush.dmg_id = DF_MAIN_CHAR
+        LLObject_DamageCalc(bush)
+    for i in range(40):
+        clock.timer = i * 0.05
+        tick_objects(objs)
+        if all(b.invisible != 0 for b in bushes):
+            break
+    assert all(b.dead != 0 and b.invisible != 0 and b.impassable == 0 for b in bushes)
+
+    pygame.display.set_mode((32, 32))
+    canvas = pygame.Surface((32, 32))
+    canvas.fill((0, 0, 0))
+    tile = pygame.Surface((16, 16))
+    tile.fill((0, 180, 0))
+    blit_object(canvas, bushes[0], 0, 0, [tile])
+    assert canvas.get_at((8, 8))[1] == 0
+
+    set_up_room_enemies(demo, 1, load_images=False)
+    fresh = [
+        o
+        for o in demo.objects_by_room[1]
+        if o.unique_id == u_bush and int(o.coords_y) == 496
+    ]
+    assert len(fresh) == 3
+    assert all(b.dead == 0 and b.invisible == 0 and b.impassable != 0 for b in fresh)
 
 
 def test_touch_sequence_fires_standing_against_the_bush():

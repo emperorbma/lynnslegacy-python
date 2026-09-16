@@ -11,12 +11,6 @@ from lynn.constants import (
     SCREEN_H,
     SCREEN_W,
     TRUE,
-    u_bluechest,
-    u_bluechestitem,
-    u_button,
-    u_chest,
-    u_gbutton,
-    u_ghut,
     u_menu,
     u_savepoint,
 )
@@ -207,11 +201,6 @@ def _maybe_start_entry_seq(demo: MapDemo, entry_i: int) -> None:
     demo.do_hud = 0
 
 
-_SPAWN_KILL_OPEN_ANIM = frozenset(
-    {u_chest, u_bluechest, u_bluechestitem, u_ghut, u_button, u_gbutton}
-)
-
-
 def _cache_obj_anims(demo: MapDemo, obj, load_images: bool = True) -> None:
     if not load_images:
         demo.obj_anim_surfs[obj.id] = [[] for _ in obj.anim]
@@ -271,12 +260,9 @@ def set_up_room_enemies(demo: MapDemo, room_i: int, load_images: bool | None = N
         if obj.spawn_cond != 0:
             LLObject_CheckSpawn(obj)
             if obj.spawn_kill_trig != 0:
-                if obj.unique_id in _SPAWN_KILL_OPEN_ANIM:
-                    obj.current_anim = 1
-                if obj.unique_id == u_ghut:
-                    from lynn.object.combat import LLObject_ShiftState
+                from lynn.object.tick import _persist_opened_after_spawn_kill
 
-                    LLObject_ShiftState(obj, 3)
+                _persist_opened_after_spawn_kill(obj)
     while len(demo.objects_by_room) <= room_i:
         demo.objects_by_room.append([])
     demo.objects_by_room[room_i] = spawned

@@ -225,6 +225,39 @@ def __give_item(this: CharType) -> int:
     return 1
 
 
+def __give_key(this: CharType) -> int:
+    """FB object_etc.bas: hero.key += 1."""
+    hero = events.hero
+    if hero is not None:
+        hero.key += 1
+    return 1
+
+
+def __give_b_key(this: CharType) -> int:
+    """FB object_etc.bas: hero_only.b_key += 1."""
+    only = events.hero_only
+    if only is not None:
+        only.b_key += 1
+    return 1
+
+
+def __give_gold_amount(this: CharType) -> int:
+    """FB object_etc.bas: hero.money += chap."""
+    hero = events.hero
+    if hero is not None:
+        hero.money += int(this.chap)
+    return 1
+
+
+def __play_dead_sound(this: CharType) -> int:
+    """FB object_sound.bas: play_sample(snd[dead_sound])."""
+    from lynn.audio import play_sample
+
+    if this.dead_sound != 0:
+        play_sample(this.dead_sound)
+    return 1
+
+
 def __play_seq(this: CharType) -> int:
     """FB object_etc.bas: llg(seq) = this.seq + sel_seq."""
     from lynn.sequence import bind_sequence_ents

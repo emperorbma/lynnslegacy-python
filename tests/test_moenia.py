@@ -241,3 +241,123 @@ def test_gbutton_presses_when_rock_overlaps():
     assert button.unique_id == u_gbutton
     assert button.funcs.active_state == 1
     assert events.now[10] != 0
+
+
+def test_chest_loot_funcs_are_implemented():
+    chest = _load("chest.xml")
+    assert lookup_func("__give_key") is not lookup_func("__noop")
+    assert lookup_func("__give_gold_amount") is not lookup_func("__noop")
+    assert lookup_func("__play_dead_sound") is not lookup_func("__noop")
+    assert lookup_func("__check_key") is not lookup_func("__noop")
+    assert chest.funcs.func[1][1] is lookup_func("__give_key")
+    assert chest.funcs.func[1][3] is lookup_func("__play_dead_sound")
+    assert chest.funcs.func[2][1] is lookup_func("__give_gold_amount")
+
+
+def test_give_key_and_gold_amount():
+    reset_events()
+    hero = CharType()
+    hero.key = 0
+    hero.money = 0
+    bind_hero(hero)
+    assert lookup_func("__give_key")(CharType()) == 1
+    assert hero.key == 1
+    pile = CharType()
+    pile.chap = 30
+    assert lookup_func("__give_gold_amount")(pile) == 1
+    assert hero.money == 30
+
+
+def test_check_key_consumes_or_aborts():
+    reset_events()
+    hero = CharType()
+    hero.key = 0
+    bind_hero(hero)
+    door = _load("keydoor.xml")
+    assert lookup_func("__check_key")(door) == 1
+    assert door.return_trig != 0
+    assert hero.key == 0
+    door.return_trig = 0
+    hero.key = 2
+    assert lookup_func("__check_key")(door) == 1
+    assert hero.key == 1
+    assert door.return_trig == 0
+
+
+def test_moenia_r1_red_chest_gives_key_without_stalling():
+    from lynn.demos import MapDemo, set_up_room_enemies
+    from lynn.gfx.box import BoxControl
+    from lynn.gfx.palette import load_pal
+    from lynn.hero import DIR_UP, ctor_hero, ctor_hero_only
+    from lynn.map.loader import load_mapV
+    from lynn.paths import data_file, resolve_map_path
+    from lynn.sequence import play_sequence, try_action_sequence
+
+    reset_events()
+    path = resolve_map_path("moenia")
+    game_map = load_mapV(str(path), load_tileset=False)
+    demo = MapDemo(
+        palette=load_pal(data_file("palette", "ll.pal")),
+        game_map=game_map,
+        tile_surfs=[],
+        load_images=0,
+        load_tileset=0,
+    )
+    demo.hero = ctor_hero(load_images=False)
+    demo.hero_only = ctor_hero_only()
+    demo.hero.key = 0
+    demo.hero.perimeter_x = 16
+    demo.hero.perimeter_y = 16
+    demo.hero_room = 1
+    demo.box = BoxControl()
+    set_up_room_enemies(demo, 1, load_images=False)
+    bind_hero(demo.hero)
+    bind_hero_only(demo.hero_only)
+    objs = demo.objects_by_room[1]
+    chest = next(o for o in objs if o.id.replace("\\", "/").endswith("chest.xml"))
+    demo.hero.direction = DIR_UP
+    demo.hero.coords_x = chest.coords_x
+    demo.hero.coords_y = chest.coords_y + 16
+    demo.hero_only.action = TRUE
+    seq = try_action_sequence(demo.hero, demo.hero_only, objs)
+    demo.hero_only.action = 0
+    assert seq is not None
+    for i in range(200):
+        clock.timer = i * 0.05
+        if demo.box.activated != 0:
+            demo.hero_only.action = TRUE
+        seq = play_sequence(seq, demo.box, demo.hero_only)
+        demo.hero_only.action = 0
+        if seq is None:
+            break
+    else:
+        raise AssertionError("Moenia r1 red chest sequence stalled")
+    assert demo.hero.key == 1
+    assert events.now[150] != 0
+    tick_objects(objs)
+    assert chest.invisible == 0
+    assert chest.current_anim == 1
+
+
+def test_blit_keeps_opened_chest_visible():
+    import pygame
+    from lynn.gfx.blit import blit_object
+
+    pygame.display.set_mode((32, 32))
+    canvas = pygame.Surface((32, 32))
+    canvas.fill((0, 0, 0))
+    tile = pygame.Surface((16, 16))
+    tile.fill((200, 40, 40))
+    chest = CharType()
+    chest.coords_x = 0
+    chest.coords_y = 0
+    chest.current_anim = 1
+    chest.spawn_kill_trig = TRUE
+    chest.total_dead = TRUE
+    chest.invisible = 0
+    blit_object(canvas, chest, 0, 0, [tile, tile])
+    assert canvas.get_at((8, 8))[0] > 100
+    chest.invisible = TRUE
+    canvas.fill((0, 0, 0))
+    blit_object(canvas, chest, 0, 0, [tile, tile])
+    assert canvas.get_at((8, 8))[0] == 0
