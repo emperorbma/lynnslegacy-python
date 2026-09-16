@@ -287,6 +287,21 @@ def __big_color_down(this: CharType) -> int:
     return 1
 
 
+def __color_up(this: CharType) -> int:
+    """FB object--gfx_palette.bas: one step brighter (dark -= 1)."""
+    if events.dark > 0:
+        events.dark -= 1
+    return 1
+
+
+def __color_down(this: CharType) -> int:
+    """FB object--gfx_palette.bas: one step darker if the room is dark."""
+    room = events.current_room
+    if events.dark < 5 and room is not None and getattr(room, "dark", 0) != 0:
+        events.dark += 1
+    return 1
+
+
 def __set_happen(this: CharType) -> int:
     chap = int(this.chap)
     if 0 <= chap < len(events.now):
@@ -476,7 +491,8 @@ def __color_off(this: CharType) -> int:
 
 
 def __flash(this: CharType) -> int:
-    """FB object--gfx_palette.bas: white palette hold ~0.125s."""
+    """FB object--gfx_palette.bas: full-white palette hold ~0.125s (psycho swing)."""
+    events.fade_white = 255
     if this.pause == 0:
         this.pause = clock.timer + 0.125
         return 0
@@ -487,6 +503,8 @@ def __flash(this: CharType) -> int:
 
 
 def __flash_down(this: CharType) -> int:
+    """FB object--gfx_palette.bas: restore palette after psycho flash."""
+    events.fade_white = 0
     return 1
 
 

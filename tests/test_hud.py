@@ -9,6 +9,7 @@ import pygame
 from lynn.constants import SCREEN_H, SCREEN_W
 from lynn.constants import DF_MAIN_CHAR, TRUE
 from lynn.events import bind_hero, bind_hero_only, reset_events
+import lynn.events as events
 from lynn.gfx.hud import blit_hud, hud_IsShowing, hud_pip_frame, load_hud
 from lynn.hero import cache_crazy, ctor_hero, ctor_hero_only
 from lynn.object.char import CharType
@@ -161,6 +162,20 @@ def test_hit_charges_crazy_and_psycho_attack():
     assert hero.psycho == TRUE
     assert hero.attack_state == 37
     assert only.crazy_points == 0
+    from lynn.object.combat import hero_attack
+
+    hero_attack(hero)
+    assert hero.current_anim == 3
+    assert only.attacking == TRUE
+    clock.timer = 10.0
+    hero_attack(hero)
+    assert events.fade_white == 255
+    clock.timer = 10.2
+    hero_attack(hero)
+    from lynn.object.dispatch import lookup_func
+
+    lookup_func("__flash_down")(hero)
+    assert events.fade_white == 0
 
 
 @pytest.mark.skipif(

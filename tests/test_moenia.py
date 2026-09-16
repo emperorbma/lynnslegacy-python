@@ -74,6 +74,31 @@ def test_give_item_sets_hasItem():
     assert only.hasItem[0] == TRUE
 
 
+def test_flare_powder_lights_unlit_torch():
+    reset_events()
+    only = ctor_hero_only()
+    only.hasItem[0] = TRUE
+    only.selected_item = 1
+    only.powder = 1
+    bind_hero_only(only)
+    torch = _load("torch.xml")
+    assert lookup_func("__color_up") is not lookup_func("__noop")
+    assert lookup_func("__color_down") is not lookup_func("__noop")
+    assert torch.torch != 0
+    assert torch.fire_weak != 0
+    torch.dmg_id = DF_MAIN_CHAR
+    LLObject_DeriveHurt(torch)
+    assert torch.funcs.active_state == torch.hit_state
+    from lynn.object.tick import tick_object
+
+    for i in range(8):
+        clock.timer = i * 0.05
+        tick_object(torch)
+        if torch.current_anim == 1:
+            break
+    assert torch.current_anim == 1
+
+
 def test_flare_powder_destroys_coldrock():
     reset_events()
     only = ctor_hero_only()
