@@ -7,8 +7,12 @@ os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
 import pygame
 
 from lynn.constants import SCREEN_H, SCREEN_W
-from lynn.gfx.hud import blit_hud, hud_pip_frame, load_hud
-from lynn.hero import ctor_hero, ctor_hero_only
+from lynn.constants import DF_MAIN_CHAR, TRUE
+from lynn.events import bind_hero, bind_hero_only, reset_events
+from lynn.gfx.hud import blit_hud, hud_IsShowing, hud_pip_frame, load_hud
+from lynn.hero import cache_crazy, ctor_hero, ctor_hero_only
+from lynn.object.char import CharType
+from lynn.object.combat import LLObject_ProcessHurt, start_hero_attack
 from lynn.paths import project_root
 
 
@@ -100,3 +104,91 @@ def test_blit_hud_clamps_money_and_shows_digits(pygame_dummy):
     assert hero.money == 999
     # Hundreds digit '9' is not the same as '0' (white interior).
     assert canvas.get_at((289 + 4, 8 + 8))[:3] != (252, 252, 252)
+
+
+def test_hud_shows_damaged_enemy_not_bushes():
+    reset_events()
+    bat = CharType()
+    bat.hp = 1
+    bat.maxhp = 1
+    bat.dmg_id = DF_MAIN_CHAR
+    assert hud_IsShowing(bat) != 0
+    bush = CharType()
+    bush.hp = 1
+    bush.maxhp = 1
+    bush.dmg_id = DF_MAIN_CHAR
+    from lynn.constants import u_bush
+
+    bush.unique_id = u_bush
+    assert hud_IsShowing(bush) == 0
+    boss = CharType()
+    boss.isBoss = TRUE
+    boss.hp = 15
+    boss.maxhp = 15
+    assert hud_IsShowing(boss) != 0
+
+
+def test_hit_charges_crazy_and_psycho_attack():
+    reset_events()
+    only = ctor_hero_only()
+    only.weapon = 0
+    only.has_weapon = 0
+    bind_hero_only(only)
+    hero = ctor_hero(load_images=False)
+    bind_hero(hero)
+    enemy = CharType()
+    enemy.hp = 2
+    enemy.maxhp = 2
+    enemy.hurt = 1
+    enemy.dmg_id = DF_MAIN_CHAR
+    enemy.funcs.func = [[lambda _h: 1]]
+    enemy.funcs.func_count = [1]
+    enemy.funcs.current_func = [0]
+    enemy.funcs.states = 1
+    LLObject_ProcessHurt(enemy)
+    assert only.crazy_cache == 10
+    from lynn import clock
+    import lynn.hero as hero_mod
+
+    hero_mod._cache_wait = 0
+    clock.timer = 1.0
+    for i in range(20):
+        clock.timer = 1.0 + i * 0.02
+        cache_crazy(only)
+    assert only.crazy_points == 10
+    only.crazy_points = 99
+    start_hero_attack(hero)
+    assert hero.psycho == TRUE
+    assert hero.attack_state == 37
+    assert only.crazy_points == 0
+
+
+@pytest.mark.skipif(
+    not (project_root() / "data/pictures/hud/fullbar.spr").is_file(),
+    reason="no hud sprites",
+)
+def test_blit_hud_enemy_pips_and_crazy_bar(pygame_dummy):
+    from lynn.gfx.palette import load_pal
+    from lynn.paths import chdir_project_root
+
+    chdir_project_root()
+    reset_events()
+    hud = load_hud(load_pal("data/palette/ll.pal"))
+    hero = ctor_hero(load_images=False)
+    only = ctor_hero_only()
+    only.crazy_points = 40
+    enemy = CharType()
+    enemy.hp = 2
+    enemy.maxhp = 2
+    enemy.dmg_id = DF_MAIN_CHAR
+    enemy.coords_x = 160
+    enemy.coords_y = 100
+    enemy.perimeter_x = 16
+    enemy.perimeter_y = 16
+    canvas = pygame.Surface((SCREEN_W, SCREEN_H)).convert()
+    canvas.fill((0, 0, 0))
+    blit_hud(canvas, hero, only, hud, enemies=[enemy], cam_x=0, cam_y=0)
+    # Enemy pip at (146+8, 8) full heart pink.
+    assert canvas.get_at((146 + 8 + 4, 8 + 4))[:3] == (255, 157, 157)
+    # Crazy bar fill starts at (15, 27).
+    assert canvas.get_at((20, 28))[:3] != (0, 0, 0)

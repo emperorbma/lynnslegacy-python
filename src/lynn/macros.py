@@ -19,6 +19,24 @@ def quad_calc(x: int, y: int) -> int:
     return (abs(y & 1) << 1) + abs(x & 1)
 
 
+def LLObject_IsWithin(this, cam_x: int = 0, cam_y: int = 0) -> int:
+    """FB macros.bi: bosses and projectile users always; else on-screen AABB."""
+    if getattr(this, "isBoss", 0) != 0:
+        return -1
+    if getattr(this, "proj_style", 0) != 0:
+        return -1
+    ax = 0 if getattr(this, "no_cam", 0) != 0 else cam_x
+    ay = 0 if getattr(this, "no_cam", 0) != 0 else cam_y
+    anim = None
+    if this.anim and 0 <= this.current_anim < len(this.anim):
+        anim = this.anim[this.current_anim]
+    w = int(anim.x) if anim and anim.x else 16
+    h = int(anim.y) if anim and anim.y else 16
+    xin = abs(ax + 160 - this.coords_x) < (200 + w)
+    yin = abs(ay + 100 - this.coords_y) < (150 + h)
+    return -1 if xin and yin else 0
+
+
 def LLObject_CalculateFrame(this) -> int:
     if this.uni_directional == 0:
         dir_frames = 0

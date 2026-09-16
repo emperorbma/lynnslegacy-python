@@ -435,6 +435,11 @@ def _run_map(
         from lynn.audio import tick_music
 
         tick_music()
+        if demo.hero_only is not None and demo.seq is None and demo.menu_open == 0:
+            from lynn.hero import cache_crazy, decay_crazy
+
+            cache_crazy(demo.hero_only)
+            decay_crazy(demo.hero_only)
         if (
             demo.hero is not None
             and demo.hero_only is not None

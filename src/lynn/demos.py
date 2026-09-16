@@ -518,7 +518,16 @@ def draw_map_demo(canvas: pygame.Surface, demo: MapDemo, room_i: int, cam_x: int
         fade.set_alpha(max(0, min(255, int(events.fade_black))))
         canvas.blit(fade, (0, 0))
     if demo.do_hud != 0 and demo.hud is not None and demo.hero is not None and demo.hero_only is not None:
-        blit_hud(canvas, demo.hero, demo.hero_only, demo.hud)
+        blit_hud(
+            canvas,
+            demo.hero,
+            demo.hero_only,
+            demo.hud,
+            enemies=demo.objects_by_room[room_i] if room_i < len(demo.objects_by_room) else [],
+            cam_x=cam_x,
+            cam_y=cam_y,
+            is_dungeon=demo.game_map.isDungeon,
+        )
     if save_open and events.box_entity is not None:
         from lynn.object.save import blit_save_menu, blit_title_menu
 

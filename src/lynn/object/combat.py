@@ -9,7 +9,12 @@ from lynn.constants import (
     DF_ROOM_ENEMY,
     DF_TEMP_ENEMY,
     TRUE,
+    u_bombrock,
     u_bush,
+    u_crate,
+    u_crate_health,
+    u_goldblock,
+    u_greyrock,
     u_grult,
 )
 from lynn.macros import LLObject_CalculateFrame
@@ -178,7 +183,7 @@ def LLObject_DeriveHurt(h: CharType) -> None:
             return
         if h.star_weak != 0 and weap < 2:
             return
-        h.hurt = 2 ** weap
+        h.hurt = (2 ** weap) * (2 if events.hero is not None and events.hero.psycho != 0 else 1)
         return
     if _face_invincible(h, h.dmg_specific) != 0:
         return
@@ -186,7 +191,7 @@ def LLObject_DeriveHurt(h: CharType) -> None:
         return
     if h.star_weak != 0 and weap < 2:
         return
-    h.hurt = 2 ** weap
+    h.hurt = (2 ** weap) * (2 if events.hero is not None and events.hero.psycho != 0 else 1)
 
 
 def _face_invincible(o: CharType, face_i: int) -> int:
@@ -238,6 +243,16 @@ def LLObject_ProcessHurt(h: CharType) -> None:
     if h.hp > 0:
         _play_hurt_sound(h)
         if h.dmg_id == DF_MAIN_CHAR:
+            only = events.hero_only
+            if only is not None and h.unique_id not in (
+                u_bush,
+                u_crate,
+                u_crate_health,
+                u_greyrock,
+                u_bombrock,
+                u_goldblock,
+            ):
+                only.crazy_cache += 20 if only.isWearing == 2 else 10
             LLObject_ShiftState(h, h.hit_state)
         elif h.dmg_id in (DF_ROOM_ENEMY, DF_TEMP_ENEMY):
             enemy = _damager(h)
@@ -314,8 +329,15 @@ def start_hero_attack(hr: CharType) -> None:
         return
     if only.action_lock != 0 or hr.dead != 0:
         return
+    if only.isWearing in (1, 5):
+        return
     only.attacking = TRUE
-    hr.attack_state = 6
+    if only.crazy_points >= 99:
+        only.crazy_points = 0
+        hr.attack_state = 37
+        hr.psycho = TRUE
+    else:
+        hr.attack_state = 6
     if 0 <= hr.attack_state < len(hr.funcs.current_func):
         hr.funcs.current_func[hr.attack_state] = 0
 

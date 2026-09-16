@@ -29,6 +29,10 @@ class MainCharType:
     isWearing: int = 0
     has_bar: int = 0
     b_key: int = 0
+    crazy_points: int = 0
+    crazy_cache: int = 0
+    crazy_dcache: int = 0
+    adrenaline: object | None = None
     dropoutSequence: int = 0
     invisibleEntry: int = 0
     isLoading: int = 0
@@ -68,7 +72,43 @@ def ctor_hero_only() -> MainCharType:
     only.hasCostume = [0] * 9
     only.hasCostume[0] = TRUE
     only.isWearing = 0
+    only.crazy_points = 0
+    only.crazy_cache = 0
+    only.crazy_dcache = 0
+    only.adrenaline = None
     return only
+
+
+_cache_wait = 0.0
+_crazy_delay = 0.0
+
+
+def cache_crazy(only: MainCharType) -> None:
+    """FB engine--LL.bas: drain crazy_cache/dcache into crazy_points (~100/s)."""
+    global _cache_wait
+    if _cache_wait == 0:
+        if only.crazy_cache > 0:
+            only.crazy_points += 1
+            only.crazy_cache -= 1
+        if only.crazy_dcache > 0:
+            only.crazy_points -= 1
+            only.crazy_dcache -= 1
+        _cache_wait = clock.timer + 0.01
+    if clock.timer > _cache_wait:
+        _cache_wait = 0
+
+
+def decay_crazy(only: MainCharType) -> None:
+    """FB engine--LL.bas: one decay tick every 0.3s while the bar is charged."""
+    global _crazy_delay
+    if _crazy_delay == 0:
+        _crazy_delay = clock.timer + 0.3
+        if only.crazy_points > 0:
+            if only.crazy_points > 105:
+                only.crazy_points = 105
+            only.crazy_dcache += 1
+    if clock.timer > _crazy_delay:
+        _crazy_delay = 0
 
 
 def place_hero(hero: CharType, game_map: MapType, entry_i: int = 0) -> int:
