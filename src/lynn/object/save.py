@@ -1,12 +1,13 @@
 """FB object_etc.bas __do_menu_save / __handle_menu.
 
-New saves are JSON. Original FB files are a 12-byte ZLIB header plus zlib
-payload (stdlib zlib; same as compress2).
+Saves are the original 12-byte ZLIB header plus zlib payload (compress2
+level 9). JSON files from the early Python port are still readable.
 """
 
 from __future__ import annotations
 
 import json
+import struct
 import zlib
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -231,29 +232,66 @@ def LLSystem_ReadSaveFile(name: str) -> SaveData | None:
         return None
 
 
-def LLSystem_WriteSaveFile(name: str, entry: int) -> None:
+def _pack_i32(v: int) -> bytes:
+    return struct.pack("<i", int(v))
+
+
+def _pack_hstring(text: str) -> bytes:
+    raw = str(text or "").replace("/", "\\").encode("latin-1")
+    return struct.pack("<H", len(raw)) + raw
+
+
+def _happen_bytes() -> bytes:
+    buf = bytearray(LL_EVENTS_MAX)
+    for i, v in enumerate(events.now[:LL_EVENTS_MAX]):
+        if v != 0:
+            buf[i] = 0xFF
+    return bytes(buf)
+
+
+def _costume_bytes(costumes: list[int]) -> bytes:
+    padded = (list(costumes) + [0] * 9)[:9]
+    return bytes((int(c) & 0xFF) for c in padded)
+
+
+def _build_save_payload(entry: int) -> bytes:
+    """FB LLSystem_WriteSaveFile VFile_Put order."""
     hero = events.hero
     only = events.hero_only
-    payload = {
-        "hp": int(hero.hp) if hero is not None else 6,
-        "maxhp": int(hero.maxhp) if hero is not None else 6,
-        "gold": int(hero.money) if hero is not None else 0,
-        "weapon": int(only.has_weapon) if only is not None else -1,
-        "hasItem": list(only.hasItem) if only is not None else [0] * 6,
-        "bar": int(only.has_bar) if only is not None else 0,
-        "hasCostume": list(only.hasCostume) if only is not None else [0] * 9,
-        "isWearing": int(only.isWearing) if only is not None else 0,
-        "key": int(hero.key) if hero is not None else 0,
-        "b_key": int(only.b_key) if only is not None else 0,
-        "map": events.map_filename,
-        "entry": int(entry),
-        "happen": [i for i, v in enumerate(events.now) if v != 0],
-        "rooms": 0,
-    }
+    parts = [
+        _pack_i32(int(hero.hp) if hero is not None else 6),
+        _pack_i32(int(hero.maxhp) if hero is not None else 6),
+        _pack_i32(int(hero.money) if hero is not None else 0),
+        _pack_i32(int(only.has_weapon) if only is not None else -1),
+    ]
+    items = list(only.hasItem) if only is not None else [0] * 6
+    items = (items + [0] * 6)[:6]
+    parts.extend(_pack_i32(v) for v in items)
+    parts.append(_pack_i32(int(only.has_bar) if only is not None else 0))
+    parts.append(_costume_bytes(list(only.hasCostume) if only is not None else [0] * 9))
+    parts.append(_pack_i32(int(only.isWearing) if only is not None else 0))
+    parts.append(_pack_i32(int(hero.key) if hero is not None else 0))
+    parts.append(_pack_i32(int(only.b_key) if only is not None else 0))
+    parts.append(_pack_hstring(events.map_filename))
+    parts.append(_pack_i32(int(entry)))
+    parts.append(_happen_bytes())
+    rooms = 0
+    parts.append(_pack_i32(rooms))
+    return b"".join(parts)
+
+
+def _zlib_wrap(raw: bytes) -> bytes:
+    """FB zLib_Compress: 'ZLIB' + i32 uncomp + i32 comp + compress2(level 9)."""
+    comp = zlib.compress(raw, 9)
+    return b"ZLIB" + struct.pack("<ii", len(raw), len(comp)) + comp
+
+
+def LLSystem_WriteSaveFile(name: str, entry: int) -> None:
+    raw = _build_save_payload(entry)
     path = Path(name)
     if not path.is_absolute():
         path = project_root() / name
-    path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    path.write_bytes(_zlib_wrap(raw))
 
 
 def __do_menu_save(this: CharType) -> int:

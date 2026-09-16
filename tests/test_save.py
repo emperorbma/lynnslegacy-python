@@ -83,6 +83,8 @@ def test_write_and_read_json_save(tmp_path, monkeypatch):
     path = tmp_path / "ll_save1.sav"
     monkeypatch.setattr("lynn.object.save.project_root", lambda: tmp_path)
     LLSystem_WriteSaveFile("ll_save1.sav", 2)
+    blob = path.read_bytes()
+    assert blob[:4] == b"ZLIB"
     data = LLSystem_ReadSaveFile(str(path))
     assert data is not None
     assert data.hp == 4
@@ -91,6 +93,24 @@ def test_write_and_read_json_save(tmp_path, monkeypatch):
     assert data.entry == 2
     assert data.map == "forest_fall.map"
     assert 3 in data.happen
+
+
+def test_orig_binary_save_loads():
+    from lynn.paths import project_root
+
+    orig = project_root() / "ll_save1-orig.sav"
+    if not orig.is_file():
+        pytest.skip("ll_save1-orig.sav not next to the project")
+    blob = orig.read_bytes()
+    assert blob[:4] == b"ZLIB"
+    data = LLSystem_ReadSaveFile(str(orig))
+    assert data is not None
+    assert data.map == "forest_fall.map"
+    assert data.hp == 6
+    assert data.maxhp == 6
+    assert data.weapon == 0
+    assert data.hasCostume[0] == TRUE
+    assert data.rooms == 0
 
 
 def test_do_menu_save_writes_slot(tmp_path, monkeypatch):
