@@ -50,7 +50,7 @@ from lynn.controls import (
     pygame_keys_for,
     scancode_held,
 )
-from lynn.paths import DEFAULT_MAP, START_MAP, chdir_project_root
+from lynn.paths import DEFAULT_MAP, START_MAP, chdir_project_root, data_file
 
 PAN_SPEED = 4
 
@@ -541,7 +541,19 @@ def _clamp_cam(room, cam_x: int, cam_y: int) -> tuple[int, int]:
     return max(0, min(cam_x, max_x)), max(0, min(cam_y, max_y))
 
 
+def _set_window_icon() -> None:
+    """FB ll.rc IDI_MAIN ICON "ll.ico" — Lynn + LL, shipped as data/pictures/ll.ico."""
+    path = data_file("pictures", "ll.ico")
+    if not path.is_file():
+        return
+    try:
+        pygame.display.set_icon(pygame.image.load(str(path)))
+    except pygame.error:
+        return
+
+
 def _open_window() -> pygame.Surface:
+    _set_window_icon()
     return pygame.display.set_mode(
         (SCREEN_W * 2, SCREEN_H * 2),
         pygame.RESIZABLE,

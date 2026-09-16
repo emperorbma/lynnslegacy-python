@@ -1,5 +1,5 @@
-from lynn.main import _caption_for, main, parse_cli, resolve_boot_map
-from lynn.paths import DEFAULT_MAP, START_MAP
+from lynn.main import _caption_for, _set_window_icon, main, parse_cli, resolve_boot_map
+from lynn.paths import DEFAULT_MAP, START_MAP, data_file
 
 
 def test_help_exits_zero():
@@ -53,6 +53,19 @@ def test_default_objects_caption_is_plain():
     assert _caption_for("objects", START_MAP, quiet=True) == "Lynn's Legacy"
     assert _caption_for("objects", "forest_fall") == "Lynn's Legacy - forest_fall"
     assert "forest_fall" in _caption_for("map", None)
+
+
+def test_window_icon_is_the_fb_ll_ico():
+    path = data_file("pictures", "ll.ico")
+    assert path.is_file()
+    assert path.stat().st_size == 2238
+    import pygame
+
+    pygame.display.set_mode((32, 32))
+    surf = pygame.image.load(str(path))
+    assert surf.get_width() >= 16
+    assert surf.get_height() >= 16
+    _set_window_icon()
 
 
 def test_resolve_boot_map_save_skips_splash():
