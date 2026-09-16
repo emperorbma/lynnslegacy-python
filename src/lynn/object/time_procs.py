@@ -51,6 +51,24 @@ def __check_key(this: CharType) -> int:
     return 1
 
 
+def __if_all_dead(this: CharType) -> int:
+    """FB object_time.bas: stay here until every real enemy in the room is dead.
+
+    Doors, torches, and other gates are ignored. Return -1 to keep polling,
+    1 to open (only if this.chap is set).
+    """
+    import lynn.events as events
+    from lynn.constants import u_bardoor, u_fkeydoor, u_keydoor, u_ltorch, u_torch
+
+    skip = {u_keydoor, u_fkeydoor, u_ltorch, u_torch, u_bardoor}
+    for obj in events.current_others or []:
+        if obj.dead == 0 and obj.unique_id not in skip:
+            return -1
+    if this.chap != 0:
+        return 1
+    return 0
+
+
 def __check_b_key(this: CharType) -> int:
     """FB object_time.bas: fancy key is a flag; missing it aborts without advancing."""
     import lynn.events as events
@@ -159,6 +177,7 @@ register_func("__return_reset_npc", __return_reset_npc)
 register_func("__poll_action", __poll_action)
 register_func("__check_key", __check_key)
 register_func("__check_b_key", __check_b_key)
+register_func("__if_all_dead", __if_all_dead)
 register_func("__second_pause", __second_pause)
 register_func("__half_second_pause", __half_second_pause)
 register_func("__q_second_pause", __q_second_pause)

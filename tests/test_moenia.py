@@ -8,7 +8,9 @@ from lynn.constants import (
     DF_MAIN_CHAR,
     PROJECTILE_FIREBALL,
     TRUE,
+    u_bardoor,
     u_coldrock,
+    u_fkeydoor,
     u_gbutton,
     u_grult,
     u_gtorch,
@@ -361,3 +363,115 @@ def test_blit_keeps_opened_chest_visible():
     canvas.fill((0, 0, 0))
     blit_object(canvas, chest, 0, 0, [tile, tile])
     assert canvas.get_at((8, 8))[0] == 0
+
+
+def test_if_all_dead_waits_for_mobs_then_opens():
+    from lynn.events import bind_room
+    from lynn.object.tick import tick_object
+
+    reset_events()
+    door = _load("bardoor.xml")
+    door.unique_id = u_bardoor
+    door.chap = 175
+    bat = CharType()
+    bat.dead = 0
+    bat.unique_id = 0
+    bind_room(None, [door, bat])
+    assert lookup_func("__if_all_dead") is not lookup_func("__noop")
+    assert lookup_func("__if_all_dead")(door) == -1
+    bat.dead = TRUE
+    assert lookup_func("__if_all_dead")(door) == 1
+    door.chap = 0
+    assert lookup_func("__if_all_dead")(door) == 0
+
+
+def test_moenia_r0_fkeydoor_vanishes_after_blue_key():
+    from lynn.demos import MapDemo, set_up_room_enemies
+    from lynn.gfx.box import BoxControl
+    from lynn.gfx.palette import load_pal
+    from lynn.hero import ctor_hero, ctor_hero_only
+    from lynn.map.loader import load_mapV
+    from lynn.object.tick import LLObject_CheckSpawn, tick_objects
+    from lynn.paths import data_file, resolve_map_path
+    from lynn.sequence import play_sequence, try_touch_sequence
+
+    reset_events()
+    path = resolve_map_path("moenia")
+    game_map = load_mapV(str(path), load_tileset=False)
+    demo = MapDemo(
+        palette=load_pal(data_file("palette", "ll.pal")),
+        game_map=game_map,
+        tile_surfs=[],
+        load_images=0,
+        load_tileset=0,
+    )
+    demo.hero = ctor_hero(load_images=False)
+    demo.hero_only = ctor_hero_only()
+    demo.hero_only.b_key = 1
+    demo.hero.perimeter_x = 16
+    demo.hero.perimeter_y = 16
+    demo.hero_room = 0
+    demo.box = BoxControl()
+    set_up_room_enemies(demo, 0, load_images=False)
+    bind_hero(demo.hero)
+    bind_hero_only(demo.hero_only)
+    objs = demo.objects_by_room[0]
+    door = next(o for o in objs if o.unique_id == u_fkeydoor)
+    assert door.impassable != 0
+    demo.hero.coords_x = door.coords_x
+    demo.hero.coords_y = door.coords_y + 16
+    seq = try_touch_sequence(demo.hero, objs)
+    assert seq is not None
+    for i in range(40):
+        clock.timer = i * 0.05
+        seq = play_sequence(seq, demo.box, demo.hero_only)
+        for obj in objs:
+            LLObject_CheckSpawn(obj)
+        if seq is None:
+            break
+    else:
+        raise AssertionError("fkeydoor sequence stalled")
+    tick_objects(objs)
+    assert events.now[104] != 0
+    assert door.spawn_kill_trig != 0
+    assert door.invisible != 0
+    assert door.impassable == 0
+
+
+def test_moenia_r0_bardoor_opens_when_room_is_clear():
+    from lynn.demos import MapDemo, set_up_room_enemies
+    from lynn.events import bind_room
+    from lynn.gfx.palette import load_pal
+    from lynn.hero import ctor_hero, ctor_hero_only
+    from lynn.map.loader import load_mapV
+    from lynn.object.tick import tick_objects
+    from lynn.paths import data_file, resolve_map_path
+
+    reset_events()
+    path = resolve_map_path("moenia")
+    game_map = load_mapV(str(path), load_tileset=False)
+    demo = MapDemo(
+        palette=load_pal(data_file("palette", "ll.pal")),
+        game_map=game_map,
+        tile_surfs=[],
+        load_images=0,
+        load_tileset=0,
+    )
+    demo.hero = ctor_hero(load_images=False)
+    demo.hero_only = ctor_hero_only()
+    set_up_room_enemies(demo, 0, load_images=False)
+    objs = demo.objects_by_room[0]
+    bind_hero(demo.hero)
+    bind_hero_only(demo.hero_only)
+    bind_room(game_map.room[0], objs)
+    door = next(o for o in objs if o.unique_id == u_bardoor and o.chap == 175)
+    for o in objs:
+        if o.unique_id not in (u_bardoor, u_fkeydoor) and o is not door:
+            o.dead = TRUE
+    for i in range(20):
+        clock.timer = i * 0.05
+        tick_objects(objs)
+        if door.invisible != 0 or door.dead != 0:
+            break
+    assert door.dead != 0 or door.invisible != 0
+    assert events.now[175] != 0
