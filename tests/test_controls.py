@@ -20,7 +20,6 @@ from lynn.controls import (
     load_controls,
     load_fullscreen,
     pygame_keys_for,
-    pygame_scans_for,
     save_controls,
     save_fullscreen,
     scancode_from_pygame,
@@ -45,10 +44,6 @@ def test_shipped_controls_xml_is_arrow_keys():
     assert pygame_keys_for(chart.rkey) == (pygame.K_RIGHT,)
     assert pygame_keys_for(chart.dkey) == (pygame.K_DOWN,)
     assert pygame_keys_for(chart.lkey) == (pygame.K_LEFT,)
-    assert pygame_scans_for(chart.ukey) == (pygame.KSCAN_UP,)
-    assert pygame_scans_for(chart.rkey) == (pygame.KSCAN_RIGHT,)
-    assert pygame_scans_for(chart.dkey) == (pygame.KSCAN_DOWN,)
-    assert pygame_scans_for(chart.lkey) == (pygame.KSCAN_LEFT,)
     assert scancode_from_pygame(pygame.K_UP) == SC_UP
     assert scancode_from_pygame(pygame.K_LEFT) == SC_LEFT
     import os
@@ -58,23 +53,27 @@ def test_shipped_controls_xml_is_arrow_keys():
     pygame.display.set_mode((32, 32))
     pressed = pygame.key.get_pressed()
     assert len(pressed) == 512
-    assert pygame.K_UP >= len(pressed)
-    assert pygame.KSCAN_UP < len(pressed)
+    assert pygame.K_UP > len(pressed)
+    # Wrapper accepts K_UP even though it is larger than len(pressed).
+    assert pressed[pygame.K_UP] is False
+
     class _Pressed:
-        def __init__(self, held):
-            self._held = set(held)
+        def __init__(self):
+            self.seen = []
 
         def __len__(self):
             return 512
 
         def __getitem__(self, key):
-            return key in self._held
+            self.seen.append(key)
+            return key == pygame.K_UP
 
-    held = _Pressed({pygame.KSCAN_UP, pygame.KSCAN_RIGHT})
+    held = _Pressed()
     assert scancode_held(held, chart.ukey) != 0
-    assert scancode_held(held, chart.rkey) != 0
-    assert scancode_held(held, chart.dkey) == 0
-    assert scancode_held(held, chart.lkey) == 0
+    assert pygame.K_UP in held.seen
+    held2 = _Pressed()
+    assert scancode_held(held2, chart.dkey) == 0
+    assert pygame.K_DOWN in held2.seen
 
 
 def test_scancode_roundtrip_pygame():

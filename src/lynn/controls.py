@@ -281,94 +281,6 @@ for _sc, _keys in _SC_TO_PY.items():
     for _k in _keys:
         _PY_TO_SC[_k] = _sc
 
-# pygame-ce get_pressed() is scancode-indexed (len 512). Arrow keycodes are
-# >512 (K_UP == 1073741906) so they must use KSCAN_*, not K_*.
-_SC_TO_SCAN: dict[int, tuple[int, ...]] = {
-    SC_ESCAPE: (pygame.KSCAN_ESCAPE,),
-    SC_1: (pygame.KSCAN_1,),
-    SC_2: (pygame.KSCAN_2,),
-    SC_3: (pygame.KSCAN_3,),
-    SC_4: (pygame.KSCAN_4,),
-    SC_5: (pygame.KSCAN_5,),
-    SC_6: (pygame.KSCAN_6,),
-    SC_7: (pygame.KSCAN_7,),
-    SC_8: (pygame.KSCAN_8,),
-    SC_9: (pygame.KSCAN_9,),
-    SC_0: (pygame.KSCAN_0,),
-    SC_MINUS: (pygame.KSCAN_MINUS,),
-    SC_EQUALS: (pygame.KSCAN_EQUALS,),
-    SC_BACKSPACE: (pygame.KSCAN_BACKSPACE,),
-    SC_TAB: (pygame.KSCAN_TAB,),
-    SC_Q: (pygame.KSCAN_Q,),
-    SC_W: (pygame.KSCAN_W,),
-    SC_E: (pygame.KSCAN_E,),
-    SC_R: (pygame.KSCAN_R,),
-    SC_T: (pygame.KSCAN_T,),
-    SC_Y: (pygame.KSCAN_Y,),
-    SC_U: (pygame.KSCAN_U,),
-    SC_I: (pygame.KSCAN_I,),
-    SC_O: (pygame.KSCAN_O,),
-    SC_P: (pygame.KSCAN_P,),
-    SC_LEFTBRACKET: (pygame.KSCAN_LEFTBRACKET,),
-    SC_RIGHTBRACKET: (pygame.KSCAN_RIGHTBRACKET,),
-    SC_ENTER: (pygame.KSCAN_RETURN,),
-    SC_CONTROL: (pygame.KSCAN_LCTRL, pygame.KSCAN_RCTRL),
-    SC_A: (pygame.KSCAN_A,),
-    SC_S: (pygame.KSCAN_S,),
-    SC_D: (pygame.KSCAN_D,),
-    SC_F: (pygame.KSCAN_F,),
-    SC_G: (pygame.KSCAN_G,),
-    SC_H: (pygame.KSCAN_H,),
-    SC_J: (pygame.KSCAN_J,),
-    SC_K: (pygame.KSCAN_K,),
-    SC_L: (pygame.KSCAN_L,),
-    SC_SEMICOLON: (pygame.KSCAN_SEMICOLON,),
-    SC_QUOTE: (pygame.KSCAN_APOSTROPHE,),
-    SC_TILDE: (pygame.KSCAN_GRAVE,),
-    SC_LSHIFT: (pygame.KSCAN_LSHIFT,),
-    SC_BACKSLASH: (pygame.KSCAN_BACKSLASH,),
-    SC_Z: (pygame.KSCAN_Z,),
-    SC_X: (pygame.KSCAN_X,),
-    SC_C: (pygame.KSCAN_C,),
-    SC_V: (pygame.KSCAN_V,),
-    SC_B: (pygame.KSCAN_B,),
-    SC_N: (pygame.KSCAN_N,),
-    SC_M: (pygame.KSCAN_M,),
-    SC_COMMA: (pygame.KSCAN_COMMA,),
-    SC_PERIOD: (pygame.KSCAN_PERIOD,),
-    SC_SLASH: (pygame.KSCAN_SLASH,),
-    SC_RSHIFT: (pygame.KSCAN_RSHIFT,),
-    SC_MULTIPLY: (pygame.KSCAN_KP_MULTIPLY,),
-    SC_ALT: (pygame.KSCAN_LALT, pygame.KSCAN_RALT),
-    SC_SPACE: (pygame.KSCAN_SPACE,),
-    SC_CAPSLOCK: (pygame.KSCAN_CAPSLOCK,),
-    SC_F1: (pygame.KSCAN_F1,),
-    SC_F2: (pygame.KSCAN_F2,),
-    SC_F3: (pygame.KSCAN_F3,),
-    SC_F4: (pygame.KSCAN_F4,),
-    SC_F5: (pygame.KSCAN_F5,),
-    SC_F6: (pygame.KSCAN_F6,),
-    SC_F7: (pygame.KSCAN_F7,),
-    SC_F8: (pygame.KSCAN_F8,),
-    SC_F9: (pygame.KSCAN_F9,),
-    SC_F10: (pygame.KSCAN_F10,),
-    SC_NUMLOCK: (pygame.KSCAN_NUMLOCKCLEAR,),
-    SC_SCROLLLOCK: (pygame.KSCAN_SCROLLLOCK,),
-    SC_HOME: (pygame.KSCAN_HOME,),
-    SC_UP: (pygame.KSCAN_UP,),
-    SC_PAGEUP: (pygame.KSCAN_PAGEUP,),
-    SC_LEFT: (pygame.KSCAN_LEFT,),
-    SC_RIGHT: (pygame.KSCAN_RIGHT,),
-    SC_PLUS: (pygame.KSCAN_KP_PLUS,),
-    SC_END: (pygame.KSCAN_END,),
-    SC_DOWN: (pygame.KSCAN_DOWN,),
-    SC_PAGEDOWN: (pygame.KSCAN_PAGEDOWN,),
-    SC_INSERT: (pygame.KSCAN_INSERT,),
-    SC_DELETE: (pygame.KSCAN_DELETE,),
-    SC_F11: (pygame.KSCAN_F11,),
-    SC_F12: (pygame.KSCAN_F12,),
-}
-
 
 @dataclass
 class KeyChart:
@@ -394,35 +306,25 @@ def scancode_name(code: int) -> str:
 
 
 def pygame_keys_for(scancode: int) -> tuple[int, ...]:
-    """KEYDOWN event.key values (SDL keycodes)."""
+    """KEYDOWN event.key and get_pressed() indexes (SDL keycodes).
+
+    pygame-ce ScancodeWrapper converts K_* through SDL_GetScancodeFromKey.
+    Do not index with KSCAN_* or reject K_UP for len==512 — arrows are >512.
+    """
     return _SC_TO_PY.get(int(scancode), ())
-
-
-def pygame_scans_for(scancode: int) -> tuple[int, ...]:
-    """pygame.key.get_pressed() indexes (SDL scancodes)."""
-    return _SC_TO_SCAN.get(int(scancode), ())
 
 
 def scancode_from_pygame(key: int) -> int:
     return _PY_TO_SC.get(int(key), 0)
 
 
-def _pressed_index(pressed, idx: int) -> bool:
-    try:
-        if 0 <= idx < len(pressed):
-            return bool(pressed[idx])
-    except (IndexError, TypeError):
-        return False
-    return False
-
-
 def scancode_held(pressed, scancode: int) -> int:
-    for scan in pygame_scans_for(scancode):
-        if _pressed_index(pressed, scan):
-            return TRUE
     for key in pygame_keys_for(scancode):
-        if _pressed_index(pressed, key):
-            return TRUE
+        try:
+            if pressed[key]:
+                return TRUE
+        except (IndexError, KeyError, TypeError, OverflowError):
+            continue
     return 0
 
 
