@@ -32,7 +32,9 @@ Runtime data lives in `data/` (uncompressed maps, sprites, objects, sounds, musi
 
 ## Run
 
-Double-click `run.bat` (Windows) or `./run.sh` (Unix), or from the project root:
+Same names as the original Windows build: double-click `ll.bat` / `./ll.sh` for the game (`ll.exe`), or `Configure LL.bat` / `./Configure LL.sh` for key setup (`Configure LL.exe`). Those call `run.bat` / `run.sh`.
+
+Or run `run.bat` / `./run.sh` from the project root:
 
 ```text
 run.bat / ./run.sh                      splash, then title (Begin / Continue / Quit)
@@ -52,7 +54,7 @@ python -m lynn [objects|map|palette|audio|config|test] [map] [--save spec]
 
 Keys:
 
-- Movement — `data/controls.xml` (shipped default: WASD). `run.bat config` / `./run.sh config` to rebind
+- Movement — `data/controls.xml` (shipped default: arrow keys). `Configure LL.bat` / `./Configure LL.sh` (or `run.bat config`) to rebind
 - Arrow keys — pause menu and title Begin/Continue/Quit
 - Space — action (talk, pickup, advance text); rebound in config
 - Enter — confirm pause slot or Yes/No
