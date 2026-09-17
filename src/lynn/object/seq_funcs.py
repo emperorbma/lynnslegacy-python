@@ -608,11 +608,14 @@ def __change_map(this: CharType) -> int:
         only.dropoutSequence = TRUE
     if hero is not None:
         hero.switch_room = int(this.chap)
+        hero.fade_time = 0.003
         room = events.current_room
         if room is not None and 0 <= hero.switch_room < len(room.teleport):
             tele = room.teleport[hero.switch_room]
             hero.to_map = tele.to_map
             hero.to_entry = tele.to_room
+        events.fade_white = 0
+        events.fade_black = 0
     return 1
 
 

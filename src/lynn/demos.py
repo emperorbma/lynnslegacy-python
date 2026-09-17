@@ -319,6 +319,7 @@ def enter_map(
             events.dark = game_map.room[demo.hero_room].dark
     events.do_chap = 0
     events.fade_black = 0
+    events.fade_white = 0
     events.map_filename = Path(path).name
     events.hero_room = demo.hero_room
     _maybe_start_entry_seq(demo, entry_i)

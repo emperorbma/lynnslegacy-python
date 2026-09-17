@@ -276,6 +276,7 @@ def _run_map(
         action_pulse = 0
         events.keys.enter_pulse = 0
         seq_busy = demo.seq is not None
+        ll_clock.timer = time.perf_counter()
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
@@ -431,7 +432,6 @@ def _run_map(
         elif shown != "Lynn's Legacy":
             pygame.display.set_caption("Lynn's Legacy")
             shown = "Lynn's Legacy"
-        ll_clock.timer = time.perf_counter()
         from lynn.audio import tick_music
 
         tick_music()

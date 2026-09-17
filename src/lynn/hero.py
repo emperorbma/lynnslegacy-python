@@ -150,15 +150,24 @@ def hero_walk_step(
     if keys_dir is None:
         hero.moving = 0
         return 0
-    if hero.walk_hold != 0:
-        return 0
     hero.direction = keys_dir
-    moved = move_object(hero, room, only_looking=0, moment=1, others=others)
-    if moved == 0 and hero.is_psfing == 0:
+    speed = hero.walk_speed or 0.009
+    if hero.walk_hold == 0:
+        hero.walk_hold = clock.timer
+    moved = 0
+    steps = 0
+    while clock.timer >= hero.walk_hold and steps < 4:
+        step = move_object(hero, room, only_looking=0, moment=1, others=others)
+        if step == 0 and hero.is_psfing == 0:
+            hero.walk_hold = clock.timer + speed
+            break
+        moved = 1
+        hero.walk_hold += speed
+        steps += 1
+    if moved == 0:
         hero.moving = 0
         return 0
     hero.moving = 1
-    hero.walk_hold = clock.timer + hero.walk_speed
     if LLObject_IncrementFrame(hero) != 0:
         hero.frame = 0
         rate = hero.animControl[hero.current_anim].rate if hero.animControl else 0.08

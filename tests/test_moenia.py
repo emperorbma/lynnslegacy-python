@@ -433,6 +433,9 @@ def test_seed_change_map_returns_to_forest_town():
     demo.seq = None
     consume_title_events(demo)
     assert "forest_fall" in (events.map_filename or "").replace("\\", "/").lower()
+    assert events.fade_white == 0
+    assert events.fade_black == 0
+    assert demo.seq is not None
 
 
 def test_give_key_and_gold_amount():
