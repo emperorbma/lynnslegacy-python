@@ -528,6 +528,12 @@ def __play_song(this: CharType) -> int:
     return 1
 
 
+def __set_song(this: CharType) -> int:
+    """FB object_etc.bas: llg(song) = this.chap."""
+    events.song = int(this.chap)
+    return 1
+
+
 def __play_sound(this: CharType) -> int:
     """FB object_sound.bas: play_sample(snd[sound[chap]], vol[chap])."""
     from lynn.audio import play_sample

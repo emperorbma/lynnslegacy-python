@@ -484,8 +484,7 @@ def _run_map(
         if demo.hero is not None:
             cam_x, cam_y = update_cam(demo.hero, room)
         if demo.menu_open == 0:
-            if demo.seq is None:
-                tick_map_demo(demo, room_i)
+            tick_map_demo(demo, room_i)
             draw_map_demo(canvas, demo, room_i, cam_x, cam_y)
             demo.menu_backdrop = None
         else:

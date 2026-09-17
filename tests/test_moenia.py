@@ -393,6 +393,16 @@ def test_chest_loot_funcs_are_implemented():
     assert chest.funcs.func[2][1] is lookup_func("__give_gold_amount")
 
 
+def test_set_song_is_implemented():
+    reset_events()
+    events.song = 0
+    actor = CharType()
+    actor.chap = 21
+    assert lookup_func("__set_song") is not lookup_func("__noop")
+    assert lookup_func("__set_song")(actor) == 1
+    assert events.song == 21
+
+
 def test_drop_b_key_is_implemented():
     reset_events()
     only = ctor_hero_only()

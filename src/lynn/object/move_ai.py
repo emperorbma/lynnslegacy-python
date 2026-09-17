@@ -280,7 +280,11 @@ def __home(this: CharType) -> int:
         if this.moveBackwards != 0:
             this.direction = (int(this.direction) + 2) & 3
 
+    speed = this.walk_speed or 0.059
     if this.walk_hold == 0:
+        this.walk_hold = clock.timer
+    steps = 0
+    while clock.timer >= this.walk_hold and steps < 4:
         y_move = 0
         if y_home > this.coords_y:
             y_move = 1
@@ -310,10 +314,9 @@ def __home(this: CharType) -> int:
             this.frame = 0
             this.moving = 0
             return 1
-        this.walk_hold = clock.timer + (this.walk_speed or 0.059)
+        this.walk_hold += speed
         this.moving = 1
-    if clock.timer >= this.walk_hold:
-        this.walk_hold = 0
+        steps += 1
     if LLObject_IncrementFrame(this) != 0:
         this.frame = 0
         rate = this.animControl[this.current_anim].rate if this.animControl else 0.08
