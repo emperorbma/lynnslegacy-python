@@ -174,8 +174,71 @@ def test_grult_stuns_when_dark_not_4():
     events.dark = 1
     boss = _load("grult.xml")
     boss.funcs.active_state = 0
+    boss.x_origin = 100
+    boss.y_origin = 100
+    boss.coords_x = 100
+    boss.coords_y = 100
     tick_objects([boss])
     assert boss.funcs.active_state == boss.stun_state
+    assert boss.coords_x == 100
+    assert boss.coords_y == 100
+
+
+def test_grult_fireball_hitting_gtorch_stuns_boss():
+    from lynn.object.boss import LLObject_CheckGTorchLit
+
+    reset_events()
+    events.dark = 4
+    boss = _load("grult.xml")
+    boss.unique_id = u_grult
+    boss.coords_x = 100
+    boss.coords_y = 100
+    boss.x_origin = 100
+    boss.y_origin = 100
+    boss.funcs.active_state = 0
+    lookup_func("__grult_fireball")(boss)
+    torch = _load("gtorch.xml")
+    torch.coords_x = int(boss.projectile.coords[0][0])
+    torch.coords_y = int(boss.projectile.coords[0][1])
+    torch.perimeter_x = 16
+    torch.perimeter_y = 16
+    objs = [boss, torch]
+    bind_room(None, objs)
+    LLObject_CheckGTorchLit(boss, objs)
+    assert events.dark == 1
+    assert torch.funcs.active_state == torch.hit_state
+    tick_objects(objs)
+    assert boss.funcs.active_state == boss.stun_state
+    assert (boss.coords_x, boss.coords_y) == (100, 100)
+
+
+def test_grult_thwack_does_not_slide():
+    from lynn.object.combat_funcs import __do_flyback
+
+    reset_events()
+    events.dark = 1
+    boss = _load("grult.xml")
+    boss.coords_x = 100
+    boss.coords_y = 80
+    boss.fly_x = 1
+    boss.fly_y = 1
+    boss.hurt = 1
+    tick_objects([boss])
+    assert boss.funcs.active_state == boss.stun_state
+    boss.funcs.active_state = boss.hit_state
+    boss.funcs.current_func[boss.hit_state] = 0
+    __do_flyback(boss)
+    assert boss.coords_x == 100
+    assert boss.coords_y == 80
+    boss.hurt = 1
+    boss.fly_length = 1
+    boss.fly_count = 0
+    boss.funcs.current_func[boss.hit_state] = 0
+    tick_objects([boss])
+    tick_objects([boss])
+    assert boss.funcs.active_state == boss.stun_state
+    assert boss.coords_x == 100
+    assert boss.coords_y == 80
 
 
 def test_gtorch_sets_room_dark():
@@ -186,6 +249,53 @@ def test_gtorch_sets_room_dark():
     assert events.dark == 1
     lookup_func("__big_color_down")(torch)
     assert events.dark == 4
+
+
+def test_grult_explode_skips_stun_jumps_to_reach_seq():
+    from lynn.object.gfx_animation import __explode
+
+    boss = _load("grult.xml")
+    assert boss.isBoss != 0
+    assert __explode(boss) == 3
+
+
+def test_grult_death_queues_room_sequence():
+    reset_events()
+    boss = _load("grult.xml")
+    boss.seq = []  # filled below from map
+    from lynn.demos import MapDemo, set_up_room_enemies
+    from lynn.gfx.palette import load_pal
+    from lynn.hero import ctor_hero, ctor_hero_only
+    from lynn.map.loader import load_mapV
+    from lynn.paths import data_file, resolve_map_path
+    from lynn.object.tick import tick_object
+
+    path = resolve_map_path("moenia")
+    game_map = load_mapV(str(path), load_tileset=False)
+    demo = MapDemo(
+        palette=load_pal(data_file("palette", "ll.pal")),
+        game_map=game_map,
+        tile_surfs=[],
+        load_images=0,
+        load_tileset=0,
+    )
+    demo.hero = ctor_hero(load_images=False)
+    demo.hero_only = ctor_hero_only()
+    set_up_room_enemies(demo, 22, load_images=False)
+    bind_hero(demo.hero)
+    bind_hero_only(demo.hero_only)
+    objs = demo.objects_by_room[22]
+    events.current_others = objs
+    grult = next(o for o in objs if o.unique_id == u_grult)
+    grult.funcs.active_state = grult.death_state
+    grult.funcs.current_func[grult.death_state] = 1
+    for i in range(40):
+        clock.timer = i * 0.05
+        tick_object(grult)
+        if events.pending_seq is not None:
+            break
+    assert events.pending_seq is not None
+    assert events.pending_seq.commands == 15
 
 
 def test_grult_fireball_spawns_at_mouth():
@@ -206,6 +316,8 @@ def test_grult_fireball_spawns_at_mouth():
     clock.timer = 1.0
     lookup_func("__do_grult_proj")(boss)
     assert boss.projectile.coords[0] != [152, 136]
+    assert boss.fly_x == 0
+    assert boss.fly_y == 0
 
 
 def _open_room(w: int = 20, h: int = 20):
@@ -279,6 +391,48 @@ def test_chest_loot_funcs_are_implemented():
     assert chest.funcs.func[1][1] is lookup_func("__give_key")
     assert chest.funcs.func[1][3] is lookup_func("__play_dead_sound")
     assert chest.funcs.func[2][1] is lookup_func("__give_gold_amount")
+
+
+def test_drop_b_key_is_implemented():
+    reset_events()
+    only = ctor_hero_only()
+    only.b_key = 1
+    bind_hero_only(only)
+    assert lookup_func("__drop_b_key") is not lookup_func("__noop")
+    assert lookup_func("__drop_b_key")(CharType()) == 1
+    assert only.b_key == 0
+
+
+def test_seed_change_map_returns_to_forest_town():
+    from lynn.demos import MapDemo, consume_title_events, set_up_room_enemies
+    from lynn.gfx.palette import load_pal
+    from lynn.hero import ctor_hero, ctor_hero_only
+    from lynn.map.loader import load_mapV
+    from lynn.paths import data_file, resolve_map_path
+
+    reset_events()
+    path = resolve_map_path("moenia")
+    game_map = load_mapV(str(path), load_tileset=False)
+    demo = MapDemo(
+        palette=load_pal(data_file("palette", "ll.pal")),
+        game_map=game_map,
+        tile_surfs=[],
+        load_images=0,
+        load_tileset=0,
+    )
+    demo.hero = ctor_hero(load_images=False)
+    demo.hero_only = ctor_hero_only()
+    demo.hero_room = 22
+    set_up_room_enemies(demo, 22, load_images=False)
+    bind_hero(demo.hero)
+    bind_hero_only(demo.hero_only)
+    bind_room(game_map.room[22], demo.objects_by_room[22])
+    demo.hero.chap = 1
+    assert lookup_func("__change_map")(demo.hero) == 1
+    assert "forest_fall" in (demo.hero.to_map or "").replace("\\", "/").lower()
+    demo.seq = None
+    consume_title_events(demo)
+    assert "forest_fall" in (events.map_filename or "").replace("\\", "/").lower()
 
 
 def test_give_key_and_gold_amount():

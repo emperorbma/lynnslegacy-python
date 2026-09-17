@@ -30,6 +30,8 @@ def is_corpse_drop(obj: CharType) -> bool:
     """FB blit_enemy_loot skip: unique gold/silver/health are y-sorted objects, not overlays."""
     if obj.dropped == 0:
         return False
+    if obj.spawn_cond != 0 and obj.spawn_wait_trig == 0 and obj.spawn_info is not None and obj.spawn_info.wait_n:
+        return False
     return obj.unique_id not in _DROP_UNIQUES
 
 

@@ -8,7 +8,7 @@ from pathlib import Path
 from lynn.audio import sound_enemyhit, sound_enemykill, sound_from_name
 from lynn.constants import PROJ_STYLE_COUNTS
 from lynn.gfx.image import LLSystem_ImageHeader, LLSystem_ImageLoad
-from lynn.object.char import CharType, EntityProjectile, LLObject_FrameControl, LLObject_ImageHeader
+from lynn.object.char import CharType, EFuncs, EntityProjectile, LLObject_FrameControl, LLObject_ImageHeader
 from lynn.object.dispatch import BLOCK_MACROS, lookup_func
 from lynn.paths import project_root, resolve_data_path
 
@@ -74,6 +74,16 @@ def LLSystem_ObjectFromXML(obj: CharType, load_images: bool = True) -> CharType:
     xml_text = get_object_xml(obj.id)
     root = ET.fromstring(xml_text)
     path: list[str] = []
+    obj.anims = 0
+    obj.anim = []
+    obj.animControl = []
+    obj.funcs = EFuncs()
+    obj.sounds = 0
+    obj.sound = []
+    obj.vol = []
+    obj.dropped = 0
+    obj.current_anim = 0
+    obj._anim_token = None
     obj.hit_sound = sound_enemyhit
     obj.dead_sound = sound_enemykill
 

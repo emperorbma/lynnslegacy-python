@@ -58,11 +58,14 @@ def __explode(this: CharType) -> int:
 
     from lynn.audio import play_sample, sound_explosion
 
+    from lynn.constants import u_charger, u_swordie
+
     n = int(this.explosions)
     expl_i = int(this.expl_anim)
     anim = this.anim[expl_i] if this.anim and 0 <= expl_i < len(this.anim) else None
+    boss_skip = this.isBoss != 0 or this.unique_id in (u_charger, u_swordie)
     if n <= 0 or anim is None or anim.frames <= 0:
-        return 1
+        return 3 if boss_skip else 1
     _ensure_expl_slots(this, n)
     if this.expl_timer == 0:
         this.cur_expl += 1
@@ -118,11 +121,11 @@ def __explode(this: CharType) -> int:
             particle.sound = 0
         this.cur_expl = 0
         this.expl_timer = 0
-        if this.isBoss != 0:
+        if boss_skip:
             return 3
         if this.fireworks != 0:
             return 1
-    if this.fireworks == 0:
+    if this.fireworks == 0 and not boss_skip:
         return 1
     return 0
 

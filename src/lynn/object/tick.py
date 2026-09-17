@@ -161,26 +161,29 @@ def tick_objects(objs: list[CharType]) -> None:
                     obj.funcs.active_state = in_proximity(obj)
             else:
                 obj.funcs.active_state = out_proximity(obj)
+        if getattr(obj, "grult_proj_trig", 0) != 0:
+            lookup_func("__do_grult_proj")(obj)
+            LLObject_CheckGTorchLit(obj, objs)
+        if obj.unique_id == u_grult:
+            tick_grult(obj)
         tick_object(obj)
         proj = obj.projectile
         if proj is not None and proj.active != 0:
             lookup_func("__do_proj")(obj)
         if obj.vol_fade_trig != 0:
             lookup_func("__do_vol_fade")(obj)
-        if getattr(obj, "grult_proj_trig", 0) != 0:
-            lookup_func("__do_grult_proj")(obj)
-            LLObject_CheckGTorchLit(obj)
-        if obj.unique_id == u_grult:
-            tick_grult(obj)
         if obj.hurt != 0:
             state = obj.funcs.active_state
             count = obj.funcs.func_count[state] if state < len(obj.funcs.func_count) else 0
             if count and obj.funcs.current_func[state] >= count:
-                LLObject_ShiftState(obj, obj.reset_state)
                 if obj.unique_id == u_grult:
+                    obj.fly_x = 0
+                    obj.fly_y = 0
                     LLObject_ShiftState(obj, obj.stun_state)
                     if 0 <= obj.stun_state < len(obj.funcs.current_func):
                         obj.funcs.current_func[obj.stun_state] = 2
+                else:
+                    LLObject_ShiftState(obj, obj.reset_state)
                 LLObject_ClearDamage(obj)
                 obj.invisible = 0
                 obj.flash_count = 0

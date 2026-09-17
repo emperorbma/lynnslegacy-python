@@ -201,7 +201,12 @@ def _maybe_start_entry_seq(demo: MapDemo, entry_i: int) -> None:
     demo.do_hud = 0
 
 
+def _anim_token(obj) -> tuple:
+    return tuple(getattr(a, "filename", "") or "" for a in obj.anim)
+
+
 def _cache_obj_anims(demo: MapDemo, obj, load_images: bool = True) -> None:
+    obj._anim_token = _anim_token(obj)
     if not load_images:
         demo.obj_anim_surfs[obj.id] = [[] for _ in obj.anim]
         return
@@ -212,8 +217,10 @@ def _cache_obj_anims(demo: MapDemo, obj, load_images: bool = True) -> None:
 
 
 def _obj_anims_stale(anims, obj) -> bool:
-    """Wait-spawn copies null.xml then the real object; same anim count, new frames."""
+    """Wait-spawn copies null.xml then the real object; same count, different file."""
     if anims is None or len(anims) != len(obj.anim):
+        return True
+    if getattr(obj, "_anim_token", None) != _anim_token(obj):
         return True
     return any(len(anims[i]) != obj.anim[i].frames for i in range(len(obj.anim)))
 
@@ -237,6 +244,9 @@ def _apply_wait_placeholder(obj, load_images: bool) -> None:
     obj.id = real_id
     obj.coords_x = obj.x_origin
     obj.coords_y = obj.y_origin
+    obj.dropped = 0
+    obj.drop_x = 0
+    obj.drop_y = 0
 
 
 def set_up_room_enemies(demo: MapDemo, room_i: int, load_images: bool | None = None) -> None:
@@ -480,6 +490,19 @@ def tick_map_demo(demo: MapDemo, room_i: int) -> None:
         tick_music()
 
 
+def _blit_room_dark(canvas: pygame.Surface) -> None:
+    """FB shift_pal: dark 0 is full bright, dungeon rooms use 4."""
+    dark = int(getattr(events, "dark", 0) or 0)
+    if dark <= 0:
+        return
+    alpha = max(0, min(200, int(dark * 40)))
+    if alpha <= 0:
+        return
+    overlay = pygame.Surface((SCREEN_W, SCREEN_H), pygame.SRCALPHA)
+    overlay.fill((0, 0, 0, alpha))
+    canvas.blit(overlay, (0, 0))
+
+
 def draw_map_demo(canvas: pygame.Surface, demo: MapDemo, room_i: int, cam_x: int, cam_y: int) -> None:
     canvas.fill((0, 0, 0))
     save_open = demo.hero is not None and demo.hero.menu_sel != 0
@@ -507,6 +530,7 @@ def draw_map_demo(canvas: pygame.Surface, demo: MapDemo, room_i: int, cam_x: int
                 cam_y,
                 demo.drop_surfs,
             )
+        _blit_room_dark(canvas)
     if events.fade_white:
         fade = pygame.Surface((SCREEN_W, SCREEN_H))
         fade.fill((255, 255, 255))
@@ -555,6 +579,14 @@ def _blit_y_sorted(canvas, demo: MapDemo, room_i: int, cam_x: int, cam_y: int, s
     sprites = []
     if 0 <= room_i < len(demo.objects_by_room):
         for obj in demo.objects_by_room[room_i]:
+            info = getattr(obj, "spawn_info", None)
+            if (
+                getattr(obj, "spawn_cond", 0) != 0
+                and getattr(obj, "spawn_wait_trig", 0) == 0
+                and info is not None
+                and getattr(info, "wait_n", 0) > 0
+            ):
+                continue
             if obj.unique_id == u_menu:
                 if save_open:
                     events.box_entity = obj
@@ -565,12 +597,31 @@ def _blit_y_sorted(canvas, demo: MapDemo, room_i: int, cam_x: int, cam_y: int, s
             sprites.append(("obj", obj, _sort_y(obj)))
             if is_corpse_drop(obj):
                 sprites.append(("drop", obj, drop_sort_y(obj)))
+            proj = getattr(obj, "projectile", None)
+            if (
+                proj is not None
+                and getattr(obj, "grult_proj_trig", 0) != 0
+                and proj.coords
+            ):
+                fy = int(proj.coords[0][1])
+                sprites.append(("proj", obj, (0, fy + 8)))
     if demo.hero is not None:
         sprites.append(("obj", demo.hero, _sort_y(demo.hero)))
     sprites.sort(key=lambda item: item[2])
     for kind, obj, _key in sprites:
         if kind == "drop":
             blit_drop(canvas, obj, cam_x, cam_y, demo.drop_surfs)
+            continue
+        if kind == "proj":
+            anims = demo.obj_anim_surfs.get(obj.id)
+            if _obj_anims_stale(anims, obj):
+                _cache_obj_anims(demo, obj)
+                anims = demo.obj_anim_surfs.get(obj.id)
+            proj_i = int(getattr(obj, "proj_anim", 0) or 0)
+            if anims and 0 <= proj_i < len(anims) and anims[proj_i]:
+                from lynn.object.projectile import blit_enemy_proj
+
+                blit_enemy_proj(canvas, obj, cam_x, cam_y, anims[proj_i])
             continue
         if obj is demo.hero:
             anims = demo.hero_surfs
@@ -586,9 +637,10 @@ def _blit_y_sorted(canvas, demo: MapDemo, room_i: int, cam_x: int, cam_y: int, s
             continue
         proj = getattr(obj, "projectile", None)
         proj_i = int(getattr(obj, "proj_anim", 0) or 0)
-        proj_on = proj is not None and (
-            proj.active != 0 or getattr(obj, "grult_proj_trig", 0) != 0
-        )
+        grult_shot = getattr(obj, "grult_proj_trig", 0) != 0
+        proj_on = proj is not None and (proj.active != 0 or grult_shot)
+        if grult_shot:
+            proj_on = False
         if (
             proj_on
             and (proj is None or proj.overChar == 0)

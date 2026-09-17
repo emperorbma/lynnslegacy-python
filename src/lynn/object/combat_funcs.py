@@ -71,6 +71,17 @@ def __do_flyback(this: CharType) -> int:
         this.fly_count = 0
         this.invisible = 0
         return 1
+    from lynn.constants import u_grult
+
+    if this.unique_id == u_grult:
+        this.fly_count += 1
+        if this.fly_count >= this.fly_length:
+            this.fly_count = 0
+            this.fly_timer = 0
+            this.invisible = 0
+            this.mad = 0
+            return 1
+        return 0
     if this.fly_timer == 0:
         this.fly_hold = this.direction
         room = events.current_room

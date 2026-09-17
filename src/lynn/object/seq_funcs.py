@@ -241,6 +241,14 @@ def __give_b_key(this: CharType) -> int:
     return 1
 
 
+def __drop_b_key(this: CharType) -> int:
+    """FB object_etc.bas: hero_only.b_key = 0."""
+    only = events.hero_only
+    if only is not None:
+        only.b_key = 0
+    return 1
+
+
 def __give_gold_amount(this: CharType) -> int:
     """FB object_etc.bas: hero.money += chap."""
     hero = events.hero

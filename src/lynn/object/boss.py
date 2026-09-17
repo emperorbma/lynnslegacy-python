@@ -75,7 +75,7 @@ def __grult_fireball(this: CharType) -> int:
 
 def __do_grult_proj(this: CharType) -> int:
     """FB object_boss.bas: home until within 48px, then lock heading."""
-    global _grult_proj_lock
+    global _grult_proj_lock, _grult_vx, _grult_vy
     if this is None:
         _grult_proj_lock = 0
         return 0
@@ -94,9 +94,9 @@ def __do_grult_proj(this: CharType) -> int:
                 hmy = hero.coords_y + (int(hero.perimeter_y) >> 1)
                 pmx = proj.coords[0][0] + 2
                 pmy = proj.coords[0][1] + 2
-                this.fly_x, this.fly_y = _v2_calc_flyback(hmx, hmy, pmx, pmy)
-        proj.coords[0][0] += this.fly_x
-        proj.coords[0][1] += this.fly_y
+                _grult_vx, _grult_vy = _v2_calc_flyback(hmx, hmy, pmx, pmy)
+        proj.coords[0][0] += _grult_vx
+        proj.coords[0][1] += _grult_vy
         this.fly_timer = clock.timer + (this.fly_speed or 0.009)
         proj.travelled += 1
     if clock.timer >= this.fly_timer:
@@ -111,31 +111,41 @@ def __do_grult_proj(this: CharType) -> int:
     return 0
 
 
-def LLObject_CheckGTorchLit(this: CharType) -> None:
+def LLObject_CheckGTorchLit(this: CharType, others=None) -> None:
     """FB engine--LL.bas: Grult fireball AABB vs gtorch lights the room."""
     from lynn.map.collision import check_bounds
     from lynn.object.combat import LLObject_ShiftState
+    from lynn.object.dispatch import lookup_func
     from lynn.object.projectile import LLObject_ClearProjectiles
 
     proj = this.projectile
     if proj is None or not proj.coords:
         return
-    others = events.current_others or []
+    if others is None:
+        others = events.current_others or []
     pw, ph = 16, 16
     if this.anim and 0 <= this.proj_anim < len(this.anim):
         anim = this.anim[this.proj_anim]
         pw = int(anim.x) or 16
         ph = int(anim.y) or 16
-    origin = (proj.coords[0][0], proj.coords[0][1], pw, ph)
+    px, py = proj.coords[0][0], proj.coords[0][1]
+    if px == 0 and py == 0:
+        return
+    origin = (px, py, pw, ph)
     for obj in others:
         if obj.unique_id != u_gtorch:
             continue
-        target = (obj.coords_x, obj.coords_y, obj.perimeter_x, obj.perimeter_y)
+        tw = int(obj.perimeter_x) or 16
+        th = int(obj.perimeter_y) or 16
+        target = (obj.coords_x, obj.coords_y, tw, th)
         if check_bounds(origin, target) != 0:
             continue
         if obj.funcs.active_state == 0:
             obj.jump_timer = 0
             LLObject_ShiftState(obj, obj.hit_state)
+            lookup_func("__big_color_up")(obj)
+            if 0 <= obj.hit_state < len(obj.funcs.current_func):
+                obj.funcs.current_func[obj.hit_state] = 1
             LLObject_ClearProjectiles(this)
             this.grult_proj_trig = 0
             this.fly_timer = 0
@@ -155,6 +165,8 @@ def tick_grult(this: CharType) -> None:
             LLObject_ClearProjectiles(this)
             this.fly_timer = 0
             this.fly_count = 0
+            this.fly_x = 0
+            this.fly_y = 0
             this.grult_proj_trig = 0
             this.jump_counter = 0
             LLObject_ShiftState(this, this.stun_state)

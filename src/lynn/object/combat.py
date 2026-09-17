@@ -113,16 +113,15 @@ def _derive_powder(h: CharType, only) -> None:
     """FB DeriveHurt DF_MAIN_CHAR powder branch."""
     if h.invincible != 0:
         if only.selected_item == 1:
-            if h.fire_weak != 0:
-                if h.torch != 0:
-                    st = h.funcs.active_state
-                    count = h.funcs.func_count[st] if 0 <= st < len(h.funcs.func_count) else 0
-                    cur = h.funcs.current_func[st] if 0 <= st < len(h.funcs.current_func) else 0
-                    if cur == 0 or (count and cur >= count):
-                        h.jump_timer = 0
-                        LLObject_ShiftState(h, h.hit_state)
-                else:
-                    h.hp = 0
+            if h.torch != 0:
+                st = h.funcs.active_state
+                count = h.funcs.func_count[st] if 0 <= st < len(h.funcs.func_count) else 0
+                cur = h.funcs.current_func[st] if 0 <= st < len(h.funcs.current_func) else 0
+                if cur == 0 or (count and cur >= count):
+                    h.jump_timer = 0
+                    LLObject_ShiftState(h, h.hit_state)
+            elif h.fire_weak != 0:
+                h.hp = 0
         else:
             if h.ice_weak != 0:
                 if h.torch != 0:

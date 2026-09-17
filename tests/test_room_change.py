@@ -244,6 +244,7 @@ def test_wait_spawn_recaches_when_real_frames_replace_null():
 
     obj = CharType()
     obj.anim = [LLSystem_ImageHeader(frames=8)]
+    obj._anim_token = (obj.anim[0].filename or "",)
     assert _obj_anims_stale(None, obj)
     assert _obj_anims_stale([[]], obj)
     assert not _obj_anims_stale([[0] * 8], obj)
@@ -255,8 +256,15 @@ def test_wait_spawn_holds_until_happen():
     gold = _town_obj(demo.objects_by_room[22], "gold.xml")
     assert gold is not None
     assert gold.unique_id == 0
+    assert gold.dropped == 0
+    assert gold.anims == 1
+    from lynn.gfx.loot import is_corpse_drop
+
+    assert is_corpse_drop(gold) is False
     now[199] = TRUE
     tick_objects(demo.objects_by_room[22])
     gold = _town_obj(demo.objects_by_room[22], "gold.xml")
     assert gold.unique_id == 19
     assert gold.spawn_wait_trig != 0
+    fn = (gold.anim[0].filename or "").replace("\\", "/").lower()
+    assert fn.endswith("gold.spr")
