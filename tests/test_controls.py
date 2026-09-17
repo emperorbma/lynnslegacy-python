@@ -20,6 +20,7 @@ from lynn.controls import (
     load_controls,
     load_fullscreen,
     pygame_keys_for,
+    pygame_scans_for,
     save_controls,
     save_fullscreen,
     scancode_from_pygame,
@@ -44,19 +45,32 @@ def test_shipped_controls_xml_is_arrow_keys():
     assert pygame_keys_for(chart.rkey) == (pygame.K_RIGHT,)
     assert pygame_keys_for(chart.dkey) == (pygame.K_DOWN,)
     assert pygame_keys_for(chart.lkey) == (pygame.K_LEFT,)
+    assert pygame_scans_for(chart.ukey) == (pygame.KSCAN_UP,)
+    assert pygame_scans_for(chart.rkey) == (pygame.KSCAN_RIGHT,)
+    assert pygame_scans_for(chart.dkey) == (pygame.KSCAN_DOWN,)
+    assert pygame_scans_for(chart.lkey) == (pygame.KSCAN_LEFT,)
     assert scancode_from_pygame(pygame.K_UP) == SC_UP
     assert scancode_from_pygame(pygame.K_LEFT) == SC_LEFT
+    import os
+
+    os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
+    pygame.display.init()
+    pygame.display.set_mode((32, 32))
+    pressed = pygame.key.get_pressed()
+    assert len(pressed) == 512
+    assert pygame.K_UP >= len(pressed)
+    assert pygame.KSCAN_UP < len(pressed)
     class _Pressed:
         def __init__(self, held):
             self._held = set(held)
 
         def __len__(self):
-            return 0x7FFFFFFF
+            return 512
 
         def __getitem__(self, key):
             return key in self._held
 
-    held = _Pressed({pygame.K_UP, pygame.K_RIGHT})
+    held = _Pressed({pygame.KSCAN_UP, pygame.KSCAN_RIGHT})
     assert scancode_held(held, chart.ukey) != 0
     assert scancode_held(held, chart.rkey) != 0
     assert scancode_held(held, chart.dkey) == 0

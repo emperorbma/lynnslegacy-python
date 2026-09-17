@@ -44,6 +44,7 @@ from lynn.hero import (
     update_cam,
 )
 from lynn.controls import (
+    SC_ENTER,
     chart,
     load_controls,
     load_fullscreen,
@@ -350,12 +351,12 @@ def _run_map(
                 demo.menu_backdrop = None
         room = demo.game_map.room[room_i]
         keys = pygame.key.get_pressed()
-        events.keys.up = TRUE if keys[pygame.K_UP] else 0
-        events.keys.down = TRUE if keys[pygame.K_DOWN] else 0
-        events.keys.left = TRUE if keys[pygame.K_LEFT] else 0
-        events.keys.right = TRUE if keys[pygame.K_RIGHT] else 0
-        events.keys.enter = TRUE if keys[pygame.K_RETURN] else 0
-        events.keys.escape = TRUE if keys[pygame.K_ESCAPE] else 0
+        events.keys.up = scancode_held(keys, chart.ukey)
+        events.keys.down = scancode_held(keys, chart.dkey)
+        events.keys.left = scancode_held(keys, chart.lkey)
+        events.keys.right = scancode_held(keys, chart.rkey)
+        events.keys.enter = scancode_held(keys, SC_ENTER)
+        events.keys.escape = scancode_held(keys, chart.menu)
         others = demo.objects_by_room[room_i] if room_i < len(demo.objects_by_room) else []
         locked = (
             (demo.hero_only is not None and demo.hero_only.action_lock != 0)
