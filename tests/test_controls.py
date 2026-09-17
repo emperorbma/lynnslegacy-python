@@ -4,38 +4,63 @@ import pygame
 
 from lynn.controls import (
     SC_ALT,
-    SC_A,
+    SC_COMMA,
     SC_CONTROL,
-    SC_D,
+    SC_DOWN,
     SC_ENTER,
     SC_ESCAPE,
+    SC_LEFT,
     SC_PERIOD,
-    SC_S,
+    SC_RIGHT,
     SC_SPACE,
+    SC_UP,
     SC_W,
     KeyChart,
     check_all_codes,
     load_controls,
     load_fullscreen,
+    pygame_keys_for,
     save_controls,
     save_fullscreen,
     scancode_from_pygame,
+    scancode_held,
     scancode_name,
 )
 from lynn.main import parse_cli
 from lynn.paths import project_root
 
 
-def test_shipped_controls_xml_is_wasd():
+def test_shipped_controls_xml_is_arrow_keys():
     chart = load_controls(project_root() / "data" / "controls.xml")
-    assert chart.ukey == SC_W
-    assert chart.rkey == SC_D
-    assert chart.dkey == SC_S
-    assert chart.lkey == SC_A
+    assert chart.ukey == SC_UP
+    assert chart.rkey == SC_RIGHT
+    assert chart.dkey == SC_DOWN
+    assert chart.lkey == SC_LEFT
     assert chart.atkkey == SC_CONTROL
     assert chart.actkey == SC_SPACE
     assert chart.itmkey == SC_ALT
     assert chart.menu == SC_ESCAPE
+    assert pygame_keys_for(chart.ukey) == (pygame.K_UP,)
+    assert pygame_keys_for(chart.rkey) == (pygame.K_RIGHT,)
+    assert pygame_keys_for(chart.dkey) == (pygame.K_DOWN,)
+    assert pygame_keys_for(chart.lkey) == (pygame.K_LEFT,)
+    assert scancode_from_pygame(pygame.K_UP) == SC_UP
+    assert scancode_from_pygame(pygame.K_LEFT) == SC_LEFT
+    class _Pressed:
+        def __init__(self, held):
+            self._held = set(held)
+
+        def __len__(self):
+            return 0x7FFFFFFF
+
+        def __getitem__(self, key):
+            return key in self._held
+
+    held = _Pressed({pygame.K_UP, pygame.K_RIGHT})
+    assert scancode_held(held, chart.ukey) != 0
+    assert scancode_held(held, chart.rkey) != 0
+    assert scancode_held(held, chart.dkey) == 0
+    assert scancode_held(held, chart.lkey) == 0
 
 
 def test_scancode_roundtrip_pygame():
@@ -53,7 +78,8 @@ def test_check_all_codes_rejects_reserved_and_duplicates():
     assert check_all_codes(SC_ESCAPE, bound) == 0
     assert check_all_codes(SC_PERIOD, bound) == 0
     assert check_all_codes(bound.ukey, bound) == 0
-    assert check_all_codes(72, bound) != 0  # SC_UP free under default WASD
+    assert check_all_codes(SC_W, bound) != 0  # WASD free under default arrows
+    assert check_all_codes(SC_UP, bound) == 0
 
 
 def test_save_and_load_controls_roundtrip(tmp_path):

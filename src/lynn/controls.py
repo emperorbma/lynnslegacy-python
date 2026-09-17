@@ -286,15 +286,15 @@ for _sc, _keys in _SC_TO_PY.items():
 class KeyChart:
     """FB config.bas key_config + extra XML tags the engine keeps."""
 
-    ukey: int = SC_W
-    rkey: int = SC_D
-    dkey: int = SC_S
-    lkey: int = SC_A
+    ukey: int = SC_UP
+    rkey: int = SC_RIGHT
+    dkey: int = SC_DOWN
+    lkey: int = SC_LEFT
     atkkey: int = SC_CONTROL
     actkey: int = SC_SPACE
     itmkey: int = SC_ALT
-    item_up: int = SC_END
-    item_down: int = SC_DELETE
+    item_up: int = SC_PERIOD
+    item_down: int = SC_COMMA
     menu: int = SC_ESCAPE
 
 
