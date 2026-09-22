@@ -74,6 +74,76 @@ def test_give_item_sets_hasItem():
     assert only.hasItem[0] == TRUE
 
 
+def test_moenia_dark_rooms_and_torch_steps():
+    from lynn.hero import ctor_hero, place_hero
+    from lynn.map.loader import load_mapV
+    from lynn.paths import resolve_map_path
+
+    reset_events()
+    m = load_mapV(str(resolve_map_path("moenia")), load_tileset=False)
+    assert m.room[13].dark == 3
+    assert m.room[19].dark == 3
+    assert m.room[20].dark == 4
+    assert m.room[22].dark == 4
+    hero = ctor_hero(load_images=False)
+    place_hero(hero, m, 0)
+    events.dark = m.room[13].dark
+    events.current_room = m.room[13]
+    only = ctor_hero_only()
+    only.hasItem[0] = TRUE
+    only.selected_item = 1
+    only.powder = 1
+    bind_hero_only(only)
+    torch = _load("torch.xml")
+    torch.dmg_id = DF_MAIN_CHAR
+    LLObject_DeriveHurt(torch)
+    from lynn.object.tick import tick_object
+
+    tick_object(torch)
+    assert events.dark == 2
+
+
+def test_moenia_8x8_stairs_fire():
+    from lynn.hero import ctor_hero, try_same_map_room_teleport
+    from lynn.map.collision import check_teleports
+    from lynn.map.loader import load_mapV
+    from lynn.paths import resolve_map_path
+
+    m = load_mapV(str(resolve_map_path("moenia")), load_tileset=False)
+    hero = ctor_hero(load_images=False)
+    hero.perimeter_x = 16
+    hero.perimeter_y = 16
+    stair = next(t for t in m.room[13].teleport if t.w == 8 and t.h == 8)
+    assert stair.to_room == 14
+    hero.coords_x = stair.x
+    hero.coords_y = stair.y
+    assert check_teleports(hero, m.room[13].teleport) != -1
+    new_room = try_same_map_room_teleport(hero, m, 13)
+    assert new_room == 14
+    hole = next(t for t in m.room[18].teleport if t.w == 8 and t.h == 8)
+    hero.coords_x = hole.x
+    hero.coords_y = hole.y
+    assert try_same_map_room_teleport(hero, m, 18) == 19
+
+
+def test_make_enemy_spawns_temp_bat():
+    from lynn.events import bind_room
+    from lynn.map.types import RoomType
+
+    reset_events()
+    room = RoomType()
+    door = _load("batdoor.xml")
+    door.coords_x = 80
+    door.coords_y = 80
+    others = [door]
+    bind_room(room, others)
+    assert lookup_func("__make_enemy") is not lookup_func("__noop")
+    assert lookup_func("__make_enemy")(door) == 1
+    assert len(others) == 2
+    assert others[1].is_temp != 0
+    assert "bat" in others[1].id.replace("\\", "/").lower()
+
+
 def test_flare_powder_lights_unlit_torch():
     reset_events()
     only = ctor_hero_only()

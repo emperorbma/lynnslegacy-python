@@ -93,6 +93,10 @@ class CharType:
     perimeter_x: int = 0
     perimeter_y: int = 0
     unique_id: int = 0
+    spawns_id: str = ""
+    spawn_x: int = 0
+    spawn_y: int = 0
+    is_temp: int = 0
     strength: int = 0
     hp: int = 0
     maxhp: int = 0

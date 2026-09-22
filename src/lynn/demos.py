@@ -129,6 +129,7 @@ def load_map_demo(
     events.hero_room = demo.hero_room
     if 0 <= demo.hero_room < len(game_map.room):
         events.dark = game_map.room[demo.hero_room].dark
+    events.load_images = TRUE if demo.load_images else 0
     events.do_hud = TRUE
     demo.hud = load_hud(palette)
     demo.do_hud = TRUE
@@ -317,6 +318,7 @@ def enter_map(
         _apply_enter_visibility(demo.hero, demo.hero_only)
         if 0 <= demo.hero_room < len(game_map.room):
             events.dark = game_map.room[demo.hero_room].dark
+    events.load_images = TRUE if load_images else 0
     events.do_chap = 0
     events.fade_black = 0
     events.fade_white = 0
@@ -492,11 +494,12 @@ def tick_map_demo(demo: MapDemo, room_i: int) -> None:
 
 
 def _blit_room_dark(canvas: pygame.Surface) -> None:
-    """FB shift_pal: dark 0 is full bright, dungeon rooms use 4."""
+    """FB shift_pal: brightness = (5 - dark * 0.66) / 5."""
     dark = int(getattr(events, "dark", 0) or 0)
     if dark <= 0:
         return
-    alpha = max(0, min(200, int(dark * 40)))
+    brightness = (5.0 - (dark * 0.66)) / 5.0
+    alpha = max(0, min(220, int(round((1.0 - brightness) * 255))))
     if alpha <= 0:
         return
     overlay = pygame.Surface((SCREEN_W, SCREEN_H), pygame.SRCALPHA)

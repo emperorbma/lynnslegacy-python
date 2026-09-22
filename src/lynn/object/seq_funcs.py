@@ -205,6 +205,37 @@ def __translate_result(this: CharType) -> int:
     return 0
 
 
+def __make_enemy(this: CharType) -> int:
+    """FB object_etc.bas: spawn spawns_id at this + spawn_x/spawn_y into the room list."""
+    from lynn.constants import MAX_TEMP_ENEMIES
+    from lynn.object.xml_load import LLSystem_CopyNewObject
+
+    others = events.current_others
+    if others is None:
+        return 1
+    n_temp = sum(1 for o in others if getattr(o, "is_temp", 0) != 0)
+    if n_temp >= MAX_TEMP_ENEMIES:
+        return 1
+    spawn = CharType()
+    spawn.id = this.spawns_id or ""
+    if not spawn.id:
+        return 1
+    load_images = getattr(events, "load_images", 0) != 0
+    LLSystem_CopyNewObject(spawn, load_images=load_images)
+    spawn.coords_x = this.coords_x + int(this.spawn_x)
+    spawn.coords_y = this.coords_y + int(this.spawn_y)
+    spawn.is_temp = TRUE
+    others.append(spawn)
+    return 1
+
+
+def __kill_all_temps(this: CharType) -> int:
+    for obj in events.current_others or []:
+        if getattr(obj, "is_temp", 0) != 0:
+            obj.hp = 0
+    return 1
+
+
 def __give_weapon(this: CharType) -> int:
     only = events.hero_only
     if only is None:

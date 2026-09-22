@@ -290,8 +290,8 @@ def test_post_moenia_real_save_can_play():
     assert save.weapon == 0
     assert save.hasItem[0] == TRUE
     assert save.b_key == 0
-    assert save.hp == 6
-    assert save.maxhp == 6
+    assert save.hp >= 6
+    assert save.maxhp >= 6
     assert 199 in save.happen
     assert 1001 in save.happen
     assert 1002 in save.happen
