@@ -83,6 +83,10 @@ def test_scancode_roundtrip_pygame():
     assert scancode_from_pygame(pygame.K_RCTRL) == SC_CONTROL
     assert scancode_name(SC_SPACE) == "space"
     assert scancode_name(SC_CONTROL) == "ctrl"
+    assert scancode_name(SC_UP) == "up"
+    assert scancode_name(SC_DOWN) == "dn"
+    assert scancode_name(SC_LEFT) == "lt"
+    assert scancode_name(SC_RIGHT) == "rt"
 
 
 def test_check_all_codes_rejects_reserved_and_duplicates():
@@ -140,8 +144,8 @@ def test_config_uses_pygame_fonts():
 
     assert config_ui._FONT8 is not None
     assert config_ui._FONT16 is not None
-    assert config_ui._FONT8.get_height() <= 10
-    assert config_ui._FONT16.get_height() <= 16
+    assert config_ui._FONT8.get_height() <= 16
+    assert config_ui._FONT16.get_height() <= 20
     canvas = pygame.Surface((320, 200))
     canvas.fill((0, 0, 0))
     draw_string(canvas, "Lynn's Legacy", 106, 8)
@@ -149,9 +153,9 @@ def test_config_uses_pygame_fonts():
     gfxprint(canvas, "Windowed", 240, 30, (252, 252, 252))
     title_ink = any(canvas.get_at((106 + x, 10))[:3] != (0, 0, 0) for x in range(40))
     full_ink = any(
-        canvas.get_at((x, y))[:3] == (48, 101, 92)
-        for y in range(10, 24)
-        for x in range(240, 272)
+        canvas.get_at((x, y))[1] > 40 and canvas.get_at((x, y))[0] < 120
+        for y in range(10, 26)
+        for x in range(240, 280)
     )
     assert title_ink
     assert full_ink

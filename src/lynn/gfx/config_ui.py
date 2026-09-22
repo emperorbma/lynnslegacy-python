@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import sys
+
 import pygame
 
 from lynn.constants import SCREEN_H, SCREEN_W, TRUE
@@ -34,29 +36,44 @@ _SLOTS = (
     ("actkey", 260, 120, "speak", 0, 48, 48),
 )
 
-# FB Draw String / GfxPrint use the runtime font, not llfont and not a BIOS ROM.
-# pygame.font.SysFont is the OS face; Lucida Console is 8px-tall and monospace.
+# FB Draw String is the 8x8 BIOS face; GfxPrint is 8x16. pygame has neither.
+# Windows ships Lucida Console at those cell sizes. Elsewhere use the bundled
+# freesansbold.ttf (Font(None)) at a larger raster so 320x200 scale stays readable.
 _FONT8 = None
 _FONT16 = None
+_AA = False
 _COL15 = (252, 252, 252)
 _COL114 = (48, 101, 92)
 
 
-def _os_font(px: int) -> pygame.font.Font:
-    pygame.font.init()
+def _windows_console_font(px: int):
     available = set(pygame.font.get_fonts())
-    for name in ("lucidaconsole", "consolas", "couriernew", "monospace"):
+    for name in ("lucidaconsole", "consolas", "couriernew"):
         if name in available:
             return pygame.font.SysFont(name, px)
+    return None
+
+
+def _bundled_font(px: int) -> pygame.font.Font:
+    """pygame.font.Font(None) is freesansbold.ttf with pygame's pixel size."""
     return pygame.font.Font(None, px)
 
 
 def _ensure_fonts() -> None:
-    global _FONT8, _FONT16
+    global _FONT8, _FONT16, _AA
     if _FONT8 is not None:
         return
-    _FONT8 = _os_font(8)
-    _FONT16 = _os_font(14)
+    pygame.font.init()
+    win = _windows_console_font(8) if sys.platform == "win32" else None
+    if win is not None:
+        _FONT8 = win
+        _FONT16 = _windows_console_font(14) or win
+        _AA = False
+    else:
+        # Font(None, N) pixel height is smaller than TTF point N; 16≈11px, 18≈12px.
+        _FONT8 = _bundled_font(16)
+        _FONT16 = _bundled_font(18)
+        _AA = True
 
 
 def _load_sprites(palette):
@@ -79,15 +96,15 @@ def _blit_frame(canvas, frames: list, index: int, x: int, y: int, x_off: int = 0
 
 
 def draw_string(canvas, text: str, x: int, y: int, color: tuple[int, int, int] = _COL15) -> None:
-    """FB Draw String: OS font via pygame, 8px cell."""
+    """FB Draw String: 8px cell on Windows console fonts; bundled TTF elsewhere."""
     _ensure_fonts()
-    canvas.blit(_FONT8.render(text, False, color), (x, y))
+    canvas.blit(_FONT8.render(text, _AA, color), (x, y))
 
 
 def gfxprint(canvas, text: str, x: int, y: int, color: tuple[int, int, int]) -> None:
-    """FB GfxPrint: OS font via pygame, 16px Full/Windowed box."""
+    """FB GfxPrint: 16px Full/Windowed labels."""
     _ensure_fonts()
-    canvas.blit(_FONT16.render(text, False, color), (x, y))
+    canvas.blit(_FONT16.render(text, _AA, color), (x, y))
 
 
 def canvas_mouse(scale_option: int) -> tuple[int, int, int]:
@@ -227,10 +244,19 @@ def run_config(canvas, present, frame_clock, scale_option: int = 0) -> int:
         if _hit(mx, my, 240, 30, 64, 16):
             pygame.draw.rect(canvas, col15, (240, 30, 64, 16), 1)
 
-        draw_string(canvas, "Click an action,", 8, 164, col15)
-        draw_string(canvas, "then hit a button for that action.", 8, 172, col15)
-        draw_string(canvas, "Esc to exit saving changes.", 8, 184, col15)
-        draw_string(canvas, "Backspace to exit discarding changes..", 8, 192, col15)
+        hints = (
+            "Click an action,",
+            "then hit a button for that action.",
+            "Esc to exit saving changes.",
+            "Backspace to exit discarding changes..",
+        )
+        step = max(8, _FONT8.get_linesize())
+        hint_y = SCREEN_H - step * len(hints)
+        if hint_y < 148:
+            step = max(8, (SCREEN_H - 148) // len(hints))
+            hint_y = SCREEN_H - step * len(hints)
+        for i, line in enumerate(hints):
+            draw_string(canvas, line, 8, hint_y + i * step, col15)
         present()
         frame_clock.tick(60)
 
