@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 
 from lynn import clock
@@ -42,6 +43,48 @@ DIR_UP = 0
 DIR_RIGHT = 1
 DIR_DOWN = 2
 DIR_LEFT = 3
+DIR_UP_LEFT = 4
+DIR_UP_RIGHT = 5
+DIR_DOWN_RIGHT = 6
+DIR_DOWN_LEFT = 7
+
+_DIAGONAL = {
+    (0, -1): DIR_UP,
+    (1, 0): DIR_RIGHT,
+    (0, 1): DIR_DOWN,
+    (-1, 0): DIR_LEFT,
+    (-1, -1): DIR_UP_LEFT,
+    (1, -1): DIR_UP_RIGHT,
+    (1, 1): DIR_DOWN_RIGHT,
+    (-1, 1): DIR_DOWN_LEFT,
+}
+
+
+def _held_cardinals(keys_dir: int | Iterable[int] | None) -> list[int]:
+    if keys_dir is None:
+        return []
+    if isinstance(keys_dir, int):
+        return [keys_dir]
+    return [int(d) for d in keys_dir]
+
+
+def walk_from_held(keys_dir: int | Iterable[int] | None) -> tuple[int | None, int | None]:
+    """FB dir_keys: every held axis moves; facing is last of L,R,D,U.
+
+    Opposite keys on one axis cancel. Returns (face 0–3, move_dir 0–7).
+    """
+    held = set(_held_cardinals(keys_dir))
+    dx = (1 if DIR_RIGHT in held else 0) - (1 if DIR_LEFT in held else 0)
+    dy = (1 if DIR_DOWN in held else 0) - (1 if DIR_UP in held else 0)
+    move_dir = _DIAGONAL.get((dx, dy))
+    if move_dir is None:
+        return None, None
+    face = DIR_RIGHT if dx > 0 else (DIR_LEFT if dx < 0 else None)
+    if dy > 0:
+        face = DIR_DOWN
+    if dy < 0:
+        face = DIR_UP
+    return face, move_dir
 
 
 def ctor_hero(load_images: bool = True) -> CharType:
@@ -140,21 +183,24 @@ def update_cam(hero: CharType, room: RoomType) -> tuple[int, int]:
 def hero_walk_step(
     hero: CharType,
     room: RoomType,
-    keys_dir: int | None,
+    keys_dir: int | Iterable[int] | None,
     others: list[CharType] | None = None,
 ) -> int:
-    """FB dir_keys + momentum_move: 1px per walk_speed, catch up leftover time."""
-    if keys_dir is None:
+    """FB dir_keys + momentum_move: 1px per axis per walk_speed, catch up leftover."""
+    face, move_dir = walk_from_held(keys_dir)
+    if move_dir is None:
         hero.moving = 0
         hero.walk_hold = 0
         hero.is_psfing = 0
         return 0
-    hero.direction = keys_dir
+    hero.direction = face
     speed = hero.walk_speed or 0.009
     n, hero.walk_hold = clock.pop_due(hero.walk_hold, speed)
     moved = 0
     for _ in range(n):
+        hero.direction = move_dir
         step = move_object(hero, room, only_looking=0, moment=1, others=others)
+        hero.direction = face
         if step == 0 and hero.is_psfing == 0:
             hero.walk_hold = clock.timer + speed
             break

@@ -2,7 +2,19 @@
 
 from lynn import clock
 from lynn.events import bind_room, reset_events
-from lynn.hero import DIR_RIGHT, ctor_hero, hero_walk_step
+from lynn.hero import (
+    DIR_DOWN,
+    DIR_DOWN_LEFT,
+    DIR_DOWN_RIGHT,
+    DIR_LEFT,
+    DIR_RIGHT,
+    DIR_UP,
+    DIR_UP_LEFT,
+    DIR_UP_RIGHT,
+    ctor_hero,
+    hero_walk_step,
+    walk_from_held,
+)
 from lynn.map.collision import check_walk
 from lynn.map.types import RoomType
 from lynn.object.char import CharType
@@ -89,3 +101,34 @@ def test_pop_due_does_not_burst_after_a_pause():
     clock.timer = 1.0 + 1.0 / 60.0
     n, _hold = clock.pop_due(hold, 0.009)
     assert n <= 2
+
+
+def test_walk_from_held_maps_all_four_diagonals():
+    assert walk_from_held((DIR_DOWN, DIR_RIGHT)) == (DIR_DOWN, DIR_DOWN_RIGHT)
+    assert walk_from_held((DIR_UP, DIR_LEFT)) == (DIR_UP, DIR_UP_LEFT)
+    assert walk_from_held((DIR_UP, DIR_RIGHT)) == (DIR_UP, DIR_UP_RIGHT)
+    assert walk_from_held((DIR_DOWN, DIR_LEFT)) == (DIR_DOWN, DIR_DOWN_LEFT)
+    assert walk_from_held((DIR_LEFT, DIR_RIGHT)) == (None, None)
+    assert walk_from_held(DIR_RIGHT) == (DIR_RIGHT, DIR_RIGHT)
+
+
+def test_hero_walks_diagonals_on_both_axes():
+    reset_events()
+    room = _open_room()
+    hero = ctor_hero(load_images=False)
+    hero.walk_speed = 0.009
+    bind_room(room, [])
+    clock.timer = 0.0
+    cases = (
+        ((DIR_DOWN, DIR_RIGHT), 1, 1, DIR_DOWN),
+        ((DIR_UP, DIR_LEFT), -1, -1, DIR_UP),
+        ((DIR_UP, DIR_RIGHT), 1, -1, DIR_UP),
+        ((DIR_DOWN, DIR_LEFT), -1, 1, DIR_DOWN),
+    )
+    for held, dx, dy, face in cases:
+        hero.coords_x = 80
+        hero.coords_y = 80
+        hero.walk_hold = 0
+        hero_walk_step(hero, room, held, [])
+        assert (hero.coords_x, hero.coords_y) == (80 + dx, 80 + dy), held
+        assert hero.direction == face, held

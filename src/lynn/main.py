@@ -381,16 +381,16 @@ def _run_map(
         attacking = demo.hero_only is not None and demo.hero_only.attacking != 0
         if demo.menu_open == 0 and demo.seq is None and not attacking and not locked:
             if demo.hero is not None:
-                keys_dir = None
+                held: list[int] = []
                 if scancode_held(keys, chart.lkey):
-                    keys_dir = DIR_LEFT
+                    held.append(DIR_LEFT)
                 if scancode_held(keys, chart.rkey):
-                    keys_dir = DIR_RIGHT
+                    held.append(DIR_RIGHT)
                 if scancode_held(keys, chart.dkey):
-                    keys_dir = DIR_DOWN
+                    held.append(DIR_DOWN)
                 if scancode_held(keys, chart.ukey):
-                    keys_dir = DIR_UP
-                hero_walk_step(demo.hero, room, keys_dir, others)
+                    held.append(DIR_UP)
+                hero_walk_step(demo.hero, room, held or None, others)
                 try_hero_teleport(demo)
                 room_i = demo.hero_room
                 room = demo.game_map.room[room_i]
