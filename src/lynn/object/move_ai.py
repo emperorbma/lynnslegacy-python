@@ -49,16 +49,17 @@ def __push(this: CharType) -> int:
     )
     if holding:
         hero.is_pushing = d + 1
-    if this.walk_hold == 0:
+    speed = this.walk_speed or 0.027
+    n, this.walk_hold = clock.pop_due(this.walk_hold, speed)
+    for _ in range(n):
         this.direction = d
         if room is not None:
-            move_object(this, room, only_looking=0, moment=1, others=others)
+            if move_object(this, room, only_looking=0, moment=1, others=others) == 0:
+                this.walk_hold = clock.timer + speed
+                break
         else:
             this.coords_x += x_opt
             this.coords_y += y_opt
-        this.walk_hold = clock.timer + (this.walk_speed or 0.027)
-    if clock.timer >= this.walk_hold:
-        this.walk_hold = 0
     return 0
 
 
@@ -84,11 +85,12 @@ def __walk(this: CharType) -> int:
     others = events.current_others
     if this.walk_buffer <= 0:
         this.walk_buffer = int(this.walk_length) if this.walk_length else 40
-    if clock.timer > this.walk_hold:
-        this.walk_hold = 0
-    if this.walk_hold == 0 and room is not None:
+    if room is None:
+        return 0
+    speed = this.walk_speed or 0.059
+    n, this.walk_hold = clock.pop_due(this.walk_hold, speed)
+    for _ in range(n):
         moved = move_object(this, room, only_looking=0, moment=1, others=others)
-        this.walk_hold = clock.timer + (this.walk_speed or 0.059)
         if moved != 0:
             this.walk_steps += 1
             if LLObject_IncrementFrame(this) != 0:
@@ -97,9 +99,17 @@ def __walk(this: CharType) -> int:
                 this.frame_hold = clock.timer + rate
         else:
             this.walk_steps = this.walk_buffer
+            this.walk_hold = clock.timer + speed
+            break
+        if this.walk_steps >= this.walk_buffer:
+            this.frame = 0
+            this.walk_steps = 0
+            this.walk_hold = 0
+            return 1
     if this.walk_steps >= this.walk_buffer:
         this.frame = 0
         this.walk_steps = 0
+        this.walk_hold = 0
         return 1
     return 0
 
@@ -150,22 +160,22 @@ def __make_align(this: CharType) -> int:
     aligned = (abs(hy - ey) < 48 and abs(hx - ex) < 8) or (abs(hx - ex) < 48 and abs(hy - ey) < 8)
     if aligned == 0:
         dir_hold = this.direction
-        if this.walk_hold == 0 and room is not None:
-            if hx < ex:
-                this.direction = 3
-                move_object(this, room, only_looking=0, moment=1, others=others)
-            elif hx > ex:
-                this.direction = 1
-                move_object(this, room, only_looking=0, moment=1, others=others)
-            if hy < ey:
-                this.direction = 0
-                move_object(this, room, only_looking=0, moment=1, others=others)
-            elif hy > ey:
-                this.direction = 2
-                move_object(this, room, only_looking=0, moment=1, others=others)
-            this.walk_hold = clock.timer + (this.walk_speed or 0.035)
-        if clock.timer >= this.walk_hold:
-            this.walk_hold = 0
+        speed = this.walk_speed or 0.035
+        n, this.walk_hold = clock.pop_due(this.walk_hold, speed)
+        if room is not None:
+            for _ in range(n):
+                if hx < ex:
+                    this.direction = 3
+                    move_object(this, room, only_looking=0, moment=1, others=others)
+                elif hx > ex:
+                    this.direction = 1
+                    move_object(this, room, only_looking=0, moment=1, others=others)
+                if hy < ey:
+                    this.direction = 0
+                    move_object(this, room, only_looking=0, moment=1, others=others)
+                elif hy > ey:
+                    this.direction = 2
+                    move_object(this, room, only_looking=0, moment=1, others=others)
         this.direction = dir_hold
     return 1
 
@@ -212,49 +222,52 @@ def __chase(this: CharType) -> int:
         this.sway = clock.timer + 0.002
     if clock.timer > this.sway:
         this.sway = 0
-    if this.walk_hold == 0 and room is not None:
-        px = 1 if hx > ox else (-1 if hx < ox else 0)
-        py = 1 if hy > oy else (-1 if hy < oy else 0)
-        if px == 1 and py == 1:
-            this.direction = 6
-        elif px == 1 and py == 0:
-            this.direction = 1
-        elif px == 1 and py == -1:
-            this.direction = 5
-        elif px == -1 and py == 1:
-            this.direction = 7
-        elif px == -1 and py == 0:
-            this.direction = 3
-        elif px == -1 and py == -1:
-            this.direction = 4
-        elif px == 0 and py == 1:
-            this.direction = 2
-        elif px == 0 and py == -1:
-            this.direction = 0
-        if px != 0 or py != 0:
-            if move_object(this, room, only_looking=0, moment=1, others=others) == 0:
-                tmp = this.direction
-                sway_calc = math.sin(math.radians(this.degree))
-                if sway_calc > 0:
-                    this.direction += 1
-                elif sway_calc < 0:
-                    this.direction -= 1
+    rate = this.mad_walk_speed if this.mad_walk_speed else (this.walk_speed or 0.059)
+    n, this.walk_hold = clock.pop_due(this.walk_hold, rate)
+    if room is not None:
+        for _ in range(n):
+            px = 1 if hx > ox else (-1 if hx < ox else 0)
+            py = 1 if hy > oy else (-1 if hy < oy else 0)
+            if px == 1 and py == 1:
+                this.direction = 6
+            elif px == 1 and py == 0:
+                this.direction = 1
+            elif px == 1 and py == -1:
+                this.direction = 5
+            elif px == -1 and py == 1:
+                this.direction = 7
+            elif px == -1 and py == 0:
+                this.direction = 3
+            elif px == -1 and py == -1:
+                this.direction = 4
+            elif px == 0 and py == 1:
+                this.direction = 2
+            elif px == 0 and py == -1:
+                this.direction = 0
+            if px != 0 or py != 0:
+                if move_object(this, room, only_looking=0, moment=1, others=others) == 0:
+                    tmp = this.direction
+                    sway_calc = math.sin(math.radians(this.degree))
+                    if sway_calc > 0:
+                        this.direction += 1
+                    elif sway_calc < 0:
+                        this.direction -= 1
+                    this.direction = _in_dir_small(this.direction)
+                    move_object(this, room, only_looking=0, moment=1, others=others)
+                    this.direction = tmp
+            if this.uni_directional == 0:
                 this.direction = _in_dir_small(this.direction)
-                move_object(this, room, only_looking=0, moment=1, others=others)
-                this.direction = tmp
-        if this.uni_directional == 0:
-            this.direction = _in_dir_small(this.direction)
-        __make_face(this)
-        rate = this.mad_walk_speed if this.mad_walk_speed else (this.walk_speed or 0.059)
-        this.walk_hold = clock.timer + rate
-        if this.animControl and this.current_anim < len(this.animControl):
-            if LLObject_IncrementFrame(this) != 0:
-                this.frame = 0
-                ctrl = this.animControl[this.current_anim]
-                mad = ctrl.rateMad if ctrl.rateMad else (ctrl.rate or 0.03)
-                this.frame_hold = clock.timer + mad
-    if clock.timer > this.walk_hold:
-        this.walk_hold = 0
+            __make_face(this)
+            if this.animControl and this.current_anim < len(this.animControl):
+                if LLObject_IncrementFrame(this) != 0:
+                    this.frame = 0
+                    ctrl = this.animControl[this.current_anim]
+                    mad = ctrl.rateMad if ctrl.rateMad else (ctrl.rate or 0.03)
+                    this.frame_hold = clock.timer + mad
+            hx = hero.coords_x + (int(hero.perimeter_x) >> 1)
+            hy = hero.coords_y + (int(hero.perimeter_y) >> 1)
+            ox = this.coords_x + (int(this.perimeter_x) >> 1)
+            oy = this.coords_y + (int(this.perimeter_y) >> 1)
     return 0
 
 
@@ -281,10 +294,9 @@ def __home(this: CharType) -> int:
             this.direction = (int(this.direction) + 2) & 3
 
     speed = this.walk_speed or 0.059
-    if this.walk_hold == 0:
-        this.walk_hold = clock.timer
+    n, this.walk_hold = clock.pop_due(this.walk_hold, speed)
     steps = 0
-    while clock.timer >= this.walk_hold and steps < 4:
+    while steps < n:
         y_move = 0
         if y_home > this.coords_y:
             y_move = 1
@@ -314,7 +326,6 @@ def __home(this: CharType) -> int:
             this.frame = 0
             this.moving = 0
             return 1
-        this.walk_hold += speed
         this.moving = 1
         steps += 1
     if LLObject_IncrementFrame(this) != 0:

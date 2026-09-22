@@ -82,7 +82,9 @@ def __do_flyback(this: CharType) -> int:
             this.mad = 0
             return 1
         return 0
-    if this.fly_timer == 0:
+    speed = this.fly_speed or 0.004
+    n, this.fly_timer = clock.pop_due(this.fly_timer, speed)
+    for _ in range(n):
         this.fly_hold = this.direction
         room = events.current_room
         others = events.current_others
@@ -100,10 +102,9 @@ def __do_flyback(this: CharType) -> int:
                 this.direction = 1
                 move_object(this, room, moment=abs(this.fly_x) or 1, others=others)
         this.direction = this.fly_hold
-        this.fly_timer = clock.timer + (this.fly_speed or 0.004)
         this.fly_count += 1
-    if clock.timer >= this.fly_timer:
-        this.fly_timer = 0
+        if this.fly_count >= this.fly_length:
+            break
     if this.fly_count >= this.fly_length:
         this.fly_count = 0
         this.fly_timer = 0

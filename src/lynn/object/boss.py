@@ -27,7 +27,10 @@ def _v2_calc_flyback(mx: float, my: float, nx: float, ny: float) -> tuple[float,
 
 def __do_circle(this: CharType) -> int:
     """FB object_boss.bas: orbit x_origin/y_origin; 30% fire chance every 45 degrees."""
-    if this.walk_hold == 0:
+    speed = this.walk_speed or 0.009
+    n, this.walk_hold = clock.pop_due(this.walk_hold, speed)
+    fired = False
+    for _ in range(n):
         radians = (3.14159 / 180.0) * this.degree
         mov_x = this.radius * math.sin(radians)
         mov_y = this.radius * math.cos(radians)
@@ -39,14 +42,14 @@ def __do_circle(this: CharType) -> int:
                 this.funcs.active_state = this.proj_state
                 if 0 <= this.proj_state < len(this.funcs.current_func):
                     this.funcs.current_func[this.proj_state] = 0
-                return 0
+                fired = True
+                break
         if this.degree >= 360:
             this.degree = 0
         else:
             this.degree += 0.75
-        this.walk_hold = clock.timer + (this.walk_speed or 0.009)
-    if clock.timer >= this.walk_hold:
-        this.walk_hold = 0
+    if fired:
+        return 0
     if LLObject_IncrementFrame(this) != 0:
         this.animating = 0
         this.frame = 0
@@ -82,7 +85,9 @@ def __do_grult_proj(this: CharType) -> int:
     proj = this.projectile
     if proj is None or not proj.coords:
         return 0
-    if this.fly_timer == 0:
+    speed = this.fly_speed or 0.009
+    n, this.fly_timer = clock.pop_due(this.fly_timer, speed)
+    for _ in range(n):
         if (proj.travelled & 3) == 0:
             hero = events.hero
             hx = hero.coords_x if hero is not None else proj.coords[0][0]
@@ -97,10 +102,9 @@ def __do_grult_proj(this: CharType) -> int:
                 _grult_vx, _grult_vy = _v2_calc_flyback(hmx, hmy, pmx, pmy)
         proj.coords[0][0] += _grult_vx
         proj.coords[0][1] += _grult_vy
-        this.fly_timer = clock.timer + (this.fly_speed or 0.009)
         proj.travelled += 1
-    if clock.timer >= this.fly_timer:
-        this.fly_timer = 0
+        if proj.travelled >= (proj.length if proj.length else 256):
+            break
     length = proj.length if proj.length else 256
     if proj.travelled >= length:
         from lynn.object.projectile import LLObject_ClearProjectiles

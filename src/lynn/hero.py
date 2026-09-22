@@ -143,27 +143,22 @@ def hero_walk_step(
     keys_dir: int | None,
     others: list[CharType] | None = None,
 ) -> int:
-    """One FB-style 1px step if walk_hold elapsed. keys_dir is 0..3 or None."""
-    if clock.timer > hero.walk_hold:
-        hero.walk_hold = 0
-        hero.is_psfing = 0
+    """FB dir_keys + momentum_move: 1px per walk_speed, catch up leftover time."""
     if keys_dir is None:
         hero.moving = 0
+        hero.walk_hold = 0
+        hero.is_psfing = 0
         return 0
     hero.direction = keys_dir
     speed = hero.walk_speed or 0.009
-    if hero.walk_hold == 0:
-        hero.walk_hold = clock.timer
+    n, hero.walk_hold = clock.pop_due(hero.walk_hold, speed)
     moved = 0
-    steps = 0
-    while clock.timer >= hero.walk_hold and steps < 4:
+    for _ in range(n):
         step = move_object(hero, room, only_looking=0, moment=1, others=others)
         if step == 0 and hero.is_psfing == 0:
             hero.walk_hold = clock.timer + speed
             break
         moved = 1
-        hero.walk_hold += speed
-        steps += 1
     if moved == 0:
         hero.moving = 0
         return 0
