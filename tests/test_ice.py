@@ -113,3 +113,40 @@ def test_ice_diagonal_builds_both_axes():
     assert hero.coords_y < 48
     assert hero.momentum[DIR_RIGHT] > 0
     assert hero.momentum[DIR_UP] > 0
+
+
+def test_walk_onto_ice_keeps_full_speed():
+    """FB stop_grip stores 1.0 from land go_grip; first ice frame restores it."""
+    reset_events()
+    room = RoomType()
+    room.x = 20
+    room.y = 8
+    n = 20 * 9 + 2
+    layout0 = [0] * n
+    for tx in range(10, 20):
+        for ty in range(0, 8):
+            layout0[ty * 20 + tx] = 1 << 8
+    room.layout = [layout0, [0] * n, [0] * n]
+    hero = ctor_hero(load_images=False)
+    hero.coords_x = 100
+    hero.coords_y = 32
+    hero.perimeter_x = 16
+    hero.perimeter_y = 16
+    bind_room(room, [])
+    clock.timer = 0.0
+    x_land = None
+    start_i = 0
+    for i in range(0, 80):
+        clock.timer = i / 60.0
+        hero_walk_step(hero, room, DIR_RIGHT, [])
+        if hero.on_ice != 0:
+            x_land = hero.coords_x
+            start_i = i
+            break
+    assert x_land is not None
+    for i in range(start_i + 1, start_i + 9):
+        clock.timer = i / 60.0
+        hero_walk_step(hero, room, DIR_RIGHT, [])
+    assert hero.on_ice == TRUE
+    assert hero.momentum[DIR_RIGHT] >= 0.9
+    assert hero.coords_x - x_land >= 6

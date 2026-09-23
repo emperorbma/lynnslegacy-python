@@ -202,8 +202,9 @@ def _stop_grip(hero: CharType) -> None:
 
 
 def _calc_slide(hero: CharType) -> None:
+    """FB __calc_slide: one friction tick per engine frame (not walk-hold catch-up)."""
     _ensure_momentum(hero)
-    n, hero.slide_hold = clock.pop_due(hero.slide_hold, SLIDE_PERIOD)
+    n, hero.slide_hold = clock.pop_due(hero.slide_hold, SLIDE_PERIOD, cap=1)
     for _ in range(n):
         for i in range(8):
             v = hero.momentum[i] - SLIDE_FRICTION
@@ -280,8 +281,8 @@ def hero_walk_step(
     face, move_dir = walk_from_held(held)
     if hero.on_ice != 0:
         return _hero_ice_step(hero, room, held, face, others)
-    _stop_grip(hero)
     if move_dir is None:
+        _stop_grip(hero)
         hero.moving = 0
         hero.walk_hold = 0
         hero.is_psfing = 0
@@ -298,6 +299,11 @@ def hero_walk_step(
             hero.walk_hold = clock.timer + speed
             break
         moved = 1
+    if moved:
+        for d in held:
+            if 0 <= d < 8:
+                hero.momentum[d] = 1.0
+    _stop_grip(hero)
     if moved == 0:
         hero.moving = 0
         return 0
