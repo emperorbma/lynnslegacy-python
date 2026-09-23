@@ -663,6 +663,17 @@ def __after_slime(this: CharType) -> int:
     return 0
 
 
+def __bridge_chasm(this: CharType) -> int:
+    """FB object_etc.bas: happen 357 drops the Gelidus ice-chasm bridge."""
+    if events.now[357] != 0:
+        from lynn.object.combat import LLObject_ShiftState
+
+        LLObject_ShiftState(this, this.reset_state)
+        this.impassable = 0
+        return 0
+    return 1
+
+
 def __after_moenia_townspeople(this: CharType) -> int:
     """Park town NPCs off-map until happen 199 (Grult)."""
     if events.now[199] != 0:

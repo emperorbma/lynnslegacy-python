@@ -6,7 +6,7 @@ next shipped dungeon or boss at the bottom of
 fails in one place.
 
 Shipped so far: forest sapling → town portal → Interport → Moenia → Grult →
-seed portal back to town, then Lynn can walk.
+seed portal back to town → Gelidus chasm switch (happen 357).
 """
 
 from pathlib import Path
@@ -230,10 +230,78 @@ def _seed_portal_home(demo: MapDemo) -> None:
     assert last_song.replace("\\", "/").endswith("town.it")
 
 
+def _town_to_gelidus(demo: MapDemo) -> None:
+    """forest_fall r4 -> r12 portal -> interport2 -> gelidus r1."""
+    for tele_i, dest in (
+        (0, 2),
+        (0, 1),
+        (2, 7),
+        (1, 8),
+        (1, 9),
+        (1, 10),
+        (1, 11),
+        (1, 12),
+    ):
+        _take_tele(demo, tele_i)
+        assert demo.hero_room == dest, (tele_i, dest, demo.hero_room)
+    _take_tele(demo, 3)
+    assert _map_stem(demo) == "interport2"
+    _take_tele(demo, 0)
+    assert _map_stem(demo) == "gelidus"
+    assert demo.hero_room == 1
+
+
+def _gelidus_to_chasm(demo: MapDemo) -> None:
+    """Shortest tele chain r1 -> r15 (switch and ice bridge)."""
+    for tele_i, dest in (
+        (0, 0),
+        (2, 3),
+        (1, 4),
+        (4, 11),
+        (1, 12),
+        (1, 13),
+        (1, 14),
+        (1, 15),
+    ):
+        _take_tele(demo, tele_i)
+        assert demo.hero_room == dest, (tele_i, dest, demo.hero_room)
+
+
+def _press_gelidus_bridge_switch(demo: MapDemo) -> None:
+    objs = _objs(demo)
+    bind_room(demo.game_map.room[15], objs)
+    button = _named(demo, "button.xml")
+    chasms = [
+        o
+        for o in objs
+        if o.id.replace("\\", "/").lower().endswith("geliduschasm.xml")
+    ]
+    assert button is not None
+    assert len(chasms) == 3
+    assert all(c.impassable != 0 for c in chasms)
+    hero = demo.hero
+    hero.perimeter_x = 16
+    hero.perimeter_y = 16
+    hero.coords_x = button.coords_x
+    hero.coords_y = button.coords_y
+    seq = try_touch_sequence(hero, objs)
+    assert seq is not None, "Gelidus switch touch sequence did not start"
+    _play_until_done(demo, seq)
+    for _ in range(8):
+        tick_objects(_objs(demo))
+    assert now[357] != 0
+    chasms = [
+        o
+        for o in _objs(demo)
+        if o.id.replace("\\", "/").lower().endswith("geliduschasm.xml")
+    ]
+    assert all(c.impassable == 0 for c in chasms)
+
+
 def test_critical_path_as_far_as_ported():
     """Player route through everything the port currently implements.
 
-    Today that ends after Grult, the seed portal, and walking in town.
+    Today that ends after Gelidus r15: switch 357 drops the ice chasm.
     """
     demo = _new_game()
     assert _map_stem(demo) == "forest_fall"
@@ -277,6 +345,12 @@ def test_critical_path_as_far_as_ported():
     assert now[199] != 0
     assert now[1001] != 0
     assert now[1002] != 0
+
+    _town_to_gelidus(demo)
+    _gelidus_to_chasm(demo)
+    assert demo.hero_room == 15
+    _press_gelidus_bridge_switch(demo)
+    assert now[357] != 0
 
 
 def test_post_moenia_real_save_can_play():
