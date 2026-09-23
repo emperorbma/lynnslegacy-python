@@ -94,6 +94,24 @@ def test_title_room_song_is_title_it():
     assert m.room[0].song == 20
 
 
+def test_town_song_switches_to_town_it_after_grult():
+    """forest_fall r4: dimhole.it until happen 199, then town.it (FB song_changes)."""
+    from lynn.audio import room_song_index
+    from lynn.events import now, reset_events
+    from lynn.map.loader import load_mapV
+    from lynn.paths import resolve_map_path
+
+    reset_events()
+    m = load_mapV(str(resolve_map_path("forest_fall")), load_tileset=False)
+    town = m.room[4]
+    assert town.song == 9
+    assert town.song_changes == 199
+    assert town.changes_to == 21
+    assert room_song_index(town) == 9
+    now[199] = -1
+    assert room_song_index(town) == 21
+
+
 def test_play_song_uses_chap_index():
     from lynn.audio import last_song
     from lynn.events import reset_events

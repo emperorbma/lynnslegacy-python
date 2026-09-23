@@ -158,13 +158,13 @@ def _apply_enter_visibility(hero, only) -> None:
 
 
 def _start_current_room_song(demo: MapDemo) -> None:
-    """FB ll_main_entry: llg(song) = now_room().song; LLMusic_Start."""
-    from lynn.audio import start_room_song
+    """FB change_room: play room.song, or changes_to when song_changes happen is set."""
+    from lynn.audio import room_song_index, start_room_song
 
     room_i = demo.hero_room
     if not (0 <= room_i < len(demo.game_map.room)):
         return
-    start_room_song(demo.game_map.room[room_i].song)
+    start_room_song(room_song_index(demo.game_map.room[room_i]))
 
 
 def _is_title_map(name: str | None) -> bool:

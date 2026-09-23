@@ -219,9 +219,15 @@ def _seed_portal_home(demo: MapDemo) -> None:
     demo.hero_room = events.hero_room
     assert _map_stem(demo) == "forest_fall"
     assert demo.hero_room == 4
+    from lynn.audio import last_song, room_song_index
+
+    assert now[199] != 0
+    assert room_song_index(demo.game_map.room[4]) == 21
+    assert last_song.replace("\\", "/").endswith("town.it")
     _drain_entry_seq(demo)
     assert demo.seq is None
     assert demo.hero_only.action_lock == 0
+    assert last_song.replace("\\", "/").endswith("town.it")
 
 
 def test_critical_path_as_far_as_ported():

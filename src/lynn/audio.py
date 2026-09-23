@@ -527,6 +527,19 @@ def tick_music() -> None:
         LLMusic_Fade()
 
 
+def room_song_index(room) -> int:
+    """FB change_room: if song_changes happen is set, play changes_to instead of song.
+
+    Town (forest_fall r4) is dimhole.it until happen 199 (Grult), then town.it.
+    """
+    import lynn.events as events
+
+    flag = int(getattr(room, "song_changes", 0) or 0)
+    if flag and 0 <= flag < len(events.now) and events.now[flag] != 0:
+        return int(getattr(room, "changes_to", 0) or 0)
+    return int(getattr(room, "song", 0) or 0)
+
+
 def start_room_song(song: int, force: int = 0) -> None:
     """FB ll_main_entry / change_room: play room.song if it changed."""
     import lynn.events as events
