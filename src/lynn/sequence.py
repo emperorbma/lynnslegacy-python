@@ -183,6 +183,27 @@ def _command_progressing(seq: SequenceType, box: BoxControl, current_ent=None) -
     return progressing
 
 
+TITLE_WATER_WRAP_Y = 2000
+TITLE_WATER_WRAP_DELTA = 5376
+
+
+def _loop_title_water(seq: SequenceType, cmd, ent) -> None:
+    """FB play_sequence: water_align loops the title beach when Lynn hits y=2000."""
+    if ent.water_align == 0:
+        return
+    hero = events.hero
+    if hero is None or int(hero.coords_y) != TITLE_WATER_WRAP_Y:
+        return
+    for e2 in cmd.ent:
+        if e2.active_ent == SF_BOX:
+            continue
+        if not (0 <= e2.active_ent < len(seq.ent)):
+            continue
+        actor = seq.ent[e2.active_ent]
+        if getattr(actor, "no_cam", 0) == 0:
+            actor.coords_y += TITLE_WATER_WRAP_DELTA
+
+
 def play_sequence(seq: SequenceType | None, box: BoxControl, hero_only, palette=None, menu=None) -> SequenceType | None:
     if seq is None or seq.current_command >= seq.commands:
         if seq is not None:
@@ -205,6 +226,7 @@ def play_sequence(seq: SequenceType | None, box: BoxControl, hero_only, palette=
                 continue
             actor = seq.ent[ent.active_ent]
             _assign(actor, ent, hero_only)
+            _loop_title_water(seq, cmd, ent)
             if actor.return_trig:
                 continue
             state = ent.ent_state

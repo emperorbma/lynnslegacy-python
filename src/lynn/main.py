@@ -407,7 +407,7 @@ def _run_map(
                 if scancode_held(keys, chart.dkey):
                     cam_y += PAN_SPEED
                 cam_x, cam_y = _clamp_cam(room, cam_x, cam_y)
-        elif demo.hero is not None and demo.hero.on_ice == 0:
+        elif demo.hero is not None and demo.seq is None and demo.hero.on_ice == 0:
             demo.hero.walk_hold = 0
         if (
             demo.seq is None

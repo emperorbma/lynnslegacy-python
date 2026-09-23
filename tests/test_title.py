@@ -21,7 +21,12 @@ from lynn.object.dispatch import lookup_func
 from lynn.object.save import LLSystem_WriteSaveFile, sequence_LoadGame
 from lynn.object.xml_load import LLSystem_ObjectFromXML
 from lynn.paths import START_MAP, chdir_project_root, data_file, project_root
-from lynn.sequence import play_sequence
+from lynn.sequence import (
+    TITLE_WATER_WRAP_DELTA,
+    TITLE_WATER_WRAP_Y,
+    _loop_title_water,
+    play_sequence,
+)
 
 
 @pytest.fixture(scope="module")
@@ -189,6 +194,36 @@ def test_title_map_entry_starts_menu_seq(pygame_dummy):
     assert Path_name(demo.game_map.filename) == START_MAP
     menus = [o for o in demo.objects_by_room[0] if o.unique_id == u_menu]
     assert menus
+
+
+def test_title_water_align_wraps_at_y_2000():
+    """FB play_sequence: water_align loops the beach when Lynn hits y=2000."""
+    from lynn.map.types import CommandData, CommandType, SequenceType
+
+    reset_events()
+    hero = ctor_hero(load_images=False)
+    hero.coords_y = TITLE_WATER_WRAP_Y
+    hero.no_cam = 0
+    gull = CharType()
+    gull.coords_y = 1800
+    gull.no_cam = TRUE
+    npc = CharType()
+    npc.coords_y = 2100
+    npc.no_cam = 0
+    events.hero = hero
+    seq = SequenceType()
+    seq.ent = [hero, npc, gull]
+    cmd = CommandType()
+    flag = CommandData(active_ent=0, water_align=2500)
+    cmd.ent = [
+        flag,
+        CommandData(active_ent=1),
+        CommandData(active_ent=2),
+    ]
+    _loop_title_water(seq, cmd, flag)
+    assert hero.coords_y == TITLE_WATER_WRAP_Y + TITLE_WATER_WRAP_DELTA
+    assert npc.coords_y == 2100 + TITLE_WATER_WRAP_DELTA
+    assert gull.coords_y == 1800
 
 
 def Path_name(name: str) -> str:
