@@ -114,6 +114,10 @@ class CharType:
     walk_steps: int = 0
     pause: float = 0.0
     on_ice: int = 0
+    last_cycle_ice: int = 0
+    slide_hold: float = 0.0
+    momentum: list[float] = field(default_factory=lambda: [0.0] * 8)
+    momentum_history: list[float] = field(default_factory=lambda: [0.0] * 8)
     moving: int = 0
     num: int = 0
     unstoppable_by_screen: int = 0

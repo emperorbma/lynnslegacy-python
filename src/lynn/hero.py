@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import math
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 
 from lynn import clock
 from lynn.constants import SCREEN_H, SCREEN_W, TRUE
+from lynn.macros import check_ice
 from lynn.map.collision import check_against_teles, move_object
 from lynn.map.types import MapType, RoomType
 from lynn.object.char import CharType
@@ -47,6 +49,11 @@ DIR_UP_LEFT = 4
 DIR_UP_RIGHT = 5
 DIR_DOWN_RIGHT = 6
 DIR_DOWN_LEFT = 7
+
+# FB dir_keys / calc_slide. Log is natural log.
+SLIDE_ADD = 0.02
+SLIDE_FRICTION = 0.01
+SLIDE_PERIOD = 0.01 - (0.01 * (abs(math.log(0.01)) / 100.0 * 5.0))
 
 _DIAGONAL = {
     (0, -1): DIR_UP,
@@ -180,14 +187,100 @@ def update_cam(hero: CharType, room: RoomType) -> tuple[int, int]:
     return cam_x, cam_y
 
 
+def _ensure_momentum(hero: CharType) -> None:
+    if len(getattr(hero, "momentum", []) or []) < 8:
+        hero.momentum = [0.0] * 8
+    if len(getattr(hero, "momentum_history", []) or []) < 8:
+        hero.momentum_history = [0.0] * 8
+
+
+def _stop_grip(hero: CharType) -> None:
+    _ensure_momentum(hero)
+    for i in range(8):
+        hero.momentum_history[i] = hero.momentum[i]
+        hero.momentum[i] = 0.0
+
+
+def _calc_slide(hero: CharType) -> None:
+    _ensure_momentum(hero)
+    n, hero.slide_hold = clock.pop_due(hero.slide_hold, SLIDE_PERIOD)
+    for _ in range(n):
+        for i in range(8):
+            v = hero.momentum[i] - SLIDE_FRICTION
+            hero.momentum[i] = 0.0 if v < 0.0 else v
+
+
+def _momentum_move(hero: CharType, room: RoomType, others: list[CharType] | None) -> int:
+    """FB __momentum_move: one move_object per dir with leftover momentum."""
+    _ensure_momentum(hero)
+    moved = 0
+    face = hero.direction
+    for d in range(8):
+        mom = hero.momentum[d]
+        if mom == 0.0:
+            continue
+        hero.direction = d
+        look = move_object(hero, room, only_looking=0, moment=mom, others=others)
+        if look == 0 and hero.is_psfing == 0 and hero.is_pushing == 0:
+            hero.momentum[d] = 0.0
+        elif look != 0:
+            moved = 1
+    hero.direction = face
+    return moved
+
+
+def _hero_ice_step(
+    hero: CharType,
+    room: RoomType,
+    held: list[int],
+    face: int | None,
+    others: list[CharType] | None,
+) -> int:
+    if face is not None:
+        hero.direction = face
+    speed = hero.walk_speed or 0.009
+    held_set = set(held)
+    n, hero.walk_hold = clock.pop_due(hero.walk_hold, speed)
+    moved = 0
+    for _ in range(n):
+        for d in (DIR_LEFT, DIR_RIGHT, DIR_DOWN, DIR_UP):
+            if d in held_set:
+                hero.momentum[d] = min(1.0, hero.momentum[d] + SLIDE_ADD)
+        if _momentum_move(hero, room, others):
+            moved = 1
+    _calc_slide(hero)
+    if moved == 0:
+        hero.moving = 0
+        return 0
+    hero.moving = 1
+    if LLObject_IncrementFrame(hero) != 0:
+        hero.frame = 0
+        rate = hero.animControl[hero.current_anim].rate if hero.animControl else 0.08
+        hero.frame_hold = clock.timer + rate
+    return moved
+
+
 def hero_walk_step(
     hero: CharType,
     room: RoomType,
     keys_dir: int | Iterable[int] | None,
     others: list[CharType] | None = None,
 ) -> int:
-    """FB dir_keys + momentum_move: 1px per axis per walk_speed, catch up leftover."""
-    face, move_dir = walk_from_held(keys_dir)
+    """FB dir_keys + momentum_move; ice keeps fractional momentum and slides."""
+    _ensure_momentum(hero)
+    hero.last_cycle_ice = hero.on_ice
+    check_ice(hero, room)
+    if hero.on_ice == 0:
+        hero.coords_x = int(hero.coords_x)
+        hero.coords_y = int(hero.coords_y)
+    if hero.on_ice != 0 and hero.last_cycle_ice == 0:
+        for i in range(4):
+            hero.momentum[i] = hero.momentum_history[i]
+    held = _held_cardinals(keys_dir)
+    face, move_dir = walk_from_held(held)
+    if hero.on_ice != 0:
+        return _hero_ice_step(hero, room, held, face, others)
+    _stop_grip(hero)
     if move_dir is None:
         hero.moving = 0
         hero.walk_hold = 0

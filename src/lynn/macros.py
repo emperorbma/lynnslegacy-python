@@ -14,6 +14,32 @@ def testbit(n: int, b: int) -> int:
     return n & (1 << b)
 
 
+def tile_char_on(c, room, tile_size: int = 16) -> int:
+    """FB macros.bi: tile index under the character's center."""
+    row = 0
+    col = 0
+    if c.coords_y > -1:
+        row = int((c.coords_y + (int(c.perimeter_y) >> 1)) // tile_size) * room.x
+    if c.coords_x > -1:
+        col = int((c.coords_x + (int(c.perimeter_x) >> 1)) // tile_size)
+    return row + col
+
+
+def check_ice(c, room) -> None:
+    """FB check_ice: set on_ice if layer 0 bit 8 is set under the char."""
+    from lynn.constants import TRUE
+
+    c.on_ice = 0
+    if room is None or not getattr(room, "layout", None):
+        return
+    lay = room.layout[0] if room.layout else None
+    if not lay:
+        return
+    idx = tile_char_on(c, room)
+    if 0 <= idx < len(lay) and testbit(lay[idx], 8):
+        c.on_ice = TRUE
+
+
 def quad_calc(x: int, y: int) -> int:
     # ((Abs(y And 1) Shl 1) + Abs(x And 1))
     return (abs(y & 1) << 1) + abs(x & 1)

@@ -379,18 +379,19 @@ def _run_map(
                 demo.do_hud = 0
                 events.do_hud = 0
         attacking = demo.hero_only is not None and demo.hero_only.attacking != 0
-        if demo.menu_open == 0 and demo.seq is None and not attacking and not locked:
+        if demo.menu_open == 0 and demo.seq is None and not locked:
             if demo.hero is not None:
                 held: list[int] = []
-                if scancode_held(keys, chart.lkey):
-                    held.append(DIR_LEFT)
-                if scancode_held(keys, chart.rkey):
-                    held.append(DIR_RIGHT)
-                if scancode_held(keys, chart.dkey):
-                    held.append(DIR_DOWN)
-                if scancode_held(keys, chart.ukey):
-                    held.append(DIR_UP)
-                hero_walk_step(demo.hero, room, held or None, others)
+                if not attacking:
+                    if scancode_held(keys, chart.lkey):
+                        held.append(DIR_LEFT)
+                    if scancode_held(keys, chart.rkey):
+                        held.append(DIR_RIGHT)
+                    if scancode_held(keys, chart.dkey):
+                        held.append(DIR_DOWN)
+                    if scancode_held(keys, chart.ukey):
+                        held.append(DIR_UP)
+                hero_walk_step(demo.hero, room, held, others)
                 try_hero_teleport(demo)
                 room_i = demo.hero_room
                 room = demo.game_map.room[room_i]
@@ -406,7 +407,7 @@ def _run_map(
                 if scancode_held(keys, chart.dkey):
                     cam_y += PAN_SPEED
                 cam_x, cam_y = _clamp_cam(room, cam_x, cam_y)
-        elif demo.hero is not None:
+        elif demo.hero is not None and demo.hero.on_ice == 0:
             demo.hero.walk_hold = 0
         if (
             demo.seq is None
