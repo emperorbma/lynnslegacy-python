@@ -610,7 +610,10 @@ def _blit_y_sorted(canvas, demo: MapDemo, room_i: int, cam_x: int, cam_y: int, s
             proj = getattr(obj, "projectile", None)
             if (
                 proj is not None
-                and getattr(obj, "grult_proj_trig", 0) != 0
+                and (
+                    getattr(obj, "grult_proj_trig", 0) != 0
+                    or getattr(obj, "anger_proj_trig", 0) != 0
+                )
                 and proj.coords
             ):
                 fy = int(proj.coords[0][1])

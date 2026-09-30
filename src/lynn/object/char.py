@@ -210,6 +210,7 @@ class CharType:
     light_sensitive: int = 0
     elite: int = 0
     grult_proj_trig: int = 0
+    anger_proj_trig: int = 0
     stun_return_trig: int = 0
     psycho: int = 0
     dropped: int = 0

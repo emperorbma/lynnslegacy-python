@@ -13,6 +13,10 @@ from lynn.object.dispatch import register_func
 from lynn.object.gfx_frame import LLObject_IncrementFrame
 
 _grult_proj_lock = 0
+_anger_trigger_ball = 0
+_anger_new_ball = 0
+_anger_lock_x = 0
+_anger_lock_y = 0
 
 
 def _v2_calc_flyback(mx: float, my: float, nx: float, ny: float) -> tuple[float, float]:
@@ -435,6 +439,229 @@ def __push_lynn_back(this: CharType) -> int:
     return 1
 
 
+def _room_enemy(index: int) -> CharType | None:
+    others = events.current_others or []
+    if 0 <= index < len(others):
+        return others[index]
+    return None
+
+
+def _anger_frame(this: CharType) -> None:
+    if (
+        not this.anim
+        or not this.animControl
+        or not (0 <= this.current_anim < len(this.anim))
+        or not (0 <= this.current_anim < len(this.animControl))
+    ):
+        return
+    if LLObject_IncrementFrame(this) != 0:
+        this.animating = 0
+        this.frame = 0
+        this.frame_hold = clock.timer + this.animControl[this.current_anim].rate
+
+
+def __anger_fireball_circle(this: CharType) -> int:
+    """FB object_boss.bas: one orbital step, then let return_idle rewind.
+
+    walk_speed .03 is one step about every 33 ms. cap=1 keeps that rate.
+    """
+    speed = this.walk_speed or 0.03
+    n, this.walk_hold = clock.pop_due(this.walk_hold, speed, cap=1)
+    for _ in range(n):
+        radians = (3.14159 / 180.0) * this.degree
+        this.coords_x = this.x_origin + this.radius * math.sin(radians)
+        this.coords_y = this.y_origin - this.radius * math.cos(radians)
+        if this.sway == 0:
+            this.sway = 0.5
+        prev = _room_enemy(this.num - 1) if this.num > 0 else None
+        prev_radius = prev.radius if prev is not None else 0
+        if this.lose_time != 0:
+            this.sway = 1
+            limit = prev_radius if prev_radius != 0 else 32
+            if this.radius >= limit:
+                this.lose_time = 0
+                if prev is not None:
+                    this.sway = prev.sway
+                    if prev.radius != 0:
+                        this.radius = prev.radius
+        elif this.radius > 36 or this.radius < 24:
+            this.sway = -this.sway
+        this.radius += this.sway
+        if this.degree >= 360:
+            this.degree = 0
+        else:
+            this.degree += 3
+    _anger_frame(this)
+    return 1
+
+
+def __anger_kill_fireball(this: CharType) -> int:
+    from lynn.object.seq_funcs import __cripple, __make_dead
+
+    for i in range(51, 59):
+        ball = _room_enemy(i)
+        if ball is None:
+            break
+        __make_dead(ball)
+        __cripple(ball)
+    return 1
+
+
+def __anger_new_fireball(this: CharType) -> int:
+    """Reload orbs 51..58 so they spiral back out from radius 1."""
+    global _anger_new_ball
+    from lynn.object.time_procs import __return_idle
+    from lynn.object.xml_load import LLSystem_CopyNewObject
+
+    c = _anger_new_ball + 51
+    ball = _room_enemy(c)
+    if ball is not None:
+        LLSystem_CopyNewObject(ball, load_images=events.load_images != 0)
+        ball.lose_time = -1
+        ball.radius = 1
+        prev = _room_enemy(c - 1)
+        ball.degree = ((prev.degree if prev is not None else 0) + 45) % 360
+    _anger_new_ball += 1
+    if _anger_new_ball == 8:
+        _anger_new_ball = 0
+        __return_idle(this)
+        return 0
+    return 1
+
+
+def __anger_middle(this: CharType) -> int:
+    this.coords_x = 320
+    this.coords_y = 320
+    return 1
+
+
+def __anger_teleport(this: CharType) -> int:
+    this.coords_x = 256 + int(random.random() * (416 - 256))
+    this.coords_y = 256 + int(random.random() * (416 - 256))
+    this.sway = 0
+    return 1
+
+
+def __explode_jump(this: CharType) -> int:
+    this.jump_count = 20000
+    return 1
+
+
+def __anger_trigger(this: CharType) -> int:
+    """Send orbs 51..58 into anger_shoot, then switch Anger to the attack state."""
+    global _anger_trigger_ball
+    if this.sway == 0:
+        from lynn.object.combat import LLObject_ShiftState
+
+        ball = _room_enemy(_anger_trigger_ball + 51)
+        if ball is not None:
+            LLObject_ShiftState(ball, 1)
+        _anger_trigger_ball += 1
+        if _anger_trigger_ball == 8:
+            _anger_trigger_ball = 0
+            this.sway = -1
+            LLObject_ShiftState(this, 2)
+            return 0
+    return 1
+
+
+def __anger_shoot(this: CharType) -> int:
+    """Fly this orb at Lynn until proj_dur expires, then remove it."""
+    proj = this.projectile
+    if proj is None:
+        return 0
+    length = proj.length if proj.length else 1800
+    speed = this.fly_speed or 0.009
+    n, this.fly_timer = clock.pop_due(this.fly_timer, speed)
+    for _ in range(n):
+        if proj.travelled == 0:
+            hero = events.hero
+            if hero is not None:
+                hx = hero.coords_x + (int(hero.perimeter_x) >> 1)
+                hy = hero.coords_y + (int(hero.perimeter_y) >> 1)
+                mx = this.coords_x + (int(this.perimeter_x) >> 1)
+                my = this.coords_y + (int(this.perimeter_y) >> 1)
+                this.fly_x, this.fly_y = _v2_calc_flyback(hx, hy, mx, my)
+        this.coords_x += this.fly_x
+        this.coords_y += this.fly_y
+        proj.travelled += 1
+        if proj.travelled >= length:
+            break
+    if proj.travelled >= length:
+        from lynn.object.projectile import LLObject_ClearProjectiles
+        from lynn.object.seq_funcs import __cripple, __make_dead
+
+        LLObject_ClearProjectiles(this)
+        __make_dead(this)
+        __cripple(this)
+        return 1
+    return 0
+
+
+def __anger_fireball2(this: CharType) -> int:
+    """FB: mouth shot at (11, 24) off the sprite. The engine steps it."""
+    if this.anger_proj_trig == 0:
+        if this.projectile is None:
+            from lynn.object.char import EntityProjectile
+
+            this.projectile = EntityProjectile()
+            this.projectile.coords = [[0, 0]]
+        if not this.projectile.coords:
+            this.projectile.coords = [[0, 0]]
+        this.projectile.coords[0][0] = 11 + this.coords_x
+        this.projectile.coords[0][1] = 24 + this.coords_y
+        __do_anger_proj(None)
+        this.anger_proj_trig = 1
+    return 1
+
+
+def __do_anger_proj(this: CharType | None) -> int:
+    """Home once on the first step, then fly straight. Cap matches other shots."""
+    global _anger_lock_x, _anger_lock_y
+    if this is None:
+        _anger_lock_x = 0
+        _anger_lock_y = 0
+        return 0
+    proj = this.projectile
+    if proj is None or not proj.coords:
+        return 0
+    length = proj.length if proj.length else 256
+    speed = this.fly_speed or 0.0009
+    n, this.fly_timer = clock.pop_due(this.fly_timer, speed)
+    for _ in range(n):
+        if proj.travelled % 3 == 0:
+            hero = events.hero
+            hx = hero.coords_x if hero is not None else proj.coords[0][0]
+            hy = hero.coords_y if hero is not None else proj.coords[0][1]
+            if abs(proj.coords[0][0] - hx) < 48 and abs(proj.coords[0][1] - hy) < 48:
+                _anger_lock_x = 1
+                _anger_lock_y = 1
+            if hero is not None:
+                hmx = hero.coords_x + (int(hero.perimeter_x) >> 1)
+                hmy = hero.coords_y + (int(hero.perimeter_y) >> 1)
+                pmx = proj.coords[0][0] + 8
+                pmy = proj.coords[0][1] + 8
+                fx, fy = _v2_calc_flyback(hmx, hmy, pmx, pmy)
+                if _anger_lock_x == 0:
+                    this.fly_x = fx
+                if _anger_lock_y == 0:
+                    this.fly_y = fy
+            _anger_lock_x = 1
+            _anger_lock_y = 1
+        proj.coords[0][0] += this.fly_x
+        proj.coords[0][1] += this.fly_y
+        proj.travelled += 1
+        if proj.travelled >= length:
+            break
+    if proj.travelled >= length:
+        from lynn.object.projectile import LLObject_ClearProjectiles
+
+        LLObject_ClearProjectiles(this)
+        this.fly_timer = 0
+        this.anger_proj_trig = 0
+    return 0
+
+
 def __dyssius_eye_explode(this: CharType) -> int:
     this.expl_x_off = 117
     this.expl_y_off = 98
@@ -466,3 +693,13 @@ register_func("__dyssius_patience", __dyssius_patience)
 register_func("__dyssius_eye_explode", __dyssius_eye_explode)
 register_func("__dyssius_full_explode", __dyssius_full_explode)
 register_func("__push_lynn_back", __push_lynn_back)
+register_func("__anger_fireball_circle", __anger_fireball_circle)
+register_func("__anger_kill_fireball", __anger_kill_fireball)
+register_func("__anger_new_fireball", __anger_new_fireball)
+register_func("__anger_middle", __anger_middle)
+register_func("__anger_teleport", __anger_teleport)
+register_func("__explode_jump", __explode_jump)
+register_func("__anger_trigger", __anger_trigger)
+register_func("__anger_shoot", __anger_shoot)
+register_func("__anger_fireball2", __anger_fireball2)
+register_func("__do_anger_proj", __do_anger_proj)

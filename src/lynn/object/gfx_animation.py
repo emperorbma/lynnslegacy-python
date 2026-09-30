@@ -31,6 +31,25 @@ def __idle_animate(this: CharType) -> int:
     return 0
 
 
+def __true_active_animate(this: CharType) -> int:
+    """FB object--gfx_animation.bas: advance the anim, but always continue.
+
+    Anger's idle calls counted_jump_2 after this. A 0 return would stall there.
+    """
+    this.animating = 1
+    if (
+        this.anim
+        and this.animControl
+        and 0 <= this.current_anim < len(this.anim)
+        and 0 <= this.current_anim < len(this.animControl)
+        and LLObject_IncrementFrame(this) != 0
+    ):
+        this.animating = 0
+        this.frame = 0
+        this.frame_hold = clock.timer + this.animControl[this.current_anim].rate
+    return 1
+
+
 def __active_animate(this: CharType) -> int:
     """FB object--gfx_animation.bas: play current anim once, then callback."""
     this.animating = 1
@@ -172,6 +191,7 @@ def __directional_animate_x(this: CharType) -> int:
 
 register_func("__gen_frame", __gen_frame)
 register_func("__idle_animate", __idle_animate)
+register_func("__true_active_animate", __true_active_animate)
 register_func("__active_animate", __active_animate)
 register_func("__active_animate_x", __active_animate)
 register_func("__explode", __explode)

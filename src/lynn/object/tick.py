@@ -172,6 +172,8 @@ def tick_objects(objs: list[CharType]) -> None:
         if getattr(obj, "grult_proj_trig", 0) != 0:
             lookup_func("__do_grult_proj")(obj)
             LLObject_CheckGTorchLit(obj, objs)
+        if getattr(obj, "anger_proj_trig", 0) != 0:
+            lookup_func("__do_anger_proj")(obj)
         if obj.unique_id == u_grult:
             tick_grult(obj)
         tick_dyssius(obj)
