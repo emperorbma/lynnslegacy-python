@@ -2,7 +2,16 @@
 
 from __future__ import annotations
 
-from lynn.constants import FALSE, TRUE, u_lynn, u_pushrock
+from lynn.constants import (
+    FALSE,
+    TRUE,
+    u_gbutton,
+    u_godstat,
+    u_gold,
+    u_lynn,
+    u_pushrock,
+    u_sparkle,
+)
 from lynn.macros import LLObject_CalculateFrame, quad_calc, testbit
 from lynn.map.types import RoomType, TeleportType
 from lynn.object.char import CharType
@@ -293,7 +302,12 @@ def _overlap(a, b) -> bool:
 
 
 def check_against(o: CharType, other: CharType, d: int) -> int:
-    """1 if the 1px step in direction d hits an impassable other."""
+    """1 if the 1px step in direction d hits a blocking other.
+
+    FB check_against: sparkles, green buttons, and gold never block, and a
+    god statue is never stopped by another object. Overlap that already
+    exists at rest does not pin the mover.
+    """
     if o is other or o.num == other.num:
         return 0
     if o.dead != 0 or other.dead != 0:
@@ -304,6 +318,8 @@ def check_against(o: CharType, other: CharType, d: int) -> int:
         for box_n in rest_n:
             if _overlap(box_o, box_n):
                 return 0
+    if other.unique_id in (u_sparkle, u_gbutton, u_gold) or o.unique_id == u_godstat:
+        return 0
     step = ((0, -1), (1, 0), (0, 1), (-1, 0))
     dx, dy = step[d] if 0 <= d < 4 else (0, 0)
     for i, box_o in enumerate(_boxes(o, dx, dy)):

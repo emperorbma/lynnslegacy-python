@@ -4,10 +4,11 @@ from pathlib import Path
 
 import lynn.object  # noqa: F401
 import lynn.object.move_ai  # noqa: F401
+from lynn import clock
 from lynn.constants import TRUE
 from lynn.events import bind_hero, bind_room, reset_events
 import lynn.events as events
-from lynn.hero import ctor_hero
+from lynn.hero import DIR_UP, ctor_hero, hero_walk_step
 from lynn.map.loader import load_mapV
 from lynn.object.char import CharType
 from lynn.object.dispatch import lookup_func
@@ -81,3 +82,46 @@ def test_gelidus_r15_button_opens_chasm():
     for _ in range(5):
         tick_objects(objs)
     assert all(c.impassable == 0 for c in chasms)
+
+
+def test_gelidus_r20_pushrock_enters_north_past_sparkle():
+    """South push into the r20 cross. Sparkle at (592, 96) must not stop the rock."""
+    from lynn.demos import MapDemo, set_up_room_enemies
+    from lynn.gfx.palette import load_pal
+    from lynn.hero import ctor_hero_only
+    from lynn.paths import data_file
+
+    reset_events()
+    m = load_mapV(str(resolve_map_path("gelidus")), load_tileset=False)
+    demo = MapDemo(
+        palette=load_pal(data_file("palette", "ll.pal")),
+        game_map=m,
+        tile_surfs=[],
+        load_images=0,
+        load_tileset=0,
+    )
+    demo.hero = ctor_hero(load_images=False)
+    demo.hero_only = ctor_hero_only()
+    demo.hero.perimeter_x = 16
+    demo.hero.perimeter_y = 16
+    demo.hero_room = 20
+    set_up_room_enemies(demo, 20, load_images=False)
+    room = m.room[20]
+    objs = demo.objects_by_room[20]
+    bind_hero(demo.hero)
+    bind_room(room, objs)
+    rock = next(o for o in objs if _stem(o) == "pushrock.xml" and o.coords_x == 592 and o.coords_y == 128)
+    spark = next(o for o in objs if _stem(o) == "sparkle.xml" and o.coords_x == 592 and o.coords_y == 96)
+    assert spark.unique_id != 0
+    demo.hero.coords_x = rock.coords_x
+    demo.hero.coords_y = rock.coords_y + 16
+    demo.hero.direction = DIR_UP
+    events.keys.up = TRUE
+    clock.timer = 0.0
+    for _ in range(200):
+        clock.timer += 1.0 / 60.0
+        hero_walk_step(demo.hero, room, DIR_UP, objs)
+        tick_objects(objs)
+    # North mouth is open at x=592; the back wall stops the rock on y=96.
+    assert rock.coords_x == 592
+    assert rock.coords_y == 96

@@ -150,6 +150,30 @@ def test_npc_cannot_walk_onto_hero():
     assert check_against_entities(npc, 2, []) == 1
 
 
+def test_sparkle_does_not_block_impassable_step():
+    """FB check_against: u_sparkle never stops a mover (Gelidus pushrocks)."""
+    from lynn.constants import u_pushrock, u_sparkle
+
+    rock = CharType()
+    rock.num = 1
+    rock.unique_id = u_pushrock
+    rock.impassable = 1
+    rock.perimeter_x = 16
+    rock.perimeter_y = 16
+    rock.coords_x = 592
+    rock.coords_y = 112
+    spark = CharType()
+    spark.num = 2
+    spark.unique_id = u_sparkle
+    spark.impassable = 0
+    spark.perimeter_x = 16
+    spark.perimeter_y = 16
+    spark.coords_x = 592
+    spark.coords_y = 96
+    rock.direction = 0
+    assert check_against(rock, spark, 0) == 0
+
+
 def test_already_overlapping_npc_does_not_pin_hero():
     m, hero, room = _hero_at_entry()
     npc = CharType()
