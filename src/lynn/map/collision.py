@@ -301,32 +301,41 @@ def _overlap(a, b) -> bool:
     return ax + aw > bx and ax < bx + bw and ay + ah > by and ay < by + bh
 
 
+def _overlap_area(a, b) -> float:
+    ax, ay, aw, ah = a
+    bx, by, bw, bh = b
+    ox = min(ax + aw, bx + bw) - max(ax, bx)
+    oy = min(ay + ah, by + bh) - max(ay, by)
+    if ox <= 0 or oy <= 0:
+        return 0.0
+    return ox * oy
+
+
 def check_against(o: CharType, other: CharType, d: int) -> int:
     """1 if the 1px step in direction d hits a blocking other.
 
-    FB check_against: sparkles, green buttons, and gold never block, and a
-    god statue is never stopped by another object. Overlap that already
-    exists at rest does not pin the mover.
+    FB check_against tests the stepped box, including when the two already
+    overlap. Sparkles, green buttons, and gold never block, and a god statue
+    is never stopped by another object. A step that only shrinks an overlap
+    is allowed so a full embed can be walked out of.
     """
     if o is other or o.num == other.num:
         return 0
     if o.dead != 0 or other.dead != 0:
         return 0
-    rest_o = _boxes(o, 0, 0)
-    rest_n = _boxes(other, 0, 0)
-    for box_o in rest_o:
-        for box_n in rest_n:
-            if _overlap(box_o, box_n):
-                return 0
     if other.unique_id in (u_sparkle, u_gbutton, u_gold) or o.unique_id == u_godstat:
         return 0
+    rest_o = _boxes(o, 0, 0)
+    rest_n = _boxes(other, 0, 0)
     step = ((0, -1), (1, 0), (0, 1), (-1, 0))
     dx, dy = step[d] if 0 <= d < 4 else (0, 0)
     for i, box_o in enumerate(_boxes(o, dx, dy)):
-        for j, box_n in enumerate(_boxes(other, 0, 0)):
+        for j, box_n in enumerate(rest_n):
             if not _overlap(box_o, box_n):
                 continue
             if _impassable(o, i) == 0 and _impassable(other, j) == 0:
+                continue
+            if i < len(rest_o) and _overlap_area(box_o, box_n) < _overlap_area(rest_o[i], rest_n[j]):
                 continue
             return 1
     return 0

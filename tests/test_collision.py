@@ -174,6 +174,41 @@ def test_sparkle_does_not_block_impassable_step():
     assert check_against(rock, spark, 0) == 0
 
 
+def test_one_pixel_overlap_does_not_walk_through_book():
+    """FB tests the stepped box. A 1px clip must not let catch-up steps cross."""
+    from lynn.map.types import RoomType
+
+    room = RoomType()
+    room.x = 40
+    room.y = 40
+    n = 40 * 41 + 2
+    room.layout = [[0] * n for _ in range(3)]
+    hero = CharType()
+    hero.num = -1
+    hero.perimeter_x = 16
+    hero.perimeter_y = 16
+    hero.coords_x = 100
+    hero.coords_y = 115
+    book = CharType()
+    book.num = 1
+    book.impassable = -1
+    book.perimeter_x = 16
+    book.perimeter_y = 16
+    book.coords_x = 100
+    book.coords_y = 100
+    hero.direction = 0
+    assert check_against(hero, book, 0) == 1
+    y0 = hero.coords_y
+    for _ in range(8):
+        hero.direction = 0
+        if move_object(hero, room, moment=1, others=[book]) == 0:
+            break
+    assert hero.coords_y == y0
+    hero.direction = 2
+    assert move_object(hero, room, moment=1, others=[book]) != 0
+    assert hero.coords_y == y0 + 1
+
+
 def test_already_overlapping_npc_does_not_pin_hero():
     m, hero, room = _hero_at_entry()
     npc = CharType()
