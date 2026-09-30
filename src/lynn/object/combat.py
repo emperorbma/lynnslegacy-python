@@ -275,8 +275,12 @@ def LLObject_ProcessHurt(h: CharType) -> None:
         return
     if h.dead == 0:
         _play_dead_sound(h)
+        from lynn.object.projectile import LLObject_ClearProjectiles
+
+        LLObject_ClearProjectiles(h)
         LLObject_ShiftState(h, h.death_state)
         h.dead = 1
+        h.fade_time = 0.07
     LLObject_ClearDamage(h)
 
 
@@ -446,9 +450,10 @@ def hero_hurt_tick(hr: CharType) -> None:
 
 
 def hero_death_tick(hr: CharType) -> None:
-    """FB: run death_state until it wraps. Title jump is later."""
+    """FB engine--LL.bas: fade_time .003, run death_state, then jump_to_title."""
     if hr.dead == 0:
         return
+    hr.fade_time = 0.003
     st = hr.death_state
     f = hr.funcs
     if st < 0 or st >= len(f.func) or not f.func[st]:
@@ -458,8 +463,11 @@ def hero_death_tick(hr: CharType) -> None:
         return
     idx = f.current_func[st]
     if idx >= count:
+        events.goto_title = TRUE
         return
     if idx < 0 or idx >= len(f.func[st]):
         return
     result = f.func[st][idx](hr)
     f.current_func[st] += result
+    if f.current_func[st] >= count:
+        events.goto_title = TRUE

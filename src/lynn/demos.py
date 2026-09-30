@@ -322,6 +322,7 @@ def enter_map(
     events.do_chap = 0
     events.fade_black = 0
     events.fade_white = 0
+    events.fade_red = 0
     events.map_filename = Path(path).name
     events.hero_room = demo.hero_room
     _maybe_start_entry_seq(demo, entry_i)
@@ -539,6 +540,11 @@ def draw_map_demo(canvas: pygame.Surface, demo: MapDemo, room_i: int, cam_x: int
         fade = pygame.Surface((SCREEN_W, SCREEN_H))
         fade.fill((255, 255, 255))
         fade.set_alpha(max(0, min(255, int(events.fade_white))))
+        canvas.blit(fade, (0, 0))
+    if events.fade_red:
+        fade = pygame.Surface((SCREEN_W, SCREEN_H))
+        fade.fill((255, 0, 0))
+        fade.set_alpha(max(0, min(255, int(events.fade_red))))
         canvas.blit(fade, (0, 0))
     if events.fade_black:
         fade = pygame.Surface((SCREEN_W, SCREEN_H))

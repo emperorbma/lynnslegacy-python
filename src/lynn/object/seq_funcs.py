@@ -743,7 +743,20 @@ def __fade_down_to_color(this: CharType) -> int:
 
 
 def __fade_to_red(this: CharType) -> int:
-    return 1
+    """FB object--gfx_palette.bas: lift R and crush G/B until the field is red.
+
+    Sprites are baked RGB, so a red overlay stands in for the palette pass.
+    FB finishes once every color has g<128 and b<128, about 32 steps from 255.
+    """
+    if this.fade_timer == 0:
+        events.fade_red = min(255, int(events.fade_red) + 8)
+        this.fade_timer = clock.timer + (this.fade_time or 0.01)
+    elif clock.timer >= this.fade_timer:
+        this.fade_timer = 0
+    if events.fade_red >= 255:
+        this.fade_timer = 0
+        return 1
+    return 0
 
 
 def __fade_to_black(this: CharType) -> int:
