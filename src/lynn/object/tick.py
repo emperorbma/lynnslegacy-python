@@ -135,8 +135,16 @@ def _tick_gbutton(obj: CharType, objs: list[CharType]) -> None:
 
 def tick_objects(objs: list[CharType]) -> None:
     from lynn.audio import play_sample
-    from lynn.constants import u_gbutton, u_gold, u_grult, u_health, u_silver
-    from lynn.object.boss import LLObject_CheckGTorchLit, tick_grult
+    from lynn.constants import (
+        u_dyssius,
+        u_gbutton,
+        u_gold,
+        u_grult,
+        u_health,
+        u_silver,
+        u_steelstrider,
+    )
+    from lynn.object.boss import LLObject_CheckGTorchLit, tick_dyssius, tick_grult
     from lynn.object.combat import LLObject_ClearDamage, LLObject_ShiftState
     from lynn.object.control import in_proximity, out_proximity
     from lynn.object.dispatch import lookup_func
@@ -166,13 +174,14 @@ def tick_objects(objs: list[CharType]) -> None:
             LLObject_CheckGTorchLit(obj, objs)
         if obj.unique_id == u_grult:
             tick_grult(obj)
+        tick_dyssius(obj)
         tick_object(obj)
         proj = obj.projectile
         if proj is not None and proj.active != 0:
             lookup_func("__do_proj")(obj)
         if obj.vol_fade_trig != 0:
             lookup_func("__do_vol_fade")(obj)
-        if obj.hurt != 0:
+        if obj.hurt != 0 and obj.unique_id not in (u_dyssius, u_steelstrider):
             state = obj.funcs.active_state
             count = obj.funcs.func_count[state] if state < len(obj.funcs.func_count) else 0
             if count and obj.funcs.current_func[state] >= count:

@@ -6,7 +6,8 @@ next shipped dungeon or boss at the bottom of
 fails in one place.
 
 Shipped so far: forest sapling → town portal → Interport → Moenia → Grult →
-seed portal back to town → Gelidus chasm switch (happen 357).
+seed portal back to town → Gelidus chasm switch (happen 357) → Dyssius
+(happen 297) → seed portal back to forest_fall room 12.
 """
 
 from pathlib import Path
@@ -14,7 +15,7 @@ from pathlib import Path
 import lynn.object  # noqa: F401
 
 from lynn import clock
-from lynn.constants import DF_MAIN_CHAR, TRUE, u_bush, u_gold, u_grult
+from lynn.constants import DF_MAIN_CHAR, TRUE, u_bush, u_dyssius, u_gold, u_grult
 from lynn.demos import MapDemo, consume_title_events, try_hero_teleport
 from lynn.events import bind_hero, bind_hero_only, bind_room, now, reset_events
 import lynn.events as events
@@ -298,10 +299,103 @@ def _press_gelidus_bridge_switch(demo: MapDemo) -> None:
     assert all(c.impassable == 0 for c in chasms)
 
 
+def _gelidus_to_dyssius(demo: MapDemo) -> None:
+    """r15 back to r3, then the north wing to the boss room.
+
+    The pad past the bridge is icefield, and that map returns to r15.
+    Dyssius is gelidus room 29.
+    """
+    for tele_i, dest in (
+        (0, 14),
+        (0, 13),
+        (0, 12),
+        (0, 11),
+        (0, 4),
+        (0, 3),
+        (2, 7),
+        (3, 8),
+        (1, 9),
+        (1, 16),
+        (3, 21),
+        (2, 22),
+        (1, 23),
+        (2, 26),
+        (2, 28),
+        (1, 29),
+    ):
+        _take_tele(demo, tele_i)
+        assert demo.hero_room == dest, (tele_i, dest, demo.hero_room)
+    from lynn.audio import last_song
+
+    assert last_song.replace("\\", "/").endswith("boss.it")
+
+
+def _defeat_dyssius(demo: MapDemo) -> None:
+    objs = _objs(demo)
+    bind_room(demo.game_map.room[29], objs)
+    boss = next(o for o in objs if o.unique_id == u_dyssius)
+    assert boss.chap == 297
+    assert (int(boss.coords_x), int(boss.coords_y)) == (376, 520)
+    boss.hp = 0
+    for i in range(160):
+        clock.timer = 20 + i * 0.05
+        tick_objects(objs)
+        if events.pending_seq is not None:
+            demo.seq = events.pending_seq
+            events.pending_seq = None
+            break
+    assert demo.seq is not None, "Dyssius death sequence did not start"
+    assert now[297] != 0
+    demo.hero.walk_hold = 0
+    demo.hero.pause = 0
+    demo.hero.fade_timer = 0
+    demo.hero.fade_count = 0
+    _play_until_done(demo, demo.seq)
+    assert now[297] != 0
+
+
+def _dyssius_seed_home(demo: MapDemo) -> None:
+    seed = _named(demo, "seedfloat.xml")
+    assert seed is not None, "boss room has no seed"
+    hero = demo.hero
+    hero.perimeter_x = 16
+    hero.perimeter_y = 16
+    seed.perimeter_x = 16
+    seed.perimeter_y = 16
+    hero.coords_x = seed.coords_x
+    hero.coords_y = seed.coords_y + 8
+    hero.walk_hold = 0
+    hero.pause = 0
+    hero.fade_timer = 0
+    hero.fade_count = 0
+    seq = try_touch_sequence(hero, _objs(demo))
+    assert seq is not None, "Dyssius seed touch sequence did not start"
+    _play_until_done(demo, seq)
+    consume_title_events(demo)
+    demo.hero_room = events.hero_room
+    assert _map_stem(demo) == "forest_fall"
+    assert demo.hero_room == 12
+    from lynn.audio import last_song, room_song_index
+
+    assert now[297] != 0
+    assert room_song_index(demo.game_map.room[12]) == 13
+    assert last_song.replace("\\", "/").endswith("forest.it")
+    hero.walk_hold = 0
+    hero.pause = 0
+    hero.fade_timer = 0
+    hero.fade_count = 0
+    _drain_entry_seq(demo)
+    assert demo.seq is None
+    assert demo.hero_only.action_lock == 0
+    assert now[1010] != 0
+    assert last_song.replace("\\", "/").endswith("forest.it")
+
+
 def test_critical_path_as_far_as_ported():
     """Player route through everything the port currently implements.
 
-    Today that ends after Gelidus r15: switch 357 drops the ice chasm.
+    Today that ends after Dyssius: happen 297, the moth sequence, and the
+    seed portal back to forest_fall room 12.
     """
     demo = _new_game()
     assert _map_stem(demo) == "forest_fall"
@@ -351,6 +445,20 @@ def test_critical_path_as_far_as_ported():
     assert demo.hero_room == 15
     _press_gelidus_bridge_switch(demo)
     assert now[357] != 0
+
+    _gelidus_to_dyssius(demo)
+    assert demo.hero_room == 29
+    _defeat_dyssius(demo)
+    _dyssius_seed_home(demo)
+    room = demo.game_map.room[demo.hero_room]
+    before = (demo.hero.coords_x, demo.hero.coords_y)
+    clock.timer += 1.0
+    hero_walk_step(demo.hero, room, DIR_DOWN, _objs(demo))
+    assert (demo.hero.coords_x, demo.hero.coords_y) != before
+    assert demo.hero_only.action_lock == 0
+    assert now[297] != 0
+    assert now[357] != 0
+    assert now[1010] != 0
 
 
 def test_post_moenia_real_save_can_play():

@@ -11,7 +11,9 @@ from lynn.constants import (
     PROJECTILE_FIREBALL,
     PROJECTILE_NONE,
     PROJECTILE_ORB,
+    u_dyssius,
     u_grult,
+    u_steelstrider,
 )
 from lynn.object.char import CharType, EntityProjectile
 from lynn.object.dispatch import register_func
@@ -145,11 +147,12 @@ def LLObject_ProjectileDamage(enemies: list[CharType], hr: CharType) -> None:
             continue
         proj = enemy.projectile
         grult_shot = enemy.unique_id == u_grult and getattr(enemy, "grult_proj_trig", 0) != 0
-        if proj is None or (proj.active == 0 and not grult_shot):
+        boss_beam = enemy.unique_id in (u_dyssius, u_steelstrider)
+        if proj is None or (proj.active == 0 and not grult_shot and not boss_beam):
             continue
         pw, ph = _proj_wh(enemy)
         for specific, pair in enumerate(proj.coords):
-            if not grult_shot and pair[0] == 0 and pair[1] == 0:
+            if not grult_shot and not boss_beam and pair[0] == 0 and pair[1] == 0:
                 continue
             origin = (pair[0], pair[1], pw, ph)
             if check_bounds(origin, (hr.coords_x, hr.coords_y, hr.perimeter_x, hr.perimeter_y)) != 0:
@@ -168,15 +171,17 @@ def blit_enemy_proj(canvas, obj: CharType, cam_x: int, cam_y: int, proj_surfs) -
     """FB blit_enemy_proj for ORB, BEAM, and Grult fireball."""
     proj = obj.projectile
     grult_shot = getattr(obj, "grult_proj_trig", 0) != 0
+    boss_beam = obj.unique_id in (u_dyssius, u_steelstrider)
     if proj is None or proj.invisible != 0 or not proj_surfs:
         return
-    if proj.active == 0 and not grult_shot:
+    if proj.active == 0 and not grult_shot and not boss_beam:
         return
     if not proj.coords:
         return
-    if not grult_shot and proj.coords[0][0] == 0 and proj.coords[0][1] == 0:
+    if not grult_shot and not boss_beam and proj.coords[0][0] == 0 and proj.coords[0][1] == 0:
         return
-    if not grult_shot and proj.travelled == 1:
+    # FB draws the Dyssius beam on the first travel step. Other beams wait.
+    if not grult_shot and not boss_beam and proj.travelled == 1:
         return
     n = len(proj_surfs)
     if obj.proj_style in (PROJECTILE_ORB, PROJECTILE_FIREBALL) or grult_shot:

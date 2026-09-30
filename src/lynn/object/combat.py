@@ -15,7 +15,9 @@ from lynn.constants import (
     u_crate_health,
     u_goldblock,
     u_greyrock,
+    u_dyssius,
     u_grult,
+    u_steelstrider,
 )
 from lynn.macros import LLObject_CalculateFrame
 from lynn.map.collision import check_bounds
@@ -254,10 +256,22 @@ def LLObject_ProcessHurt(h: CharType) -> None:
             ):
                 only.crazy_cache += 20 if only.isWearing == 2 else 10
             LLObject_ShiftState(h, h.hit_state)
+            if h.unique_id in (u_dyssius, u_steelstrider, u_grult):
+                h.fly_count = 0
+            if h.unique_id == u_dyssius:
+                h.shifty_state = 0
+                h.slide_hold = 0
         elif h.dmg_id in (DF_ROOM_ENEMY, DF_TEMP_ENEMY):
             enemy = _damager(h)
             if enemy is not None:
                 _set_fly_from(h, enemy.coords_x, enemy.coords_y)
+        elif (h.dmg_id & DF_PROJ) != 0 and (h.dmg_id & (DF_ROOM_ENEMY | DF_TEMP_ENEMY)) != 0:
+            enemy = _damager(h)
+            if enemy is not None and enemy.projectile is not None and enemy.projectile.coords:
+                spec = int(h.dmg_specific)
+                coords = enemy.projectile.coords
+                if 0 <= spec < len(coords):
+                    _set_fly_from(h, coords[spec][0], coords[spec][1])
         return
     if h.dead == 0:
         _play_dead_sound(h)

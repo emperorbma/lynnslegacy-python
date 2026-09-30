@@ -5,12 +5,14 @@ from __future__ import annotations
 from lynn.constants import (
     FALSE,
     TRUE,
+    u_dyssius,
     u_gbutton,
     u_godstat,
     u_gold,
     u_lynn,
     u_pushrock,
     u_sparkle,
+    u_steelstrider,
 )
 from lynn.macros import LLObject_CalculateFrame, quad_calc, testbit
 from lynn.map.types import RoomType, TeleportType
@@ -320,6 +322,16 @@ def check_against(o: CharType, other: CharType, d: int) -> int:
     is allowed so a full embed can be walked out of.
     """
     if o is other or o.num == other.num:
+        return 0
+    # FB: Dyssius and the steel strider always stop on Lynn, before dead/impassable.
+    if o.unique_id in (u_dyssius, u_steelstrider) and other.unique_id == u_lynn:
+        step = ((0, -1), (1, 0), (0, 1), (-1, 0))
+        dx, dy = step[d] if 0 <= d < 4 else (0, 0)
+        rest_n = _boxes(other, 0, 0)
+        for box_o in _boxes(o, dx, dy):
+            for box_n in rest_n:
+                if _overlap(box_o, box_n):
+                    return 1
         return 0
     if o.dead != 0 or other.dead != 0:
         return 0
