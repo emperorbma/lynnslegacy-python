@@ -126,7 +126,7 @@ def test_fullscreen_ini_roundtrip(tmp_path):
 
 
 def test_parse_cli_config_mode():
-    assert parse_cli(["config"]) == ("config", None, [], None)
+    assert parse_cli(["config"]) == ("config", None, [], None, False)
 
 
 def test_config_uses_pygame_fonts():

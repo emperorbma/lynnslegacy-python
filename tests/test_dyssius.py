@@ -15,7 +15,7 @@ from lynn.object.boss import tick_dyssius
 from lynn.object.char import CharType
 from lynn.object.combat import LLObject_DamageCalc
 from lynn.object.dispatch import lookup_func
-from lynn.object.projectile import LLObject_ProjectileDamage
+from lynn.object.projectile import LLObject_ClearProjectiles, LLObject_ProjectileDamage, enemy_proj_drawable
 from lynn.object.tick import tick_object, tick_objects
 from lynn.object.xml_load import LLSystem_ObjectFromXML, spawn_from_stub
 from lynn.paths import resolve_map_path
@@ -179,6 +179,10 @@ def test_beam_drops_from_the_eye_and_hurts_lynn():
     LLObject_ProjectileDamage([boss], hero)
     assert hero.hp == 7
     assert hero.hurt == 3
+    assert boss.projectile.active == 0
+    assert enemy_proj_drawable(boss) is True
+    LLObject_ClearProjectiles(boss)
+    assert enemy_proj_drawable(boss) is False
 
 
 def test_flyback_returns_to_idle():

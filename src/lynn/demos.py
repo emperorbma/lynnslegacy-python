@@ -647,10 +647,9 @@ def _blit_y_sorted(canvas, demo: MapDemo, room_i: int, cam_x: int, cam_y: int, s
             continue
         proj = getattr(obj, "projectile", None)
         proj_i = int(getattr(obj, "proj_anim", 0) or 0)
-        grult_shot = getattr(obj, "grult_proj_trig", 0) != 0
-        proj_on = proj is not None and (proj.active != 0 or grult_shot)
-        if grult_shot:
-            proj_on = False
+        from lynn.object.projectile import enemy_proj_drawable
+
+        proj_on = enemy_proj_drawable(obj)
         if (
             proj_on
             and (proj is None or proj.overChar == 0)

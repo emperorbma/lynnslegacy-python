@@ -318,7 +318,7 @@ def __dyssius_slide(this: CharType) -> int:
 
 
 def __dyssius_after_slide(this: CharType) -> int:
-    """FB: wait until the facing momentum has died, then close the eye frame."""
+    """FB: wait until the facing momentum has died, then open the eye (frame 0)."""
     from lynn.hero import _ensure_momentum
 
     _ensure_momentum(this)

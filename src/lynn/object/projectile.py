@@ -167,6 +167,31 @@ def LLObject_ProjectileDamage(enemies: list[CharType], hr: CharType) -> None:
                 return
 
 
+def enemy_proj_drawable(obj: CharType) -> bool:
+    """FB blit_enemy draws a live projectile without checking projectile.active.
+
+    Dyssius and Steelstrider never set active. Grult's shot is a separate
+    y-sorted sprite, so this path stays off for that trigger. Cleared beams
+    sit at (0, 0) and must not be drawn.
+    """
+    proj = getattr(obj, "projectile", None)
+    if proj is None or proj.invisible != 0:
+        return False
+    if getattr(obj, "grult_proj_trig", 0) != 0:
+        return False
+    if not proj.coords:
+        return False
+    if proj.coords[0][0] == 0 and proj.coords[0][1] == 0:
+        return False
+    boss_beam = obj.unique_id in (u_dyssius, u_steelstrider)
+    if proj.active == 0 and not boss_beam:
+        return False
+    # FB draws the Dyssius beam on the first travel step. Other beams wait.
+    if proj.travelled == 1 and not boss_beam:
+        return False
+    return True
+
+
 def blit_enemy_proj(canvas, obj: CharType, cam_x: int, cam_y: int, proj_surfs) -> None:
     """FB blit_enemy_proj for ORB, BEAM, and Grult fireball."""
     proj = obj.projectile
@@ -178,7 +203,7 @@ def blit_enemy_proj(canvas, obj: CharType, cam_x: int, cam_y: int, proj_surfs) -
         return
     if not proj.coords:
         return
-    if not grult_shot and not boss_beam and proj.coords[0][0] == 0 and proj.coords[0][1] == 0:
+    if proj.coords[0][0] == 0 and proj.coords[0][1] == 0:
         return
     # FB draws the Dyssius beam on the first travel step. Other beams wait.
     if not grult_shot and not boss_beam and proj.travelled == 1:

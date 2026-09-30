@@ -58,7 +58,7 @@ PAN_SPEED = 4
 
 def main(argv: list[str] | None = None) -> int:
     args = list(sys.argv[1:] if argv is None else argv)
-    mode, map_spec, rest, save_spec = parse_cli(args)
+    mode, map_spec, rest, save_spec, debug_god = parse_cli(args)
     if mode in ("-h", "--help", "help", "/?"):
         print(_usage())
         return 0
@@ -147,20 +147,26 @@ def main(argv: list[str] | None = None) -> int:
             map_path=map_spec,
             save=save,
             debug_caption=not show_splash,
+            debug_god=debug_god,
         )
     pygame.quit()
     return code
 
 
-def parse_cli(argv: list[str]) -> tuple[str, str | None, list[str], str | None]:
+def parse_cli(argv: list[str]) -> tuple[str, str | None, list[str], str | None, bool]:
     save_spec = None
+    debug_god = False
     args: list[str] = []
     i = 0
     while i < len(argv):
         a = argv[i]
+        if a == "--godmode":
+            debug_god = True
+            i += 1
+            continue
         if a in ("--save", "-s"):
             if i + 1 >= len(argv):
-                return "help", None, [], None
+                return "help", None, [], None, debug_god
             save_spec = argv[i + 1]
             i += 2
             continue
@@ -171,14 +177,14 @@ def parse_cli(argv: list[str]) -> tuple[str, str | None, list[str], str | None]:
         args.append(a)
         i += 1
     if not args:
-        return "objects", None, [], save_spec
+        return "objects", None, [], save_spec, debug_god
     mode = args[0].lower()
     rest = args[1:]
     if mode in ("test", "--test", "-t"):
-        return "test", None, rest, save_spec
+        return "test", None, rest, save_spec, debug_god
     if mode in ("map", "objects") and rest:
-        return mode, rest[0], rest[1:], save_spec
-    return mode, None, rest, save_spec
+        return mode, rest[0], rest[1:], save_spec, debug_god
+    return mode, None, rest, save_spec, debug_god
 
 
 def resolve_boot_map(mode: str, map_spec: str | None, save) -> tuple[str | None, bool]:
@@ -194,7 +200,7 @@ def resolve_boot_map(mode: str, map_spec: str | None, save) -> tuple[str | None,
 
 def _usage() -> str:
     return (
-        "Usage: python -m lynn [objects|map|palette|audio|config|test] [map] [--save spec]\n"
+        "Usage: python -m lynn [objects|map|palette|audio|config|test] [map] [--save spec] [--godmode]\n"
         f"  objects [map]  walk Lynn (default: splash + {START_MAP})\n"
         f"  map [map]      tiles only (default: {DEFAULT_MAP})\n"
         "  palette        256-color ramp + lynn24.spr\n"
@@ -202,6 +208,7 @@ def _usage() -> str:
         "  audio          live sound check (title.it + a sample); Esc quits\n"
         "  test           pytest (extra args forwarded, including --map; silent audio)\n"
         "  --save spec    load a save (path, N for ll_saveN.sav, or example name)\n"
+        "  --godmode      Lynn takes no damage (F8 toggles this in game)\n"
         "  help           this text\n"
         "Map may be a stem (valley), file (valley.map), or path."
     )
@@ -262,8 +269,11 @@ def _run_map(
     map_path: str | None = None,
     save=None,
     debug_caption: bool = True,
+    debug_god: bool = False,
 ) -> int:
     demo = load_map_demo(with_objects=with_objects, map_path=map_path, save=save)
+    if debug_god:
+        events.debug_god = TRUE
     room_i = demo.hero_room if demo.hero is not None else 0
     if demo.hero is not None:
         cam_x, cam_y = update_cam(demo.hero, demo.game_map.room[room_i])
@@ -302,6 +312,8 @@ def _run_map(
                     pygame.display.toggle_fullscreen()
                 elif event.key == pygame.K_F12:
                     scale_option = (scale_option + 1) % 7
+                elif event.key == pygame.K_F8 and with_objects:
+                    events.debug_god = 0 if events.debug_god else TRUE
                 elif demo.menu_open != 0:
                     if event.key == pygame.K_UP:
                         menu_up = TRUE
@@ -378,6 +390,8 @@ def _run_map(
                 demo.seq = started
                 demo.do_hud = 0
                 events.do_hud = 0
+        if demo.hero is not None:
+            apply_debug_god(demo.hero)
         attacking = demo.hero_only is not None and demo.hero_only.attacking != 0
         if demo.menu_open == 0 and demo.seq is None and not locked:
             if demo.hero is not None:
@@ -433,9 +447,11 @@ def _run_map(
                 demo.objects_by_room[room_i] if room_i < len(demo.objects_by_room) else (),
                 demo.hero,
             )
-        elif shown != "Lynn's Legacy":
-            pygame.display.set_caption("Lynn's Legacy")
-            shown = "Lynn's Legacy"
+        else:
+            title = _play_caption()
+            if shown != title:
+                pygame.display.set_caption(title)
+                shown = title
         from lynn.audio import tick_music
 
         tick_music()
@@ -519,6 +535,25 @@ def _common_events(scale_option: int, running: bool) -> tuple[int, bool]:
     return scale_option, running
 
 
+def apply_debug_god(hero) -> None:
+    """Reapply debug invulnerability. Clear it only if this path set the flag."""
+    if hero is None:
+        return
+    if events.debug_god:
+        hero.invincible = -1
+        hero._debug_god = 1
+        return
+    if getattr(hero, "_debug_god", 0):
+        hero.invincible = 0
+        hero._debug_god = 0
+
+
+def _play_caption() -> str:
+    if events.debug_god:
+        return "Lynn's Legacy [godmode]"
+    return "Lynn's Legacy"
+
+
 def _map_caption(filename, room_i, rooms, cam_x, cam_y, previous, objs=(), hero=None):
     from pathlib import Path
 
@@ -530,6 +565,8 @@ def _map_caption(filename, room_i, rooms, cam_x, cam_y, previous, objs=(), hero=
         f"Lynn's Legacy - {filename}  room {room_i}/{rooms - 1}  "
         f"cam {cam_x},{cam_y}{extra}"
     )
+    if events.debug_god:
+        text += " [godmode]"
     if text != previous:
         pygame.display.set_caption(text)
     return text
