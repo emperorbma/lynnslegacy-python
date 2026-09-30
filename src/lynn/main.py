@@ -208,7 +208,7 @@ def _usage() -> str:
         "  audio          live sound check (title.it + a sample); Esc quits\n"
         "  test           pytest (extra args forwarded, including --map; silent audio)\n"
         "  --save spec    load a save (path, N for ll_saveN.sav, or example name)\n"
-        "  --godmode      Lynn takes no damage (F8 toggles this in game)\n"
+        "  --godmode      no damage (F8 toggles; F9 opens cheat commands)\n"
         "  help           this text\n"
         "Map may be a stem (valley), file (valley.map), or path."
     )
@@ -281,7 +281,11 @@ def _run_map(
         cam_x, cam_y = _cam_for_room(demo.game_map, room_i)
     shown = None
     running = True
+    from lynn.godmode import GodMenu
+
+    god_menu = GodMenu()
     while running:
+        frame_hold = False
         menu_up = menu_right = menu_down = menu_left = 0
         menu_confirm = False
         action_pulse = 0
@@ -292,7 +296,7 @@ def _run_map(
             if event.type == pygame.QUIT:
                 running = False
             elif event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_ESCAPE:
+                if event.key == pygame.K_ESCAPE and not god_menu.open:
                     save_open = demo.hero is not None and demo.hero.menu_sel != 0
                     if save_open:
                         pass
@@ -314,6 +318,45 @@ def _run_map(
                     scale_option = (scale_option + 1) % 7
                 elif event.key == pygame.K_F8 and with_objects:
                     events.debug_god = 0 if events.debug_god else TRUE
+                    if not events.debug_god:
+                        god_menu.open = False
+                elif event.key == pygame.K_F9 and with_objects and events.debug_god:
+                    from lynn.godmode import god_menu_close, god_menu_open
+
+                    if god_menu.open:
+                        god_menu_close(god_menu)
+                    else:
+                        god_menu_open(god_menu)
+                        demo.menu_open = 0
+                        demo.menu_backdrop = None
+                elif god_menu.open:
+                    from lynn.godmode import apply_heal, apply_money, god_menu_back, god_menu_confirm, god_menu_move
+
+                    if event.key == pygame.K_ESCAPE:
+                        god_menu_back(god_menu)
+                    elif event.key == pygame.K_UP:
+                        god_menu_move(god_menu, -1)
+                    elif event.key == pygame.K_DOWN:
+                        god_menu_move(god_menu, 1)
+                    elif event.key in (pygame.K_RETURN, pygame.K_SPACE) and not (
+                        event.mod & pygame.KMOD_ALT
+                    ):
+                        picked = god_menu_confirm(god_menu)
+                        if picked is not None and picked.kind == "heal":
+                            apply_heal(demo.hero)
+                        elif picked is not None and picked.kind == "money":
+                            apply_money(demo.hero)
+                        elif picked is not None and picked.kind == "load" and picked.save is not None:
+                            _queue_fixture(demo, picked.label, picked.save)
+                            god_menu.open = False
+                            frame_hold = True
+                        elif picked is not None and picked.kind == "save":
+                            from lynn.godmode import resume_entry, write_god_slot
+
+                            room_i = demo.hero_room if demo.hero is not None else 0
+                            picked.save = write_god_slot(
+                                picked.slot, resume_entry(demo.game_map, demo.hero, room_i)
+                            )
                 elif demo.menu_open != 0:
                     if event.key == pygame.K_UP:
                         menu_up = TRUE
@@ -381,6 +424,8 @@ def _run_map(
         if (
             demo.seq is None
             and demo.menu_open == 0
+            and not god_menu.open
+            and not frame_hold
             and not locked
             and demo.hero is not None
             and demo.hero_only is not None
@@ -393,7 +438,7 @@ def _run_map(
         if demo.hero is not None:
             apply_debug_god(demo.hero)
         attacking = demo.hero_only is not None and demo.hero_only.attacking != 0
-        if demo.menu_open == 0 and demo.seq is None and not locked:
+        if demo.menu_open == 0 and not god_menu.open and not frame_hold and demo.seq is None and not locked:
             if demo.hero is not None:
                 held: list[int] = []
                 if not attacking:
@@ -426,6 +471,8 @@ def _run_map(
         if (
             demo.seq is None
             and demo.menu_open == 0
+            and not god_menu.open
+            and not frame_hold
             and not locked
             and demo.hero is not None
             and demo.hero_only is not None
@@ -435,7 +482,7 @@ def _run_map(
                 demo.seq = started
                 demo.do_hud = 0
                 events.do_hud = 0
-        if demo.seq is None and events.pending_seq is not None:
+        if demo.seq is None and not god_menu.open and not frame_hold and events.pending_seq is not None:
             demo.seq = events.pending_seq
             events.pending_seq = None
             demo.do_hud = 0
@@ -466,6 +513,8 @@ def _run_map(
             and demo.hero_only.attacking != 0
             and demo.seq is None
             and demo.menu_open == 0
+            and not god_menu.open
+            and not frame_hold
         ):
             hero_attack(demo.hero)
             LLObject_MAINAttack(others, demo.hero)
@@ -473,6 +522,8 @@ def _run_map(
             demo.hero is not None
             and demo.seq is None
             and demo.menu_open == 0
+            and not god_menu.open
+            and not frame_hold
         ):
             if demo.hero.dead == 0:
                 LLObject_MAINDamage(demo.hero, others)
@@ -484,7 +535,7 @@ def _run_map(
                 if demo.hero_only is not None:
                     demo.hero_only.attacking = 0
                 hero_death_tick(demo.hero)
-        if demo.seq is not None and demo.hero_only is not None:
+        if demo.seq is not None and demo.hero_only is not None and not god_menu.open and not frame_hold:
             from lynn.events import bind_room
 
             bind_room(room, others)
@@ -503,7 +554,15 @@ def _run_map(
         others = demo.objects_by_room[room_i] if room_i < len(demo.objects_by_room) else []
         if demo.hero is not None:
             cam_x, cam_y = update_cam(demo.hero, room)
-        if demo.menu_open == 0:
+        if god_menu.open:
+            if demo.menu_backdrop is None:
+                draw_map_demo(canvas, demo, room_i, cam_x, cam_y)
+                demo.menu_backdrop = canvas.copy()
+            canvas.blit(demo.menu_backdrop, (0, 0))
+            from lynn.godmode import blit_god_menu
+
+            blit_god_menu(canvas, demo.menu, god_menu, demo.palette, demo.hud)
+        elif demo.menu_open == 0:
             tick_map_demo(demo, room_i)
             draw_map_demo(canvas, demo, room_i, cam_x, cam_y)
             demo.menu_backdrop = None
@@ -535,6 +594,26 @@ def _common_events(scale_option: int, running: bool) -> tuple[int, bool]:
     return scale_option, running
 
 
+def _queue_fixture(demo, name: str, data) -> None:
+    """Hand a fixture to the same pending_load path Continue uses."""
+    if data is None:
+        return
+    events.pending_load = data
+    events.debug_fixture = name
+    demo.seq = None
+    events.pending_seq = None
+    demo.menu_open = 0
+    demo.menu_backdrop = None
+    if demo.box is not None:
+        demo.box.activated = 0
+    if demo.hero is not None:
+        demo.hero.menu_sel = 0
+        demo.hero.dead = 0
+    if demo.hero_only is not None:
+        demo.hero_only.action_lock = 0
+        demo.hero_only.attacking = 0
+
+
 def apply_debug_god(hero) -> None:
     """Reapply debug invulnerability. Clear it only if this path set the flag."""
     if hero is None:
@@ -548,9 +627,16 @@ def apply_debug_god(hero) -> None:
         hero._debug_god = 0
 
 
+def _god_caption_tag() -> str:
+    name = str(events.debug_fixture or "")
+    if name:
+        return f"godmode {name}"
+    return "godmode"
+
+
 def _play_caption() -> str:
     if events.debug_god:
-        return "Lynn's Legacy [godmode]"
+        return f"Lynn's Legacy [{_god_caption_tag()}]"
     return "Lynn's Legacy"
 
 
@@ -566,7 +652,7 @@ def _map_caption(filename, room_i, rooms, cam_x, cam_y, previous, objs=(), hero=
         f"cam {cam_x},{cam_y}{extra}"
     )
     if events.debug_god:
-        text += " [godmode]"
+        text += f" [{_god_caption_tag()}]"
     if text != previous:
         pygame.display.set_caption(text)
     return text

@@ -50,6 +50,14 @@ def example_save_dir() -> Path:
     return project_root() / "tests" / "fixtures"
 
 
+def list_example_saves() -> list[Path]:
+    """Local test_example_*.sav files, sorted by name. A missing dir is empty."""
+    folder = example_save_dir()
+    if not folder.is_dir():
+        return []
+    return sorted(path for path in folder.glob("test_example_*.sav") if path.is_file())
+
+
 def example_short_name(spec: str) -> str:
     """`--save forest` → forest; strips .sav and a test_example_ prefix."""
     stem = Path(spec.strip().replace("\\", "/")).name
