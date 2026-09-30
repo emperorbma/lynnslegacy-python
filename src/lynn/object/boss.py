@@ -417,6 +417,24 @@ def __dyssius_patience(this: CharType) -> int:
     return 1
 
 
+def __push_lynn_back(this: CharType) -> int:
+    """FB object_boss.bas: unit vector from this actor through Lynn, times 3.
+
+    The forest moth scene calls this, then Lynn's do_flyback, on the same command.
+    """
+    hero = events.hero
+    if hero is None:
+        return 1
+    hx = float(hero.coords_x) + float(hero.perimeter_x) * 0.5
+    hy = float(hero.coords_y) + float(hero.perimeter_y) * 0.5
+    mx = float(this.coords_x) + float(this.perimeter_x) * 0.5
+    my = float(this.coords_y) + float(this.perimeter_y) * 0.5
+    fx, fy = _v2_calc_flyback(hx, hy, mx, my)
+    hero.fly_x = fx * 3
+    hero.fly_y = fy * 3
+    return 1
+
+
 def __dyssius_eye_explode(this: CharType) -> int:
     this.expl_x_off = 117
     this.expl_y_off = 98
@@ -447,3 +465,4 @@ register_func("__dyssius_jump_slide", __dyssius_jump_slide)
 register_func("__dyssius_patience", __dyssius_patience)
 register_func("__dyssius_eye_explode", __dyssius_eye_explode)
 register_func("__dyssius_full_explode", __dyssius_full_explode)
+register_func("__push_lynn_back", __push_lynn_back)
