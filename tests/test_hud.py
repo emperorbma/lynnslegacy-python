@@ -10,7 +10,7 @@ from lynn.constants import SCREEN_H, SCREEN_W
 from lynn.constants import DF_MAIN_CHAR, TRUE
 from lynn.events import bind_hero, bind_hero_only, reset_events
 import lynn.events as events
-from lynn.gfx.hud import blit_hud, hud_IsShowing, hud_pip_frame, load_hud
+from lynn.gfx.hud import blit_hud, hud_IsShowing, hud_pip_frame, load_hud, tick_low_health
 from lynn.hero import cache_crazy, ctor_hero, ctor_hero_only
 from lynn.object.char import CharType
 from lynn.object.combat import LLObject_ProcessHurt, start_hero_attack
@@ -32,6 +32,65 @@ def test_hud_pip_frame_new_game_six_hearts():
         assert hud_pip_frame(6, 6, p) == 0
     for p in range(6, 30):
         assert hud_pip_frame(6, 6, p) == 2
+
+
+def test_low_health_alarm_repeats_faster_near_empty():
+    from lynn import clock
+    import lynn.audio as audio
+    import lynn.gfx.hud as hud
+    from lynn.audio import sound_lowhealth
+
+    saved_timer = clock.timer
+    saved_hold = hud._low_health_at
+    try:
+        hud._low_health_at = 0.0
+        clock.timer = 10.0
+        hero = ctor_hero(load_images=False)
+        hero.maxhp = 6
+        hero.hp = 3
+        audio.last_play = None
+        tick_low_health(hero)
+        assert audio.last_play is None
+
+        hero.hp = 2
+        tick_low_health(hero)
+        assert audio.last_play == (sound_lowhealth, 100)
+        assert hud._low_health_at == 11.5
+        audio.last_play = None
+        clock.timer = 11.5
+        tick_low_health(hero)
+        assert audio.last_play is None
+        assert hud._low_health_at == 11.5
+        # The hold clears on the tick it expires. The beep is the next tick.
+        clock.timer = 11.51
+        tick_low_health(hero)
+        assert audio.last_play is None
+        assert hud._low_health_at == 0.0
+        tick_low_health(hero)
+        assert audio.last_play == (sound_lowhealth, 100)
+        assert hud._low_health_at == 13.01
+
+        audio.last_play = None
+        hero.hp = 6
+        clock.timer = 20.0
+        tick_low_health(hero)
+        assert audio.last_play is None
+        assert hud._low_health_at == 0.0
+
+        hero.hp = 1
+        tick_low_health(hero)
+        assert audio.last_play == (sound_lowhealth, 100)
+        assert hud._low_health_at == 20.75
+        audio.last_play = None
+        clock.timer = 21.5
+        tick_low_health(hero)
+        assert audio.last_play is None
+        tick_low_health(hero)
+        assert audio.last_play == (sound_lowhealth, 100)
+        assert hud._low_health_at == 22.25
+    finally:
+        hud._low_health_at = saved_hold
+        clock.timer = saved_timer
 
 
 def test_hud_pip_frame_damaged():

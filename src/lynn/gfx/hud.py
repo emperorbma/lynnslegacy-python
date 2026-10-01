@@ -46,6 +46,9 @@ HUD_STATUS = (
     "data/pictures/char/lynnstatus2.spr",
     "data/pictures/char/lynnstatus3.spr",
 )
+# FB blit_hud static ll_low_health. 0 means the beep is allowed.
+_low_health_at = 0.0
+
 _HUD_NO_BARS = frozenset(
     {
         u_hotrock,
@@ -91,6 +94,28 @@ def load_hud(palette: LLPalette) -> HudImages:
     if len(palette.colors) > 26:
         hud.bar_color = palette.colors[26]
     return hud
+
+
+def tick_low_health(hero: CharType) -> None:
+    """FB blit_hud: retrigger lowhealth.ogg at or under a third of max hp.
+
+    The gap is 1.5s, or 0.75s at or under max/6.5. It keeps running after a
+    heal, so the next drop waits out whatever gap was already armed.
+    """
+    global _low_health_at
+    from lynn import clock
+    from lynn.audio import play_sample, sound_lowhealth
+
+    hp = int(hero.hp)
+    maxhp = int(hero.maxhp)
+    if hp <= int(maxhp / 3):
+        if _low_health_at == 0:
+            play_sample(sound_lowhealth)
+            _low_health_at = clock.timer + 1.5
+            if hp <= round(maxhp / 6.5):
+                _low_health_at = clock.timer + 0.75
+    if clock.timer > _low_health_at:
+        _low_health_at = 0.0
 
 
 def hud_pip_frame(hp: int, maxhp: int, p: int) -> int:
@@ -204,6 +229,7 @@ def blit_hud(
         d = ord(mny[nums]) - 48
         if digits and 0 <= d < len(digits):
             canvas.blit(digits[d], (289 + (nums << 3), 8))
+    tick_low_health(hero)
     if hero_only.adrenaline is None:
         if len(hud.img) > 4 and hud.img[4]:
             canvas.blit(hud.img[4][0], (12, 24))
