@@ -231,12 +231,19 @@ def _boss_momentum_move(this: CharType) -> None:
 
 
 def tick_dyssius(this: CharType) -> None:
-    """FB act_enemies: ice grip, then the 4.5s sway jump into the slide."""
+    """FB act_enemies: flash, ice grip, then the 4.5s sway jump into the slide."""
     if not _dyssius_pair(this):
         return
     from lynn.hero import _calc_slide, _stop_grip
     from lynn.macros import check_ice
     from lynn.object.projectile import LLObject_ClearProjectiles
+
+    # The sway jump can abort flyback without clearing dmg_id. FB __flashy
+    # is what ends those i-frames, or every later swing is ignored.
+    if this.dmg_id != 0:
+        from lynn.object.combat_funcs import __flashy
+
+        __flashy(this)
 
     room = events.current_room
     if room is not None:

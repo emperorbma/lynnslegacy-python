@@ -239,6 +239,45 @@ def test_eye_is_the_only_vulnerable_face():
     assert boss.slide_hold == 0
 
 
+def test_sway_jump_does_not_leave_the_open_eye_untouchable():
+    """A hit during the 4.5s sway must not stick dmg_id after the jump."""
+    from lynn.gfx.image import LLSystem_ImageLoad
+
+    boss = _boss()
+    _place(boss, _room())
+    boss.anim[0] = LLSystem_ImageLoad(r"data/pictures/char/boss2.spr")
+    boss.frame = 0
+    boss.frame_check = 0
+    boss.dmg_id = DF_MAIN_CHAR
+    boss.dmg_specific = 7
+    LLObject_DamageCalc(boss)
+    assert boss.hp == 14
+    assert boss.dmg_id != 0
+    boss.sway = clock.timer - 1
+    boss.fly_count = 10
+    tick_dyssius(boss)
+    assert boss.funcs.active_state == 0
+    assert boss.sway == 0
+    blinked = boss.invisible != 0
+    # One flash count per expiry, so the 30-count i-frames need two steps each.
+    for _ in range(80):
+        clock.timer += boss.flash_time or 0.02
+        tick_dyssius(boss)
+        if boss.invisible != 0:
+            blinked = True
+        if boss.dmg_id == 0:
+            break
+    assert blinked
+    assert boss.dmg_id == 0
+    assert boss.invisible == 0
+    assert boss.hp == 14
+    boss.frame_check = 0
+    boss.dmg_id = DF_MAIN_CHAR
+    boss.dmg_specific = 7
+    LLObject_DamageCalc(boss)
+    assert boss.hp == 13
+
+
 def test_slide_stops_on_lynn_and_idle_gate_can_restart():
     boss = CharType()
     lynn = CharType()
