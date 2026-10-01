@@ -139,10 +139,11 @@ def load_map_demo(
     demo.menu = load_menu(palette)
     demo.box = BoxControl()
     demo.drop_surfs = load_drop_surfs(palette)
-    demo.hero_surfs = [
-        frame_surfaces(anim, palette) if anim.frames else []
-        for anim in hero.anim
-    ]
+    if save is not None and int(demo.hero_only.isWearing) != 0:
+        from lynn.outfit import apply_outfit
+
+        apply_outfit(hero, demo.hero_only.isWearing)
+    _cache_hero_anims(demo)
     if save is None and _is_title_map(events.map_filename):
         _maybe_start_entry_seq(demo, entry_i)
     _start_current_room_song(demo)
@@ -211,6 +212,22 @@ def _maybe_start_entry_seq(demo: MapDemo, entry_i: int) -> None:
 
 def _anim_token(obj) -> tuple:
     return tuple(getattr(a, "filename", "") or "" for a in obj.anim)
+
+
+def _cache_hero_anims(demo: MapDemo) -> None:
+    """Rebuild Lynn's blit surfaces after an outfit swap replaces anim slots."""
+    hero = demo.hero
+    if hero is None:
+        demo.hero_surfs = []
+        return
+    hero._anim_token = _anim_token(hero)
+    if demo.load_images == 0 or demo.palette is None:
+        demo.hero_surfs = [[] for _ in hero.anim]
+        return
+    demo.hero_surfs = [
+        frame_surfaces(anim, demo.palette) if anim.frames else []
+        for anim in hero.anim
+    ]
 
 
 def _cache_obj_anims(demo: MapDemo, obj, load_images: bool = True) -> None:
@@ -366,10 +383,7 @@ def jump_to_title(demo: MapDemo) -> None:
     demo.menu_open = 0
     demo.menu_backdrop = None
     if load_images:
-        demo.hero_surfs = [
-            frame_surfaces(anim, demo.palette) if anim.frames else []
-            for anim in hero.anim
-        ]
+        _cache_hero_anims(demo)
     enter_map(demo, START_MAP, 0, load_images=load_images, load_tileset=demo.load_tileset != 0)
 
 
@@ -521,6 +535,8 @@ def _blit_room_dark(canvas: pygame.Surface) -> None:
 
 def draw_map_demo(canvas: pygame.Surface, demo: MapDemo, room_i: int, cam_x: int, cam_y: int) -> None:
     canvas.fill((0, 0, 0))
+    if demo.hero is not None and _obj_anims_stale(demo.hero_surfs, demo.hero):
+        _cache_hero_anims(demo)
     save_open = demo.hero is not None and demo.hero.menu_sel != 0
     if events.do_chap != 0 and demo.hero is not None:
         chap = int(demo.hero.chap)

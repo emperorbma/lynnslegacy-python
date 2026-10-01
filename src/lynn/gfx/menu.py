@@ -304,6 +304,13 @@ def keyboardSelected(menu: MainMenu, key_up: int, key_right: int, key_down: int,
         menu.selectedItem = left
 
 
+def _apply_worn(wearing: int) -> None:
+    import lynn.events as events
+    from lynn.outfit import apply_outfit
+
+    apply_outfit(events.hero, wearing)
+
+
 def handleKeybSelected(menu: MainMenu, hero_only: MainCharType) -> int:
     """FB handleKeybSelected. TRUE if the pause loop should close. Title (19) sets goto_title."""
     i = menu.selectedItem
@@ -327,16 +334,22 @@ def handleKeybSelected(menu: MainMenu, hero_only: MainCharType) -> int:
         hero_only.selected_item = 6
     elif i == 9 and hero_only.hasCostume[0] != 0:
         hero_only.isWearing = 0
+        _apply_worn(0)
     elif i == 10 and hero_only.hasCostume[1] != 0:
         hero_only.isWearing = 1
+        _apply_worn(1)
     elif i == 11 and hero_only.hasCostume[2] != 0:
         hero_only.isWearing = 2
+        _apply_worn(2)
     elif i == 12 and hero_only.hasCostume[3] != 0:
         hero_only.isWearing = 3
+        _apply_worn(3)
     elif i == 13 and hero_only.hasCostume[4] != 0:
         hero_only.isWearing = 4
+        _apply_worn(4)
     elif i == 14 and hero_only.hasCostume[5] != 0:
         hero_only.isWearing = 5
+        _apply_worn(5)
     elif i == 18:
         return TRUE
     elif i == 19:

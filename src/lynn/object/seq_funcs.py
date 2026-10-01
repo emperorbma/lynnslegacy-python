@@ -453,6 +453,15 @@ def __give_100_gold(this: CharType) -> int:
     return 1
 
 
+def __outfit_swap(this: CharType) -> int:
+    """FB __outfit_swap: flash the regular sprite, then the costume worn."""
+    only = events.hero_only
+    from lynn.outfit import outfit_swap_toggle
+
+    outfit_swap_toggle(events.hero if events.hero is not None else this, only.isWearing if only is not None else 0)
+    return 1
+
+
 def __give_outfit(this: CharType) -> int:
     only = events.hero_only
     hero = events.hero

@@ -134,6 +134,10 @@ def sequence_LoadGame(saved_info: SaveData | None) -> None:
     apply_save_hero(events.hero, events.hero_only, saved_info)
     hero = events.hero
     only = events.hero_only
+    if hero is not None and only is not None:
+        from lynn.outfit import apply_outfit
+
+        apply_outfit(hero, only.isWearing)
     if hero is not None:
         hero.to_map = saved_info.map
         hero.to_entry = int(saved_info.entry)
