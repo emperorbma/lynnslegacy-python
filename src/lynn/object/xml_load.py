@@ -153,6 +153,7 @@ def LLSystem_ObjectFromXML(obj: CharType, load_images: bool = True) -> CharType:
         obj.perimeter_y = int(obj.real_y)
     obj.current_anim = 0
     obj.funcs.active_state = 0
+    obj.maxhp = int(obj.hp)
     _assign_unique_id(obj)
     return obj
 

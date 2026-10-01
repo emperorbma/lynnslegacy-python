@@ -178,6 +178,7 @@ class CharType:
     dmg_index: int = 0
     dmg_specific: int = 0
     hurt: int = 0
+    hit: int = 0
     frame_check: int = 0
     fly_x: float = 0.0
     fly_y: float = 0.0

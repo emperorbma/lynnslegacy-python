@@ -15,9 +15,11 @@ from lynn.constants import (
     u_crate_health,
     u_goldblock,
     u_greyrock,
+    u_anger,
     u_dyssius,
     u_grult,
     u_steelstrider,
+    u_sterach,
 )
 from lynn.macros import LLObject_CalculateFrame
 from lynn.map.collision import check_bounds
@@ -255,12 +257,17 @@ def LLObject_ProcessHurt(h: CharType) -> None:
                 u_goldblock,
             ):
                 only.crazy_cache += 20 if only.isWearing == 2 else 10
-            LLObject_ShiftState(h, h.hit_state)
-            if h.unique_id in (u_dyssius, u_steelstrider, u_grult):
-                h.fly_count = 0
-            if h.unique_id == u_dyssius:
+            if h.unique_id in (u_anger, u_sterach):
+                # Parallel to the running state. __anger_flyback clears it.
                 h.shifty_state = 0
-                h.slide_hold = 0
+                h.hit = -1
+            else:
+                LLObject_ShiftState(h, h.hit_state)
+                if h.unique_id in (u_dyssius, u_steelstrider, u_grult):
+                    h.fly_count = 0
+                if h.unique_id == u_dyssius:
+                    h.shifty_state = 0
+                    h.slide_hold = 0
         elif h.dmg_id in (DF_ROOM_ENEMY, DF_TEMP_ENEMY):
             enemy = _damager(h)
             if enemy is not None:
@@ -330,7 +337,7 @@ def LLObject_MAINAttack(enemies: list[CharType], hr: CharType) -> None:
                     hit = True
                     if enemy.dmg_id != 0:
                         break
-            if enemy.hp > 0 and enemy.unique_id != u_grult and hit:
+            if enemy.hp > 0 and enemy.unique_id not in (u_grult, u_anger) and hit:
                 dx = enemy.coords_x - hr.coords_x
                 dy = enemy.coords_y - hr.coords_y
                 enemy.fly_x = 1 if dx > 0 else (-1 if dx < 0 else 0)

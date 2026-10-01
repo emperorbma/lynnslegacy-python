@@ -460,6 +460,26 @@ def _anger_frame(this: CharType) -> None:
         this.frame_hold = clock.timer + this.animControl[this.current_anim].rate
 
 
+def __anger_flyback(this: CharType) -> int:
+    """FB object_boss.bas: 70 fly_speed counts, then the next hit can land.
+
+    The main loop there is uncapped, so this is one count per fly_speed.
+    pop_due keeps that rate when the display frame is longer than fly_speed.
+    """
+    speed = this.fly_speed or 0.0009
+    n, this.slide_hold = clock.pop_due(this.slide_hold, speed)
+    this.shifty_state += n
+    if this.shifty_state >= 70:
+        this.shifty_state = 0
+        this.slide_hold = 0
+        this.invisible = 0
+        from lynn.object.combat import LLObject_ClearDamage
+
+        LLObject_ClearDamage(this)
+        return 1
+    return 0
+
+
 def __anger_fireball_circle(this: CharType) -> int:
     """FB object_boss.bas: one orbital step, then let return_idle rewind.
 
@@ -693,6 +713,7 @@ register_func("__dyssius_patience", __dyssius_patience)
 register_func("__dyssius_eye_explode", __dyssius_eye_explode)
 register_func("__dyssius_full_explode", __dyssius_full_explode)
 register_func("__push_lynn_back", __push_lynn_back)
+register_func("__anger_flyback", __anger_flyback)
 register_func("__anger_fireball_circle", __anger_fireball_circle)
 register_func("__anger_kill_fireball", __anger_kill_fireball)
 register_func("__anger_new_fireball", __anger_new_fireball)

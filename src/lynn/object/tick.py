@@ -136,6 +136,7 @@ def _tick_gbutton(obj: CharType, objs: list[CharType]) -> None:
 def tick_objects(objs: list[CharType]) -> None:
     from lynn.audio import play_sample
     from lynn.constants import (
+        u_anger,
         u_dyssius,
         u_gbutton,
         u_gold,
@@ -143,6 +144,7 @@ def tick_objects(objs: list[CharType]) -> None:
         u_health,
         u_silver,
         u_steelstrider,
+        u_sterach,
     )
     from lynn.object.boss import LLObject_CheckGTorchLit, tick_dyssius, tick_grult
     from lynn.object.combat import LLObject_ClearDamage, LLObject_ShiftState
@@ -177,6 +179,9 @@ def tick_objects(objs: list[CharType]) -> None:
         if obj.unique_id == u_grult:
             tick_grult(obj)
         tick_dyssius(obj)
+        if obj.unique_id in (u_anger, u_sterach) and obj.hit != 0:
+            if lookup_func("__anger_flyback")(obj) != 0:
+                obj.hit = 0
         tick_object(obj)
         proj = obj.projectile
         if proj is not None and proj.active != 0:

@@ -4,11 +4,22 @@ import lynn.object  # noqa: F401
 import lynn.object.boss as boss
 
 from lynn import clock
-from lynn.constants import PROJECTILE_8WAY, PROJECTILE_DIAGONAL, TRUE, u_fbug
+from lynn.constants import (
+    DF_MAIN_CHAR,
+    PROJECTILE_8WAY,
+    PROJECTILE_DIAGONAL,
+    TRUE,
+    u_anger,
+    u_fbug,
+    u_sterach,
+)
 from lynn.events import bind_hero, bind_room, reset_events
+from lynn.gfx.image import LLSystem_FaceType, LLSystem_FrameShell, LLSystem_ImageHeader
 from lynn.object.char import CharType, EFuncs, EntityProjectile
+from lynn.object.combat import LLObject_MAINAttack
 from lynn.object.dispatch import lookup_func
 from lynn.object.projectile import enemy_proj_drawable
+from lynn.object.tick import tick_objects
 from lynn.object.xml_load import LLSystem_ObjectFromXML
 
 
@@ -236,3 +247,83 @@ def test_anger_middle_teleport_kill_and_orb_shot():
     assert lookup_func("__anger_shoot")(orb) == 0 or orb.dead != 0
     assert orb.coords_x > 40
     assert orb.coords_y > 40
+
+
+def _weapon(hero: CharType) -> None:
+    shell = LLSystem_FrameShell(
+        faces=1,
+        face=[LLSystem_FaceType(x=0, y=0, w=40, h=40)],
+    )
+    hero.anim = [LLSystem_ImageHeader(frames=1, frame=[shell])]
+    hero.current_anim = 0
+    hero.uni_directional = 1
+    hero.frame = 0
+
+
+def test_anger_hit_drops_hp_without_leaving_the_attack():
+    reset_events()
+    hero = CharType()
+    hero.coords_x = 300
+    hero.coords_y = 300
+    _weapon(hero)
+    bind_hero(hero)
+    anger = _load("data/object/anger.xml")
+    assert anger.unique_id == u_anger
+    assert anger.hp == 30
+    assert anger.maxhp == 30
+    anger.coords_x = 320
+    anger.coords_y = 320
+    anger.funcs.active_state = 2
+    anger.fly_x = 0
+    anger.fly_y = 0
+    clock.timer = 5
+    LLObject_MAINAttack([anger], hero)
+    assert anger.hp == 29
+    assert anger.hit == -1
+    assert anger.dmg_id == DF_MAIN_CHAR
+    assert anger.funcs.active_state == 2
+    assert anger.current_anim == 0
+    assert anger.fly_x == 0
+    assert anger.fly_y == 0
+    LLObject_MAINAttack([anger], hero)
+    assert anger.hp == 29
+
+    anger.shifty_state = 69
+    anger.slide_hold = 0
+    tick_objects([anger])
+    assert anger.hit == 0
+    assert anger.dmg_id == 0
+    assert anger.funcs.active_state == 2
+    LLObject_MAINAttack([anger], hero)
+    assert anger.hp == 28
+
+    anger.hp = 1
+    anger.dmg_id = 0
+    anger.hit = 0
+    anger.dead = 0
+    LLObject_MAINAttack([anger], hero)
+    assert anger.hp <= 0
+    assert anger.hit == 0
+    assert anger.funcs.active_state == anger.death_state
+
+
+def test_sterach_hit_stays_in_state_until_flyback_clears():
+    reset_events()
+    sterach = _load("data/object/sterach.xml")
+    assert sterach.unique_id == u_sterach
+    assert sterach.maxhp == sterach.hp
+    sterach.invincible = 0
+    sterach.funcs.active_state = 1
+    sterach.dmg_id = DF_MAIN_CHAR
+    from lynn.object.combat import LLObject_DamageCalc
+
+    LLObject_DamageCalc(sterach)
+    assert sterach.hp == sterach.maxhp - 1
+    assert sterach.hit == -1
+    assert sterach.funcs.active_state == 1
+    sterach.shifty_state = 69
+    sterach.slide_hold = 0
+    clock.timer = 8
+    tick_objects([sterach])
+    assert sterach.hit == 0
+    assert sterach.dmg_id == 0
