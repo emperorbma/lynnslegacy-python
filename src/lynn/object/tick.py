@@ -148,6 +148,7 @@ def tick_objects(objs: list[CharType]) -> None:
     )
     from lynn.object.boss import LLObject_CheckGTorchLit, tick_dyssius, tick_grult
     from lynn.object.combat import LLObject_ClearDamage, LLObject_ShiftState
+    from lynn.object.combat_funcs import __flashy
     from lynn.object.control import in_proximity, out_proximity
     from lynn.object.dispatch import lookup_func
     from lynn.object.move_ai import __push
@@ -182,6 +183,13 @@ def tick_objects(objs: list[CharType]) -> None:
         if obj.unique_id in (u_anger, u_sterach) and obj.hit != 0:
             if lookup_func("__anger_flyback")(obj) != 0:
                 obj.hit = 0
+        # FB act_enemies calls __flashy while dmg.id is set. Froggy enemies
+        # whose hit_state is below reset_state get pulled into the chase
+        # while Lynn is in vision, so flicker never finishes and this is
+        # what ends the i-frames. Dyssius and the steel strider already
+        # flash inside tick_dyssius.
+        if obj.dmg_id != 0 and obj.unique_id not in (u_dyssius, u_steelstrider):
+            __flashy(obj)
         tick_object(obj)
         proj = obj.projectile
         if proj is not None and proj.active != 0:

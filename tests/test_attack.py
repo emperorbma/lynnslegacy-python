@@ -131,3 +131,62 @@ def test_roamer_dies_and_is_gone():
     assert roamer.total_dead != 0
     assert roamer.invisible != 0
     pygame.quit()
+
+
+def test_desert_goblin_chase_does_not_stick_invulnerable():
+    """A melee hit yanks the spear goblins into the chase with dmg_id still set."""
+    from types import SimpleNamespace
+
+    from lynn import clock
+    from lynn.constants import DF_MAIN_CHAR
+    from lynn.events import bind_hero, bind_hero_only
+    from lynn.hero import ctor_hero, ctor_hero_only
+    from lynn.object.combat import LLObject_DamageCalc
+    from lynn.object.tick import tick_objects
+
+    hero = ctor_hero(load_images=False)
+    only = ctor_hero_only()
+    only.weapon = 0
+    bind_hero(hero)
+    bind_hero_only(only)
+    hero.coords_x = 40
+    hero.coords_y = 40
+    saved = clock.timer
+    try:
+        for xml, hp0 in (("gbandit.xml", 4), ("blackg.xml", 8), ("roamer.xml", 2)):
+            clock.timer = 0.0
+            enemy = spawn_from_stub(
+                SimpleNamespace(
+                    id=f"data/object/{xml}",
+                    x_origin=48,
+                    y_origin=40,
+                    direction=0,
+                ),
+                load_images=False,
+            )
+            assert enemy.hp == hp0
+            enemy.dmg_id = DF_MAIN_CHAR
+            enemy.dmg_specific = 0
+            LLObject_DamageCalc(enemy)
+            assert enemy.hp == hp0 - 1
+            assert enemy.dmg_id != 0
+            tick_objects([enemy])
+            if enemy.froggy != 0:
+                assert enemy.funcs.active_state == enemy.jump_state
+                assert enemy.mad != 0
+                assert enemy.dmg_id != 0
+            cleared = False
+            for _ in range(80):
+                clock.timer += enemy.flash_time or 0.02
+                tick_objects([enemy])
+                if enemy.dmg_id == 0:
+                    cleared = True
+                    break
+            assert cleared
+            assert enemy.hp == hp0 - 1
+            enemy.dmg_id = DF_MAIN_CHAR
+            enemy.dmg_specific = 0
+            LLObject_DamageCalc(enemy)
+            assert enemy.hp == hp0 - 2
+    finally:
+        clock.timer = saved
