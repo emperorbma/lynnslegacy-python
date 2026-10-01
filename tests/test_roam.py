@@ -77,6 +77,42 @@ def test_moenia_bats_change_coords():
     assert start != end
 
 
+def test_offscreen_enemy_stays_frozen_until_the_camera_reaches_it():
+    from lynn.map.types import RoomType
+
+    room = RoomType()
+    room.x = 200
+    room.y = 200
+    room.layout = [[0] * (room.x * (room.y + 1) + 2) for _ in range(3)]
+    near = spawn_from_stub(
+        type("S", (), {"id": "data/object/roamer.xml", "x_origin": 160, "y_origin": 100, "direction": 1})(),
+        load_images=False,
+    )
+    far = spawn_from_stub(
+        type("S", (), {"id": "data/object/roamer.xml", "x_origin": 2000, "y_origin": 2000, "direction": 1})(),
+        load_images=False,
+    )
+    boss = spawn_from_stub(
+        type("S", (), {"id": "data/object/roamer.xml", "x_origin": 2000, "y_origin": 1800, "direction": 1})(),
+        load_images=False,
+    )
+    boss.isBoss = -1
+    shooter = spawn_from_stub(
+        type("S", (), {"id": "data/object/roamer.xml", "x_origin": 2000, "y_origin": 1600, "direction": 1})(),
+        load_images=False,
+    )
+    shooter.proj_style = 1
+    bind_room(room, [near, far, boss, shooter])
+    clock.timer = 0.0
+    for i in range(80):
+        clock.timer = i * 0.06
+        tick_objects([near, far, boss, shooter], (0, 0))
+    assert (near.coords_x, near.coords_y) != (160, 100)
+    assert (far.coords_x, far.coords_y) == (2000, 2000)
+    assert (boss.coords_x, boss.coords_y) != (2000, 1800)
+    assert (shooter.coords_x, shooter.coords_y) != (2000, 1600)
+
+
 def test_trigger_projectile_sets_active():
     from lynn.constants import PROJECTILE_ORB
     from lynn.object.dispatch import lookup_func

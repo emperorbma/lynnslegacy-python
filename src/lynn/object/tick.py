@@ -133,7 +133,7 @@ def _tick_gbutton(obj: CharType, objs: list[CharType]) -> None:
     obj.funcs.active_state = 1 if pressed else 0
 
 
-def tick_objects(objs: list[CharType]) -> None:
+def tick_objects(objs: list[CharType], cam: tuple[int, int] | None = None) -> None:
     from lynn.audio import play_sample
     from lynn.constants import (
         u_anger,
@@ -151,9 +151,20 @@ def tick_objects(objs: list[CharType]) -> None:
     from lynn.object.combat_funcs import __flashy
     from lynn.object.control import in_proximity, out_proximity
     from lynn.object.dispatch import lookup_func
+    from lynn.macros import LLObject_IsWithin
     from lynn.object.move_ai import __push
 
+    cam_x = 0
+    cam_y = 0
+    if cam is not None:
+        cam_x, cam_y = cam
+
     for obj in objs:
+        # FB act_enemies: bosses and projectile users always run. Everyone
+        # else stays frozen until the camera padding reaches them, which is
+        # what keeps the open desert from ticking the whole room.
+        if cam is not None and LLObject_IsWithin(obj, cam_x, cam_y) == 0:
+            continue
         if obj.spawn_cond != 0:
             LLObject_CheckSpawn(obj)
         if obj.spawn_kill_trig != 0:

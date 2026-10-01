@@ -506,7 +506,12 @@ def tick_map_demo(demo: MapDemo, room_i: int) -> None:
         bind_room(room, objs)
         bind_hero(demo.hero)
         events.hero_room = room_i
-        tick_objects(objs)
+        cam = None
+        if demo.hero is not None and room is not None:
+            from lynn.hero import update_cam
+
+            cam = update_cam(demo.hero, room)
+        tick_objects(objs, cam)
         if demo.hero is not None and demo.hero.vol_fade_trig != 0:
             from lynn.object.dispatch import lookup_func
 
