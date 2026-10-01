@@ -683,6 +683,64 @@ def __bridge_chasm(this: CharType) -> int:
     return 1
 
 
+def _bridge_face(this: CharType, blocked: int) -> None:
+    """FB: anim[current].frame[0].face[0].impassable. The gap tiles are open."""
+    if not this.anim or not (0 <= this.current_anim < len(this.anim)):
+        return
+    anim = this.anim[this.current_anim]
+    if not anim.frame or not anim.frame[0].face:
+        return
+    anim.frame[0].face[0].impassable = blocked
+
+
+def _start_bridge_seq(this: CharType, index: int) -> None:
+    """FB llg(seq) = this.seq + index. Do not restart a line already playing."""
+    if events.current_seq is not None or events.pending_seq is not None:
+        return
+    if events.hero is None or not this.seq or not (0 <= index < len(this.seq)):
+        return
+    from lynn.sequence import bind_sequence_ents
+
+    seq = this.seq[index]
+    seq.current_command = 0
+    for cmd in seq.Command:
+        for ent in cmd.ent:
+            ent.ent_func = 0
+    bind_sequence_ents(seq, events.hero, events.current_others or [])
+    events.pending_seq = seq
+
+
+def _material_bridge(this: CharType, built: int, nag: int) -> int:
+    """FB __templewood_bridge / __arx_bridge. Scraps are hasItem[2], kept."""
+    if events.now[built] == 0:
+        _bridge_face(this, 1)
+        only = events.hero_only
+        hero = events.hero
+        if only is not None and hero is not None and only.action != 0:
+            from lynn.sequence import LLObject_isTouching
+
+            if LLObject_isTouching(hero, this) == 0:
+                if len(only.hasItem) > 2 and only.hasItem[2] != 0:
+                    _start_bridge_seq(this, 0)
+                elif events.now[nag] == 0:
+                    events.now[nag] = TRUE
+                    _start_bridge_seq(this, 1)
+        return 0
+    this.invisible = 0
+    _bridge_face(this, 0)
+    return 1
+
+
+def __templewood_bridge(this: CharType) -> int:
+    """Ruins gap. Happen 1206 builds it; 1208 is the one-time 'not yet' line."""
+    return _material_bridge(this, 1206, 1208)
+
+
+def __arx_bridge(this: CharType) -> int:
+    """Arx gap. Happen 470 builds it; 471 is the one-time 'can't cross' line."""
+    return _material_bridge(this, 470, 471)
+
+
 def __after_moenia_townspeople(this: CharType) -> int:
     """Park town NPCs off-map until happen 199 (Grult)."""
     if events.now[199] != 0:
