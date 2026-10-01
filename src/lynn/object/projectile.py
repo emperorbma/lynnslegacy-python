@@ -179,7 +179,10 @@ def LLObject_ProjectileDamage(enemies: list[CharType], hr: CharType) -> None:
     if hr.invincible != 0 or hr.dead != 0 or hr.dmg_id != 0:
         return
     for index, enemy in enumerate(enemies):
-        if enemy is hr or enemy.dead != 0:
+        if enemy is hr:
+            continue
+        # Firebugs and ice bugs throw on death. The corpse must still hit.
+        if enemy.dead != 0 and enemy.unique_id not in (u_fbug, u_ibug):
             continue
         proj = enemy.projectile
         grult_shot = enemy.unique_id == u_grult and getattr(enemy, "grult_proj_trig", 0) != 0

@@ -642,6 +642,14 @@ def __set_gray_fade(this: CharType) -> int:
     return 1
 
 
+def __set_anim(this: CharType) -> int:
+    """FB object_modification.bas: show anim chap (chapter cards, Lynn poses)."""
+    this.frame = 0
+    this.frame_hold = 0
+    this.current_anim = int(this.chap)
+    return 1
+
+
 def __flicker(this: CharType) -> int:
     return 1
 

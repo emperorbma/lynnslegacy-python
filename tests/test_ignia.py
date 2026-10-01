@@ -11,14 +11,15 @@ from lynn.constants import (
     TRUE,
     u_anger,
     u_fbug,
+    u_ibug,
     u_sterach,
 )
 from lynn.events import bind_hero, bind_room, reset_events
 from lynn.gfx.image import LLSystem_FaceType, LLSystem_FrameShell, LLSystem_ImageHeader
 from lynn.object.char import CharType, EFuncs, EntityProjectile
-from lynn.object.combat import LLObject_MAINAttack
+from lynn.object.combat import LLObject_DamageCalc, LLObject_MAINAttack
 from lynn.object.dispatch import lookup_func
-from lynn.object.projectile import enemy_proj_drawable
+from lynn.object.projectile import LLObject_ProjectileDamage, enemy_proj_drawable
 from lynn.object.tick import tick_objects
 from lynn.object.xml_load import LLSystem_ObjectFromXML
 
@@ -64,6 +65,50 @@ def test_dead_enemy_drops_its_shot_but_a_firebug_burst_spreads():
     assert coords[0][1] < coords[2][1]
     assert coords[1][0] > coords[3][0]
     assert enemy_proj_drawable(bug)
+
+
+def test_ice_bug_death_throws_a_diagonal_burst_that_still_hurts():
+    """Death fp: cripple hides the corpse, then trigger_projectile spreads icechunks."""
+    reset_events()
+    bug = _load("data/object/ibug.xml")
+    assert bug.unique_id == u_ibug
+    assert bug.proj_style == PROJECTILE_DIAGONAL
+    bug.coords_x = 200
+    bug.coords_y = 180
+    bug.hp = 1
+    hero = CharType()
+    hero.coords_x = 180
+    hero.coords_y = 180
+    hero.perimeter_x = 16
+    hero.perimeter_y = 16
+    hero.hp = 6
+    bind_hero(hero)
+    bind_room(None, [bug])
+    bug.dmg_id = DF_MAIN_CHAR
+    bug.hurt = 1
+    LLObject_DamageCalc(bug)
+    assert bug.dead != 0
+    assert bug.funcs.active_state == bug.death_state
+    clock.timer = 1.0
+    for _ in range(40):
+        clock.timer += 0.05
+        tick_objects([bug])
+        proj = bug.projectile
+        if proj is not None and proj.active and proj.travelled > 2:
+            break
+    proj = bug.projectile
+    assert proj is not None and proj.active != 0
+    assert bug.invisible != 0
+    coords = proj.coords
+    assert coords[0][0] < coords[2][0]
+    assert coords[0][1] < coords[2][1]
+    assert enemy_proj_drawable(bug)
+    hero.coords_x = int(coords[2][0])
+    hero.coords_y = int(coords[2][1])
+    hero.dmg_id = 0
+    hero.hurt = 0
+    LLObject_ProjectileDamage([bug], hero)
+    assert hero.hp == 5
 
 
 def test_launcher_eight_way_shots_leave_the_muzzle():

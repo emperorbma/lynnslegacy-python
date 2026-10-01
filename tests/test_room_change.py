@@ -199,6 +199,98 @@ def test_town_npcs_park_offscreen_until_grult():
     assert (richard.coords_x, richard.coords_y) == (376, 640)
 
 
+def test_set_anim_is_real():
+    from lynn.object.char import CharType
+    from lynn.object.dispatch import __noop, lookup_func
+
+    card = CharType()
+    card.chap = 2
+    card.current_anim = 0
+    card.frame = 4
+    card.frame_hold = 3
+    assert lookup_func("__set_anim") is not __noop
+    assert lookup_func("__set_anim")(card) == 1
+    assert card.current_anim == 2
+    assert card.frame == 0
+    assert card.frame_hold == 0
+
+
+def test_spinner_room_exit_shows_the_chapter_card_then_the_desert():
+    """Forest room 2 east of the health guy: greyrocks, copters, macetrig.
+
+    Smashing the rocks reaches the trigger. It warps to between entry 4,
+    which used to freeze on chapters state 1 (__set_anim) while the screen
+    was black. The card then sends Lynn to desert entry 15, toward Arx.
+    """
+    from lynn import clock
+    from lynn.events import bind_hero, bind_hero_only, bind_room
+    from lynn.gfx.box import BoxControl
+    from lynn.hero import ctor_hero_only
+    from lynn.sequence import play_sequence, try_touch_sequence
+
+    demo = _bare_demo()
+    set_up_room_enemies(demo, 2, load_images=False)
+    objs = demo.objects_by_room[2]
+    trig = _town_obj(objs, "macetrig.xml")
+    assert trig is not None
+    hero = demo.hero
+    only = ctor_hero_only()
+    demo.hero_only = only
+    bind_hero(hero)
+    bind_hero_only(only)
+    bind_room(demo.game_map.room[2], objs)
+    hero.coords_x = trig.coords_x - 8
+    hero.coords_y = trig.coords_y + 40
+    seq = try_touch_sequence(hero, objs)
+    assert seq is not None
+    box = BoxControl()
+    clock.timer = 1.0
+
+    def _play(seq, limit, room, room_objs):
+        stalled = 0
+        last = None
+        bind_room(room, room_objs)
+        for _ in range(limit):
+            clock.timer += 0.05
+            seq = play_sequence(seq, box, only)
+            if seq is None:
+                return None
+            key = seq.current_command
+            if key == last:
+                stalled += 1
+                assert stalled < 300, f"scene stuck on command {key}"
+            else:
+                stalled = 0
+                last = key
+        raise AssertionError("scene did not finish")
+
+    seq = _play(seq, 40, demo.game_map.room[2], objs)
+    assert seq is None
+    assert now[1215] != 0
+    assert "between" in hero.to_map.replace("\\", "/").lower()
+    assert hero.to_entry == 4
+    demo.seq = None
+    from lynn.demos import consume_title_events
+
+    consume_title_events(demo)
+    assert "between" in demo.game_map.filename.replace("\\", "/").lower()
+    assert demo.seq is not None
+    room_i = demo.hero_room
+    room_objs = demo.objects_by_room[room_i]
+    card = _town_obj(room_objs, "chapters.xml")
+    assert card is not None
+    card.current_anim = 3
+    demo.seq = _play(demo.seq, 800, demo.game_map.room[room_i], room_objs)
+    assert card.current_anim == 0
+    assert card.coords_x == 128 and card.coords_y == 80
+    assert "desert" in hero.to_map.replace("\\", "/").lower()
+    assert hero.to_entry == 15
+    demo.seq = None
+    consume_title_events(demo)
+    assert "desert" in demo.game_map.filename.replace("\\", "/").lower()
+    assert (hero.coords_x, hero.coords_y) == (16, 1584)
+
+
 def test_towntrig_touch_places_npcs_at_the_pond():
     """Walking onto towntrig runs the intro seq that warps the parked NPCs in."""
     from lynn.gfx.box import BoxControl
