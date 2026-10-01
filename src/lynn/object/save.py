@@ -145,6 +145,7 @@ def sequence_LoadGame(saved_info: SaveData | None) -> None:
         only.isLoading = 0
     events.do_hud = TRUE
     events.box_entity = None
+    events.pending_visited = list(saved_info.hasVisited) if int(saved_info.rooms) else None
 
 
 def _resolve_save_path(name: str) -> Path | None:
@@ -301,6 +302,14 @@ def snapshot_save(entry: int) -> SaveData:
     only = events.hero_only
     items = list(only.hasItem) if only is not None else [0] * 6
     costumes = list(only.hasCostume) if only is not None else [0] * 9
+    rooms = 0
+    visited: list[int] = []
+    mm = events.minimap
+    if mm is not None:
+        from lynn.map.minimap import visited_bytes
+
+        visited = visited_bytes(mm)
+        rooms = len(visited)
     return SaveData(
         hp=int(hero.hp) if hero is not None else 6,
         maxhp=int(hero.maxhp) if hero is not None else 6,
@@ -315,8 +324,8 @@ def snapshot_save(entry: int) -> SaveData:
         map=events.map_filename,
         entry=int(entry),
         happen=[i for i, v in enumerate(events.now) if v != 0],
-        rooms=0,
-        hasVisited=[],
+        rooms=rooms,
+        hasVisited=visited,
     )
 
 

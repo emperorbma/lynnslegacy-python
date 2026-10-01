@@ -282,6 +282,14 @@ def _run_map(
     shown = None
     running = True
     from lynn.godmode import GodMenu
+    from lynn.map.minimap import (
+        blit_minimap,
+        close_minimap,
+        open_minimap,
+        pan_minimap,
+        step_floor,
+        update_minimap_cam,
+    )
 
     god_menu = GodMenu()
     while running:
@@ -296,7 +304,29 @@ def _run_map(
             if event.type == pygame.QUIT:
                 running = False
             elif event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_ESCAPE and not god_menu.open:
+                mm = demo.minimap
+                if mm is not None and mm.open:
+                    if event.key == pygame.K_ESCAPE:
+                        close_minimap(mm, room_i)
+                    elif event.key == pygame.K_F11 or (
+                        event.key == pygame.K_RETURN and (event.mod & pygame.KMOD_ALT)
+                    ):
+                        pygame.display.toggle_fullscreen()
+                    elif event.key == pygame.K_F12:
+                        scale_option = (scale_option + 1) % 7
+                    elif event.key == pygame.K_LEFTBRACKET:
+                        step_floor(mm, -1)
+                    elif event.key == pygame.K_RIGHTBRACKET:
+                        step_floor(mm, 1)
+                elif (
+                    event.key == pygame.K_m
+                    and mm is not None
+                    and not god_menu.open
+                    and demo.menu_open == 0
+                    and (demo.hero is None or demo.hero.menu_sel == 0)
+                ):
+                    open_minimap(mm, demo.game_map, room_i)
+                elif event.key == pygame.K_ESCAPE and not god_menu.open:
                     save_open = demo.hero is not None and demo.hero.menu_sel != 0
                     if save_open:
                         pass
@@ -397,6 +427,25 @@ def _run_map(
                 if event.key in pygame_keys_for(chart.itmkey):
                     if demo.hero_only is not None:
                         demo.hero_only.powder = 0
+        mm = demo.minimap
+        if mm is not None and mm.open:
+            keys = pygame.key.get_pressed()
+            pan_minimap(
+                mm,
+                ll_clock.timer,
+                keys[pygame.K_UP],
+                keys[pygame.K_RIGHT],
+                keys[pygame.K_DOWN],
+                keys[pygame.K_LEFT],
+            )
+            update_minimap_cam(mm, demo.game_map)
+            from lynn.audio import tick_music
+
+            tick_music()
+            blit_minimap(canvas, demo, ll_clock.timer)
+            _present(canvas, scale_option)
+            frame_clock.tick(60)
+            continue
         if demo.hero_only is not None:
             demo.hero_only.action = action_pulse
         if demo.menu_open != 0 and demo.menu is not None and demo.hero_only is not None:

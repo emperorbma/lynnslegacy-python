@@ -28,6 +28,7 @@ from lynn.gfx.box import BoxControl, blit_box
 from lynn.hero import ctor_hero, ctor_hero_only, place_hero
 from lynn.map.collision import check_teleports
 from lynn.map.loader import load_mapV
+from lynn.map.minimap import attach_minimap, mark_visited
 from lynn.map.types import MapType
 from lynn.object.tick import LLObject_CheckSpawn, tick_objects
 from lynn.object.xml_load import spawn_from_stub
@@ -80,6 +81,7 @@ class MapDemo:
     menu_backdrop: object | None = None
     seq: object | None = None
     box: object | None = None
+    minimap: object | None = None
     drop_surfs: list = field(default_factory=list)
     load_images: int = TRUE
     load_tileset: int = TRUE
@@ -105,6 +107,7 @@ def load_map_demo(
     demo.load_images = TRUE if with_objects else 0
     if not with_objects:
         demo.objects_by_room = [[] for _ in game_map.room]
+        attach_minimap(demo, None)
         return demo
     reset_events()
     if save is not None:
@@ -143,6 +146,10 @@ def load_map_demo(
     if save is None and _is_title_map(events.map_filename):
         _maybe_start_entry_seq(demo, entry_i)
     _start_current_room_song(demo)
+    visited = None
+    if save is not None and int(getattr(save, "rooms", 0) or 0):
+        visited = list(save.hasVisited)
+    attach_minimap(demo, visited)
     return demo
 
 
@@ -327,6 +334,9 @@ def enter_map(
     events.hero_room = demo.hero_room
     _maybe_start_entry_seq(demo, entry_i)
     _start_current_room_song(demo)
+    visited = events.pending_visited
+    events.pending_visited = None
+    attach_minimap(demo, visited)
 
 
 def jump_to_title(demo: MapDemo) -> None:
@@ -470,6 +480,7 @@ def try_hero_teleport(demo: MapDemo) -> None:
     hero.coords_y = tele.dy
     hero.switch_room = -1
     _start_current_room_song(demo)
+    mark_visited(demo.minimap, demo.hero_room)
 
 
 def tick_map_demo(demo: MapDemo, room_i: int) -> None:
