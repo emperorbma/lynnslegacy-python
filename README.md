@@ -49,9 +49,10 @@ run.bat / ./run.sh test                 pytest (same as python -m lynn test; sil
 run.bat / ./run.sh test --map valley    demo/map tests against that map
 run.bat / ./run.sh config               key setup (writes data/controls.xml and ll.ini)
 run.bat / ./run.sh audio                live sound check (title.it); Esc quits
+run.bat / ./run.sh credits              ending roll, then exit; Esc quits
 run.bat / ./run.sh --save forest        debug: local example tests/fixtures/test_example_forest.sav
 run.bat / ./run.sh --save 1             debug: live slot ll_save1.sav (skips splash/title)
-python -m lynn [objects|map|palette|audio|config|test] [map] [--save spec]
+python -m lynn [objects|map|palette|audio|config|credits|test] [map] [--save spec]
 ```
 
 Keys:
@@ -62,7 +63,7 @@ Keys:
 - Enter — confirm pause slot or Yes/No
 - Left / Right — Yes/No
 - Ctrl — swing current weapon; rebound in config
-- Esc — pause (`objects`); quit (`map` / `palette` / `config` saves)
+- Esc — pause (`objects`); quit (`map` / `palette` / `config` saves / `credits`)
 - `[` `]` or PageUp / PageDown — previous / next room
 - F11 / Alt+Enter — toggle fullscreen
 - F12 — cycle integer scale (fit, then 1x–6x)

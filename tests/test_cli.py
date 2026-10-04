@@ -39,6 +39,7 @@ def test_parse_cli_map_default_and_override():
     )
     assert parse_cli(["audio"]) == ("audio", None, [], None, False)
     assert parse_cli(["config"]) == ("config", None, [], None, False)
+    assert parse_cli(["credits"]) == ("credits", None, [], None, False)
     assert parse_cli(["--save", "1"]) == ("objects", None, [], "1", False)
     assert parse_cli(["objects", "--save", "1"]) == ("objects", None, [], "1", False)
     assert parse_cli(["objects", "inhouse", "--save", "1"]) == (

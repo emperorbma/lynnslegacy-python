@@ -1,4 +1,4 @@
-"""Window loop. `python -m lynn [objects|map|palette|audio|config|test]`."""
+"""Window loop. `python -m lynn [objects|map|palette|audio|config|credits|test]`."""
 
 from __future__ import annotations
 
@@ -92,6 +92,24 @@ def main(argv: list[str] | None = None) -> int:
         frame_clock = pygame.time.Clock()
         canvas = pygame.Surface((SCREEN_W, SCREEN_H)).convert()
         code = _run_audio(canvas, frame_clock, 0)
+        pygame.quit()
+        return code
+    if mode == "credits":
+        chdir_project_root()
+        from lynn.audio import init_mixer, init_snd
+
+        pygame.mixer.pre_init(44100, -16, 2, 512)
+        pygame.init()
+        init_mixer()
+        init_snd()
+        pygame.mouse.set_visible(False)
+        pygame.display.set_caption("Lynn's Legacy")
+        _open_window()
+        if load_fullscreen() != 0:
+            pygame.display.toggle_fullscreen()
+        frame_clock = pygame.time.Clock()
+        canvas = pygame.Surface((SCREEN_W, SCREEN_H)).convert()
+        code = _run_credits(canvas, frame_clock, 0)
         pygame.quit()
         return code
     if mode not in MODES:
@@ -200,12 +218,13 @@ def resolve_boot_map(mode: str, map_spec: str | None, save) -> tuple[str | None,
 
 def _usage() -> str:
     return (
-        "Usage: python -m lynn [objects|map|palette|audio|config|test] [map] [--save spec] [--godmode]\n"
+        "Usage: python -m lynn [objects|map|palette|audio|config|credits|test] [map] [--save spec] [--godmode]\n"
         f"  objects [map]  walk Lynn (default: splash + {START_MAP})\n"
         f"  map [map]      tiles only (default: {DEFAULT_MAP})\n"
         "  palette        256-color ramp + lynn24.spr\n"
         "  config         key setup (writes data/controls.xml and ll.ini)\n"
         "  audio          live sound check (title.it + a sample); Esc quits\n"
+        "  credits        ending roll, then exit; Esc quits\n"
         "  test           pytest (extra args forwarded, including --map; silent audio)\n"
         "  --save spec    load a save (path, N for ll_saveN.sav, or example name)\n"
         "  --godmode      no damage (F8 toggles; F9 opens cheat commands)\n"
@@ -230,6 +249,28 @@ def _caption_for(mode: str, map_spec: str | None = None, quiet: bool = False) ->
     if mode == "map":
         return f"Lynn's Legacy - {label} (tiles only)"
     return f"Lynn's Legacy - {label}"
+
+
+def _run_credits(canvas, frame_clock, scale_option: int) -> int:
+    """Play the ending roll and return. Same roll as __set_finish; this path is the preview."""
+    from lynn.credits import roll_credits
+    from lynn.events import bind_hero, bind_hero_only
+    from lynn.gfx.palette import load_pal
+    from lynn.hero import MainCharType
+    from lynn.object.char import CharType
+
+    events.xxyxx = TRUE
+    hero = CharType()
+    bind_hero(hero)
+    bind_hero_only(MainCharType())
+    roll_credits(
+        canvas,
+        lambda: _present(canvas, scale_option),
+        frame_clock,
+        load_pal("data/palette/ll.pal"),
+        hero,
+    )
+    return 0
 
 
 def _run_audio(canvas, frame_clock, scale_option: int) -> int:

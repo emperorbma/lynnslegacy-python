@@ -15,12 +15,13 @@ fi
 
 case "$1" in
     -h|--help|help|"/?")
-        echo "Usage: run.sh [objects|map|palette|audio|config|test|help] [map] [--save spec]"
+        echo "Usage: run.sh [objects|map|palette|audio|config|credits|test|help] [map] [--save spec]"
         echo "  objects [map]  walk Lynn (default: splash + title.map)"
         echo "  map [map]      tiles only (default: forest_fall)"
         echo "  palette        256-color ramp + lynn24.spr"
         echo "  config         key setup (data/controls.xml + ll.ini)"
         echo "  audio          live sound check (title.it); Esc quits"
+        echo "  credits        ending roll, then exit; Esc quits"
         echo "  test           pytest (silent audio; e.g. run.sh test --map valley)"
         echo "  --save spec    load a save (path, N for ll_saveN.sav, or example name)"
         exit 0
