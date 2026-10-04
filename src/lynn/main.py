@@ -605,6 +605,10 @@ def _run_map(
         if consume_title_events(demo):
             running = False
             continue
+        # __set_finish sets xxyxx. Window close and title quit leave it at 0.
+        if events.xxyxx != 0:
+            running = False
+            continue
         room_i = demo.hero_room if demo.hero is not None else room_i
         if not (0 <= room_i < demo.game_map.rooms):
             room_i = 0
@@ -633,6 +637,16 @@ def _run_map(
                 menu_Blit(canvas, demo.menu, demo.hero_only)
         _present(canvas, scale_option)
         frame_clock.tick(60)
+    if events.xxyxx != 0:
+        from lynn.credits import roll_credits
+
+        roll_credits(
+            canvas,
+            lambda: _present(canvas, scale_option),
+            frame_clock,
+            demo.palette,
+            demo.hero,
+        )
     return 0
 
 

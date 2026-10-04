@@ -34,6 +34,7 @@ dark = 0
 load_images = 0
 minimap = None
 pending_visited = None
+xxyxx = 0
 
 
 @dataclass
@@ -51,7 +52,7 @@ keys = KeyState()
 
 
 def reset_events() -> None:
-    global hero_only, hero, current_room, current_others, do_hud, box_entity, map_filename, hero_room, fade_white, fade_black, fade_red, debug_god, debug_fixture, do_chap, pending_seq, current_seq, seq_box, pending_load, request_quit, goto_title, song, song_fade, song_wait, dark, load_images, minimap, pending_visited
+    global hero_only, hero, current_room, current_others, do_hud, box_entity, map_filename, hero_room, fade_white, fade_black, fade_red, debug_god, debug_fixture, do_chap, pending_seq, current_seq, seq_box, pending_load, request_quit, goto_title, song, song_fade, song_wait, dark, load_images, minimap, pending_visited, xxyxx
     for i in range(len(now)):
         now[i] = 0
     hero_only = None
@@ -81,6 +82,7 @@ def reset_events() -> None:
     load_images = 0
     minimap = None
     pending_visited = None
+    xxyxx = 0
     keys.up = keys.down = keys.enter = keys.escape = keys.enter_pulse = 0
     keys.left = keys.right = 0
 

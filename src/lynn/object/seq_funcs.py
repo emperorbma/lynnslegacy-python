@@ -55,6 +55,12 @@ def __end(this: CharType) -> int:
     return 0
 
 
+def __set_finish(this: CharType) -> int:
+    """FB object_etc.bas: llg(xxyxx)=-1. The play loop then calls LL_RollCredits."""
+    events.xxyxx = -1
+    return 1
+
+
 def __do_menu(this: CharType) -> int:
     """FB object_etc.bas: title Begin / Continue / Quit."""
     hero = events.hero

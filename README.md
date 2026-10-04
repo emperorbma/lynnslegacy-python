@@ -4,11 +4,13 @@ Faithful gameplay port of *Lynn's Legacy* from FreeBASIC to Python / pygame-ce.
 
 Original project: [https://sourceforge.net/projects/lynn/](https://sourceforge.net/projects/lynn/)
 
+LÖVE port: [https://github.com/gradualgames/lynnslegacy](https://github.com/gradualgames/lynnslegacy)
+
 This is not a rewrite and not a map-editor port. Function names, field names, and binary layouts follow the original engine.
 
 ## License
 
-Public domain ([Unlicense](http://unlicense.org/)), same as the original FreeBASIC game and the LÖVE port. See `LICENSE`.
+Public domain ([Unlicense](http://unlicense.org/)), same as the original FreeBASIC game and the [LÖVE port](https://github.com/gradualgames/lynnslegacy). See `LICENSE`.
 
 Machine-local source-tree paths and credentials are not stored in this repository.
 
