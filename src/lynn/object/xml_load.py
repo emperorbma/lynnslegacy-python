@@ -26,19 +26,21 @@ _XML_CACHE: dict[str, str] = {}
 
 def get_image_header(filename: str, load_pixels: bool = True) -> LLSystem_ImageHeader:
     key = filename.replace("\\", "/").lower()
+    # load_images=False must not reuse a prior pixel load. Cached explosion.spr
+    # frames make boss __explode wait instead of returning 3, so Grult death
+    # never reaches play_seq after tests like raycrate load_images=True.
+    if not load_pixels:
+        return LLSystem_ImageHeader(filename=key)
     cached = _IMAGE_CACHE.get(key)
-    if load_pixels and (cached is None or cached.frames == 0):
+    if cached is None or cached.frames == 0:
         path = _resolve(key)
         if path.is_file():
             _IMAGE_CACHE[key] = LLSystem_ImageLoad(str(path))
             return _IMAGE_CACHE[key]
-    if cached is not None:
-        return cached
-    header = LLSystem_ImageHeader(filename=key)
-    if not load_pixels:
+        header = LLSystem_ImageHeader(filename=key)
+        _IMAGE_CACHE[key] = header
         return header
-    _IMAGE_CACHE[key] = header
-    return header
+    return cached
 
 
 def get_object_xml(object_id: str) -> str:

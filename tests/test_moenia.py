@@ -329,6 +329,18 @@ def test_grult_explode_skips_stun_jumps_to_reach_seq():
     assert __explode(boss) == 3
 
 
+def test_grult_explode_skip_ignores_cached_explosion_spr():
+    """load_images=False must not reuse a prior explosion.spr pixel cache."""
+    from lynn.object.gfx_animation import __explode
+
+    crate = CharType()
+    crate.id = "data/object/raycrate.xml"
+    LLSystem_ObjectFromXML(crate, load_images=True)
+    boss = _load("grult.xml")
+    assert boss.anim[boss.expl_anim].frames == 0
+    assert __explode(boss) == 3
+
+
 def test_grult_death_queues_room_sequence():
     reset_events()
     boss = _load("grult.xml")
