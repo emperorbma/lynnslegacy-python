@@ -207,13 +207,8 @@ def test_flyback_returns_to_idle():
 
 
 def test_eye_is_the_only_vulnerable_face():
-    from lynn.gfx.image import LLSystem_ImageLoad
-
-    boss = _boss()
+    boss = _boss(load_images=True)
     _place(boss, _room())
-    # Load the real .col without the XML image cache. Caching explosion.spr
-    # makes Grult's boss explode animate instead of skipping ahead.
-    boss.anim[0] = LLSystem_ImageLoad(r"data/pictures/char/boss2.spr")
     shell = boss.anim[0].frame[0]
     assert shell.faces >= 8
     assert shell.face[7].invincible == 0
@@ -241,11 +236,8 @@ def test_eye_is_the_only_vulnerable_face():
 
 def test_sway_jump_does_not_leave_the_open_eye_untouchable():
     """A hit during the 4.5s sway must not stick dmg_id after the jump."""
-    from lynn.gfx.image import LLSystem_ImageLoad
-
-    boss = _boss()
+    boss = _boss(load_images=True)
     _place(boss, _room())
-    boss.anim[0] = LLSystem_ImageLoad(r"data/pictures/char/boss2.spr")
     boss.frame = 0
     boss.frame_check = 0
     boss.dmg_id = DF_MAIN_CHAR
