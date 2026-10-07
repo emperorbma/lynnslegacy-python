@@ -63,6 +63,133 @@ def test_llmusic_start_records_last_song():
     assert audio.last_song == ""
 
 
+def test_boss_victory_fade_stops_the_song():
+    """set_fade plus fade_to_black stops boss.it. The room index stays 4."""
+    from lynn import audio, clock
+    from lynn.events import reset_events
+    from lynn.object.seq_funcs import __fade_off, __fade_to_black, __set_fade
+    import lynn.events as events
+
+    reset_events()
+    events.fade_black = 0
+    events.song = 4
+    audio.last_song = "data/music/boss.it"
+    boss = CharType()
+    boss.fade_time = 0.01
+    lynn = CharType()
+    assert __set_fade(lynn) == 1
+    assert events.song_fade != 0
+    clock.timer = 1.0
+    done = 0
+    for _ in range(200):
+        clock.timer += 0.05
+        done = __fade_to_black(boss)
+        if done:
+            break
+    assert done == 1
+    assert audio.last_song == ""
+    assert events.song == 4
+    # Dyssius fades the picture back up before fade_off. That must not
+    # reload boss.it or raise a ducked stream back to full.
+    from lynn.object.seq_funcs import __fade_up_to_color
+
+    started = []
+    volumes = []
+    real_start = audio.LLMusic_Start
+    real_volume = audio.LLMusic_SetVolume
+
+    def _no_start(name: str) -> None:
+        started.append(name)
+        real_start(name)
+
+    def _watch_volume(volume: int) -> None:
+        volumes.append(volume)
+        real_volume(volume)
+
+    audio.LLMusic_Start = _no_start
+    audio.LLMusic_SetVolume = _watch_volume
+    try:
+        lynn.fade_time = 0.01
+        lynn.fade_count = 0
+        lynn.fade_timer = 0
+        clock.timer = 20.0
+        for _ in range(80):
+            clock.timer += 0.05
+            if __fade_up_to_color(lynn):
+                break
+        assert audio.last_song == ""
+        assert started == []
+        assert volumes == []
+        assert events.song == 4
+        from lynn.audio import start_room_song
+
+        start_room_song(4)
+        assert started == []
+        assert audio.last_song == ""
+    finally:
+        audio.LLMusic_Start = real_start
+        audio.LLMusic_SetVolume = real_volume
+    assert __fade_off(lynn) == 1
+    assert events.song_fade == 0
+    events.fade_black = 0
+
+
+def test_fade_up_restores_volume_when_a_song_is_still_loaded():
+    """FB fade_up slams GVOL to 100 while song_fade is set and a track is loaded."""
+    from lynn import audio, clock
+    from lynn.constants import TRUE
+    from lynn.events import reset_events
+    from lynn.object.seq_funcs import __fade_up_to_color
+    import lynn.events as events
+
+    reset_events()
+    events.song_fade = TRUE
+    events.fade_black = 255
+    audio.last_song = "data/music/forest.it"
+    hero = CharType()
+    hero.fade_time = 0.01
+    volumes = []
+    real_volume = audio.LLMusic_SetVolume
+
+    def _watch_volume(volume: int) -> None:
+        volumes.append(volume)
+        real_volume(volume)
+
+    audio.LLMusic_SetVolume = _watch_volume
+    clock.timer = 1.0
+    try:
+        __fade_up_to_color(hero)
+    finally:
+        audio.LLMusic_SetVolume = real_volume
+    assert volumes == [100]
+    events.fade_black = 0
+    events.song_fade = 0
+
+
+def test_fade_to_black_leaves_the_song_when_song_fade_is_clear():
+    from lynn import audio, clock
+    from lynn.events import reset_events
+    from lynn.object.seq_funcs import __fade_to_black
+    import lynn.events as events
+
+    reset_events()
+    events.fade_black = 0
+    events.song_fade = 0
+    audio.last_song = "data/music/boss.it"
+    hero = CharType()
+    hero.fade_time = 0.01
+    clock.timer = 1.0
+    done = 0
+    for _ in range(200):
+        clock.timer += 0.05
+        done = __fade_to_black(hero)
+        if done:
+            break
+    assert done == 1
+    assert audio.last_song == "data/music/boss.it"
+    events.fade_black = 0
+
+
 def test_fade_music_out_reaches_stop():
     from lynn import clock
     from lynn.audio import LLMusic_Fade, SongFadingType

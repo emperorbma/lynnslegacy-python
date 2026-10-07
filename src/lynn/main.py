@@ -316,6 +316,17 @@ def _play_hero_logic_sound(demo, god_menu) -> None:
     _play_frame_sound(hero)
 
 
+def release_pass_action(hero_only) -> None:
+    """FB hero_main zeros action at the start of every pass.
+
+    The action key is an edge. One display frame may run several logic
+    steps, and only the first of those may see the edge. Leaving it set
+    dismisses a box and starts the same talk again in that frame.
+    """
+    if hero_only is not None:
+        hero_only.action = 0
+
+
 def _simulate_play_step(demo, room_i, cam_x, cam_y, god_menu, frame_hold, keys):
     """One FreeBASIC engine pass: hero, sequence, then enemies.
 
@@ -451,6 +462,7 @@ def _simulate_play_step(demo, room_i, cam_x, cam_y, god_menu, frame_hold, keys):
             LLObject_CheckSpawn(obj)
     _play_hero_logic_sound(demo, god_menu)
     if consume_title_events(demo) or events.xxyxx != 0:
+        release_pass_action(demo.hero_only)
         return room_i, cam_x, cam_y, True
     room_i = demo.hero_room if demo.hero is not None else room_i
     if not (0 <= room_i < demo.game_map.rooms):
@@ -464,6 +476,7 @@ def _simulate_play_step(demo, room_i, cam_x, cam_y, god_menu, frame_hold, keys):
         from lynn.audio import tick_music
 
         tick_music()
+    release_pass_action(demo.hero_only)
     return room_i, cam_x, cam_y, False
 
 

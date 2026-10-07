@@ -155,6 +155,8 @@ class CharType:
     fade_time: float = 0.0
     fade_timer: float = 0.0
     fade_count: int = 0
+    fade_out: int = 0
+    song_fade_count: int = 0
     placed: int = 0
     state_shift: int = 0
     attack_state: int = 0

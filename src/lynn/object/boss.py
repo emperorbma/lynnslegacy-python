@@ -785,8 +785,13 @@ def _sword_axes(this: CharType, scale: float, finish_on_block: bool) -> None:
         if room is None:
             return
         moved = move_object(this, room, moment=moment, others=others)
+        # A wall ends the throw. The Arx seed is impassable and the blade
+        # starts inside it, so that object block must not cancel the fly.
         if finish_on_block and moved == 0:
-            this.fly_count = int(this.fly_length) - 1
+            from lynn.map.collision import check_walk
+
+            if check_walk(this, direction, room) == 0:
+                this.fly_count = int(this.fly_length) - 1
 
     fly_y = float(this.fly_y)
     if fly_y > 0:
@@ -838,7 +843,13 @@ def __sword_return(this: CharType) -> int:
     if sterach is None:
         return 0
     if sterach.funcs.active_state != 1:
-        if check_bounds(LLObject_VectorPair(this), LLObject_VectorPair(sterach)) == 0:
+        # A killing blow already set dead. Shifting him back to the sword
+        # reaction leaves dead set, so the death func never runs.
+        if (
+            sterach.dead == 0
+            and sterach.hp > 0
+            and check_bounds(LLObject_VectorPair(this), LLObject_VectorPair(sterach)) == 0
+        ):
             LLObject_ShiftState(sterach, 1)
     else:
         sx, sy = _mid(this)

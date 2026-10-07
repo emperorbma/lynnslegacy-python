@@ -445,17 +445,31 @@ def LLMusic_SetVolume(volumeDesired: int) -> None:
     """FB BASS_CONFIG_GVOL_MUSIC, 0–100."""
     global music_volume
     music_volume = max(0, min(100, int(volumeDesired)))
+    _apply_mixer_volume(music_volume)
+
+
+def LLMusic_ApplyVolume(volumeDesired: int) -> None:
+    """Duck the mixer without storing the gain.
+
+    fade_to_black drives this while song_fade is set. The next start uses
+    the stored music_volume, so a boss fade cannot leave the rest of the
+    game silent.
+    """
+    _apply_mixer_volume(max(0, min(100, int(volumeDesired))))
+
+
+def _apply_mixer_volume(volume: int) -> None:
     try:
         import pygame
 
         if pygame.mixer.get_init() is not None:
-            pygame.mixer.music.set_volume(music_volume / 100.0)
+            pygame.mixer.music.set_volume(volume / 100.0)
     except Exception:
         pass
 
 
 def LLMusic_Stop() -> None:
-    """FB bass_channelstop(llg(sng))."""
+    """FB bass_channelstop(llg(sng)). Unload so a later volume write cannot revive it."""
     global last_song
     last_song = ""
     try:
@@ -463,6 +477,9 @@ def LLMusic_Stop() -> None:
 
         if pygame.mixer.get_init() is not None:
             pygame.mixer.music.stop()
+            unload = getattr(pygame.mixer.music, "unload", None)
+            if unload is not None:
+                unload()
     except Exception:
         pass
 

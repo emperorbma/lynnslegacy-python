@@ -93,6 +93,46 @@ def test_scientist_intro_hands_back_control():
     assert scientist.sel_seq == 1
 
 
+def test_eldqud_reminder_closes_on_one_action_edge():
+    """Dismissing 'take a look' must not open the same line again.
+
+    FreeBASIC keeps the action edge for one engine pass. The play loop
+    used to leave it set for every logic step in the frame, so the pass
+    that closed the box also started it again while Lynn was still facing him.
+    """
+    from lynn.gfx.box import TEXTBOX_CONFIRMATION
+    from lynn.main import release_pass_action
+
+    _m, hero, only, objs, _room = _inhouse_room(6)
+    scientist = next(o for o in objs if o.id.replace("\\", "/").endswith("scientist.xml"))
+    hero.coords_x = scientist.coords_x
+    hero.coords_y = scientist.coords_y + 16
+    hero.direction = 0
+    scientist.sel_seq = 1
+    only.action = TRUE
+    seq = try_action_sequence(hero, only, objs)
+    assert seq is not None
+    release_pass_action(only)
+    box = BoxControl()
+    for i in range(400):
+        clock.timer = i * 0.05
+        seq = play_sequence(seq, box, only)
+        assert only.action == 0
+        if box.activated != 0 and box.state == TEXTBOX_CONFIRMATION:
+            break
+    assert box.state == TEXTBOX_CONFIRMATION
+    only.action = TRUE
+    seq = play_sequence(seq, box, only)
+    release_pass_action(only)
+    assert seq is None
+    assert only.action_lock == 0
+    assert try_action_sequence(hero, only, objs) is None
+    only.action = TRUE
+    again = try_action_sequence(hero, only, objs)
+    only.action = 0
+    assert again is not None
+
+
 def test_book_letter_hands_back_control():
     _m, hero, only, objs, _room = _inhouse_room(0)
     book = next(o for o in objs if o.id.replace("\\", "/").endswith("book.xml"))

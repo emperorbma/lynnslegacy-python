@@ -565,6 +565,8 @@ def __black_text_on(this: CharType) -> int:
 
 
 def __fade_off(this: CharType) -> int:
+    """FB object_sound.bas: llg(song_fade) = 0."""
+    events.song_fade = 0
     return 1
 
 
@@ -662,7 +664,23 @@ def __play_sound(this: CharType) -> int:
 
 
 def __set_fade(this: CharType) -> int:
+    """FB object_sound.bas: arm song_fade from the palette peak.
+
+    Boss victories pair this with fade_to_black. The fade stops boss.it.
+    The room song index stays 4, so nothing else turns the track off.
+    """
+    this.fade_out = 63 // 4
+    events.song_fade = TRUE
     return 1
+
+
+def _duck_song_fade(this: CharType) -> None:
+    """FB __fade_to_black: (fade_out - song_fade_count) << 3 / 5.12."""
+    from lynn.audio import LLMusic_ApplyVolume
+
+    this.song_fade_count += 1
+    tmp = (int(this.fade_out) - int(this.song_fade_count)) * 8
+    LLMusic_ApplyVolume(int(tmp / 5.12))
 
 
 def __set_vol_fade(this: CharType) -> int:
@@ -844,6 +862,14 @@ def __fade_up_to_color(this: CharType) -> int:
         events.fade_black = max(0, int(events.fade_black) - 4)
         events.fade_white = 0
         this.fade_count += 1
+        # FB slams GVOL to 100 while song_fade is set. That is silent if the
+        # channel was stopped. Skip it once boss.it has been unloaded, or the
+        # fade back up brings the ducked theme back in.
+        if events.song_fade != 0:
+            import lynn.audio as audio
+
+            if audio.last_song:
+                audio.LLMusic_SetVolume(100)
         this.fade_timer = clock.timer + (this.fade_time or 0.01)
     if clock.timer >= this.fade_timer:
         this.fade_timer = 0
@@ -910,15 +936,27 @@ def __fade_to_red(this: CharType) -> int:
 
 
 def __fade_to_black(this: CharType) -> int:
-    """FB palette darken. Black overlay stands in for palette steps of 4."""
+    """FB palette darken. Black overlay stands in for palette steps of 4.
+
+    song_fade, armed by set_fade, ducks the track on each slice and stops
+    it when the screen is black. Boss rooms never change song index.
+    """
     if this.fade_timer == 0:
         events.fade_black = min(255, int(events.fade_black) + 4)
         this.fade_timer = clock.timer + (this.fade_time or 0.01)
+        if events.song_fade != 0:
+            _duck_song_fade(this)
     if clock.timer >= this.fade_timer:
         this.fade_timer = 0
     if events.fade_black >= 250:
         events.fade_black = 255
         this.fade_timer = 0
+        this.fade_out = 0
+        this.song_fade_count = 0
+        if events.song_fade != 0:
+            from lynn.audio import LLMusic_Stop
+
+            LLMusic_Stop()
         return 1
     return 0
 

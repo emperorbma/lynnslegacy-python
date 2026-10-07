@@ -220,6 +220,42 @@ def test_sword_fly_steps_toward_lynn_and_ends_on_a_wall():
     assert blocked.fly_timer == 0
 
 
+def test_sword_fly_leaves_the_seed_it_starts_inside():
+    """The blade rests inside the impassable seed. That overlap is not a wall."""
+    sword = CharType()
+    sword.id = "data/object/swordie.xml"
+    sword = LLSystem_ObjectFromXML(sword, load_images=True)
+    seed = CharType()
+    seed.id = "data/object/seedfloat.xml"
+    seed = LLSystem_ObjectFromXML(seed, load_images=True)
+    sword.coords_x = 488
+    sword.coords_y = 176
+    seed.coords_x = 496
+    seed.coords_y = 176
+    hero = _bind(_open_room(), [sword, seed])
+    hero.coords_x = 400
+    hero.coords_y = 320
+    assert __sword_fly(sword) == 0
+    assert sword.fly_count == 1
+    assert sword.coords_y > 176
+
+
+def test_sword_return_leaves_a_dead_sterach_on_death():
+    sword = _obj("data/object/swordie.xml")
+    boss = _obj("data/object/sterach.xml")
+    sword.coords_x = 488
+    sword.coords_y = 176
+    boss.coords_x = 496
+    boss.coords_y = 192
+    boss.hp = 0
+    boss.dead = 1
+    boss.funcs.active_state = 2
+    _bind(_open_room(), [sword, boss])
+    assert __sword_return(sword) == 0
+    assert boss.funcs.active_state == 2
+    assert boss.dead != 0
+
+
 def test_sword_returns_to_sterach_and_a_wall_does_not_finish_it():
     sword = _obj("data/object/swordie.xml")
     boss = _obj("data/object/sterach.xml")
