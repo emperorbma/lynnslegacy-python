@@ -263,3 +263,7 @@ def tick_objects(objs: list[CharType], cam: tuple[int, int] | None = None) -> No
             if obj.dead_sound != 0:
                 play_sample(obj.dead_sound)
             LLObject_ShiftState(obj, obj.death_state)
+    # FB maintain_temps runs after the temp-enemy pass. cripple sets
+    # total_dead on its first call, and dead_drop_block has not reached
+    # __drop yet, so a spawned roamer is released without a drop.
+    objs[:] = [obj for obj in objs if getattr(obj, "is_temp", 0) == 0 or obj.total_dead == 0]

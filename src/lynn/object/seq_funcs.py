@@ -177,6 +177,14 @@ def __healthguy_branch(this: CharType) -> int:
     return 1
 
 
+def __heal_lynn(this: CharType) -> int:
+    """FB object_etc.bas: the green save point fills Lynn before the file menu."""
+    hero = events.hero
+    if hero is not None:
+        hero.hp = hero.maxhp
+    return 1
+
+
 def __buy_health(this: CharType) -> int:
     hero = events.hero
     if hero is None:
