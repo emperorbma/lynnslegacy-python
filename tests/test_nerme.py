@@ -2,11 +2,13 @@
 
 import lynn.object  # noqa: F401
 from lynn import clock
-from lynn.constants import TRUE, u_savepoint
+from lynn.constants import DF_ROOM_ENEMY, TRUE, u_pmouth, u_savepoint
 from lynn.events import bind_hero, bind_hero_only, bind_room, reset_events
+from lynn.gfx.image import LLSystem_FaceType, LLSystem_FrameShell, LLSystem_ImageHeader
 from lynn.hero import ctor_hero, ctor_hero_only
 from lynn.map.types import RoomType
 from lynn.object.char import CharType
+from lynn.object.combat import LLObject_MAINAttack
 from lynn.object.dispatch import lookup_func
 from lynn.object.tick import tick_objects
 from lynn.object.xml_load import LLSystem_ObjectFromXML
@@ -111,5 +113,89 @@ def test_placed_roamer_still_drops(monkeypatch):
         assert room_list == [roamer]
         assert roamer.dropped == 1
         assert roamer.total_dead != 0
+    finally:
+        clock.timer = saved
+
+
+def _weapon_at(hero: CharType, x: int, y: int) -> None:
+    shell = LLSystem_FrameShell(
+        faces=1,
+        face=[LLSystem_FaceType(x=0, y=0, w=16, h=16)],
+    )
+    hero.anim = [LLSystem_ImageHeader(frames=1, frame=[shell])]
+    hero.animControl = []
+    hero.current_anim = 0
+    hero.uni_directional = 1
+    hero.frame = 0
+    hero.coords_x = x
+    hero.coords_y = y
+
+
+def _open_mouth(mouth: CharType) -> None:
+    """Headless anims finish immediately. Each second_pause still waits 1s."""
+    tick_objects([mouth])
+    tick_objects([mouth])
+    tick_objects([mouth])
+    clock.timer += 1
+    tick_objects([mouth])
+    tick_objects([mouth])
+    clock.timer += 1
+    tick_objects([mouth])
+    tick_objects([mouth])
+    tick_objects([mouth])
+    tick_objects([mouth])
+
+
+def test_plant_mouth_opens_then_reforms():
+    """A sapling hit opens the green mouth. It seals once Lynn steps off."""
+    reset_events()
+    saved = clock.timer
+    clock.timer = 0.0
+    try:
+        hero = ctor_hero(load_images=False)
+        hero.hp = 6
+        hero.maxhp = 6
+        hero.perimeter_x = 16
+        hero.perimeter_y = 16
+        bind_hero(hero)
+        bind_hero_only(ctor_hero_only())
+        mouth = _load("pmouth.xml")
+        mouth.coords_x = 100
+        mouth.coords_y = 100
+        assert mouth.unique_id == u_pmouth
+        assert lookup_func("__check_lynn_contact") is not lookup_func("__noop")
+        assert mouth.funcs.func[1][-1] is lookup_func("__check_lynn_contact")
+        bind_room(RoomType(), [mouth])
+
+        _weapon_at(hero, 400, 400)
+        LLObject_MAINAttack([mouth], hero)
+        assert mouth.funcs.active_state == 0
+        assert mouth.hp == 1
+        assert mouth.impassable != 0
+
+        _weapon_at(hero, 100, 100)
+        LLObject_MAINAttack([mouth], hero)
+        assert mouth.funcs.active_state == 1
+        assert mouth.impassable == 0
+        assert mouth.hp == 1
+        assert mouth.dmg_id == 0
+
+        hero.coords_x = 400
+        hero.coords_y = 400
+        _open_mouth(mouth)
+        assert mouth.funcs.active_state == 0
+        assert mouth.impassable != 0
+        assert hero.hp == 6
+
+        _weapon_at(hero, 100, 100)
+        LLObject_MAINAttack([mouth], hero)
+        _open_mouth(mouth)
+        assert hero.hp == 5
+        assert hero.hurt == 1
+        assert hero.dmg_id == DF_ROOM_ENEMY
+        assert hero.fly_x == 0
+        assert hero.fly_y == 0
+        assert mouth.funcs.active_state == 1
+        assert mouth.impassable == 0
     finally:
         clock.timer = saved

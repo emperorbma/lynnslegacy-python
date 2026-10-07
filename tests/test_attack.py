@@ -13,6 +13,7 @@ from lynn.object.combat import (
     LLObject_MAINAttack,
     hero_attack,
     start_hero_attack,
+    start_item_use,
 )
 from lynn.object.xml_load import spawn_from_stub
 
@@ -190,3 +191,109 @@ def test_desert_goblin_chase_does_not_stick_invulnerable():
             assert enemy.hp == hp0 - 2
     finally:
         clock.timer = saved
+
+
+def test_powder_swing_drops_a_walk_hold():
+    hero = ctor_hero(load_images=False)
+    only = ctor_hero_only()
+    only.selected_item = 1
+    bind_hero_only(only)
+    hero.frame_hold = 9.0
+    start_item_use(hero)
+    assert only.attacking == TRUE
+    assert hero.attack_state == 8
+    assert hero.frame_hold == 0
+
+
+def test_mace_swing_sounds_on_the_step_that_shows_frame_zero():
+    """Frame 0 is the only mace sample, and it lasts a single logic step."""
+    pygame.init()
+    pygame.display.set_mode((320, 200))
+    from lynn import audio, clock
+    from lynn.audio import sound_mace_2
+    from lynn.gfx.blit import _play_frame_sound
+    from lynn.macros import LLObject_CalculateFrame
+
+    hero = ctor_hero(load_images=True)
+    only = ctor_hero_only()
+    only.has_weapon = 2
+    only.weapon = 2
+    bind_hero_only(only)
+    saved = clock.timer
+    try:
+        clock.timer = 1.0
+        hero.direction = 1
+        hero.frame_hold = clock.timer + 0.08
+        audio.last_play = None
+        start_hero_attack(hero)
+        hero_attack(hero)
+        assert hero.current_anim == 5
+        assert hero.frame == 0
+        assert hero.frame_hold == 0
+        _play_frame_sound(hero)
+        assert audio.last_play == (sound_mace_2, 50)
+        for _ in range(3):
+            clock.timer += clock.LOGIC_DT
+            hero_attack(hero)
+            _play_frame_sound(hero)
+        shown = LLObject_CalculateFrame(hero)
+        assert hero.frame != 0
+        assert hero.anim[hero.current_anim].frame[shown].sound == 0
+        assert audio.last_play == (sound_mace_2, 50)
+    finally:
+        clock.timer = saved
+        pygame.quit()
+
+
+def _mace_connect_step(frame_hold: float) -> int | None:
+    from types import SimpleNamespace
+
+    from lynn import clock
+
+    hero = ctor_hero(load_images=True)
+    only = ctor_hero_only()
+    only.has_weapon = 2
+    only.weapon = 2
+    bind_hero_only(only)
+    hero.coords_x = 100
+    hero.coords_y = 100
+    hero.direction = 1
+    hero.frame_hold = frame_hold
+    roamer = spawn_from_stub(
+        SimpleNamespace(
+            id="data/object/roamer.xml",
+            x_origin=hero.coords_x + 16,
+            y_origin=hero.coords_y,
+            direction=0,
+        ),
+        load_images=True,
+    )
+    hp0 = roamer.hp
+    clock.timer = 1.0
+    start_hero_attack(hero)
+    for i in range(80):
+        clock.timer += clock.LOGIC_DT
+        if only.attacking != 0:
+            hero_attack(hero)
+        LLObject_MAINAttack([roamer], hero)
+        if roamer.hp < hp0 or roamer.dead != 0:
+            return i
+    return None
+
+
+def test_mace_hit_ignores_a_leftover_walk_hold():
+    pygame.init()
+    pygame.display.set_mode((320, 200))
+    from lynn import clock
+
+    saved = clock.timer
+    try:
+        held = _mace_connect_step(1.08)
+        clear = _mace_connect_step(0.0)
+        assert held is not None
+        assert held == clear
+        # A live walk hold used to push this hit out by about 0.08s (past step 40).
+        assert held < 40
+    finally:
+        clock.timer = saved
+        pygame.quit()

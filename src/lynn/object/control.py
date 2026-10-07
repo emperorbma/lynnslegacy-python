@@ -57,6 +57,8 @@ def out_proximity(this: CharType) -> int:
     if clock.timer >= this.reset_delay:
         if more_x > vf or more_y > vf:
             this.reset_delay = 0
+            this.sway = 0
+            this.degree = 0
             this.mad = 0
             if 0 <= this.funcs.active_state < len(this.funcs.current_func):
                 this.funcs.current_func[this.funcs.active_state] = 0
@@ -72,6 +74,8 @@ def out_proximity(this: CharType) -> int:
         if clock.timer >= this.far_reset_delay:
             this.far_reset_delay = 0
             this.reset_delay = 0
+            this.sway = 0
+            this.degree = 0
             this.mad = 0
             if 0 <= this.funcs.active_state < len(this.funcs.current_func):
                 this.funcs.current_func[this.funcs.active_state] = 0

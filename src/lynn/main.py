@@ -302,6 +302,20 @@ def _run_palette(canvas, frame_clock, scale_option: int) -> int:
     return 0
 
 
+def _play_hero_logic_sound(demo, god_menu) -> None:
+    """Play the hero frame sample on this engine pass.
+
+    The swing sample lives only on attack frame 0, and that frame lasts one
+    200 Hz step. A 60 Hz blit usually arrives after it has already advanced.
+    """
+    hero = demo.hero
+    if hero is None or demo.menu_open != 0 or god_menu.open or hero.invisible != 0:
+        return
+    from lynn.gfx.blit import _play_frame_sound
+
+    _play_frame_sound(hero)
+
+
 def _simulate_play_step(demo, room_i, cam_x, cam_y, god_menu, frame_hold, keys):
     """One FreeBASIC engine pass: hero, sequence, then enemies.
 
@@ -435,6 +449,7 @@ def _simulate_play_step(demo, room_i, cam_x, cam_y, god_menu, frame_hold, keys):
         )
         for obj in others:
             LLObject_CheckSpawn(obj)
+    _play_hero_logic_sound(demo, god_menu)
     if consume_title_events(demo) or events.xxyxx != 0:
         return room_i, cam_x, cam_y, True
     room_i = demo.hero_room if demo.hero is not None else room_i

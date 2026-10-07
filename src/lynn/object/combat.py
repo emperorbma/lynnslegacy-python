@@ -20,6 +20,7 @@ from lynn.constants import (
     u_bshape,
     u_grult,
     u_gshape,
+    u_pmouth,
     u_steelstrider,
     u_sterach,
 )
@@ -329,6 +330,13 @@ def LLObject_MAINAttack(enemies: list[CharType], hr: CharType) -> None:
                 target = LLObject_VectorPair(enemy)
                 if check_bounds(origin, target) != 0:
                     continue
+                # A closed plant mouth opens and stays undamaged. The boss
+                # crystal shares this faces==0 branch and is left alone.
+                if enemy.unique_id == u_pmouth:
+                    if enemy.funcs.active_state == 0:
+                        enemy.impassable = 0
+                        LLObject_ShiftState(enemy, 1)
+                    continue
                 enemy.dmg_id = DF_MAIN_CHAR
                 enemy.dmg_index = 0
                 enemy.dmg_specific = 0
@@ -395,6 +403,8 @@ def start_item_use(hr: CharType) -> None:
         only.powder = only.selected_item
     else:
         return
+    # Flare and ice start with active_anim, which leaves a walk frame_hold in place.
+    hr.frame_hold = 0
     if 0 <= hr.attack_state < len(hr.funcs.current_func):
         hr.funcs.current_func[hr.attack_state] = 0
 

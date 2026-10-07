@@ -185,6 +185,41 @@ def __heal_lynn(this: CharType) -> int:
     return 1
 
 
+def __check_lynn_contact(this: CharType) -> int:
+    """FB object_etc.bas: an open plant mouth hurts Lynn, then seals when she leaves."""
+    from lynn.constants import DF_ROOM_ENEMY
+    from lynn.map.collision import check_bounds
+    from lynn.object.combat import (
+        LLObject_ClearDamage,
+        LLObject_ShiftState,
+        LLObject_VectorPair,
+    )
+
+    hero = events.hero
+    touching = hero is not None and check_bounds(
+        LLObject_VectorPair(this), LLObject_VectorPair(hero)
+    ) == 0
+    if touching:
+        if hero.dmg_id == 0:
+            hero.hp -= 1
+            hero.hurt = 1
+            hero.dmg_id = DF_ROOM_ENEMY
+            hero.fly_x = 0
+            hero.fly_y = 0
+            if hero.hp < 1 and hero.dead == 0:
+                LLObject_ShiftState(hero, hero.death_state)
+                hero.dead = 1
+                hero.fade_time = 0.07
+                LLObject_ClearDamage(hero)
+            elif hero.hp < 1:
+                LLObject_ClearDamage(hero)
+        LLObject_ShiftState(this, 1)
+    else:
+        this.impassable = 1
+        LLObject_ShiftState(this, 0)
+    return 0
+
+
 def __buy_health(this: CharType) -> int:
     hero = events.hero
     if hero is None:

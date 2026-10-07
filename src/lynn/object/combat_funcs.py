@@ -13,6 +13,9 @@ def __weapon_anim(this: CharType) -> int:
     weap = events.hero_only.weapon if events.hero_only is not None else 0
     this.current_anim = weap + 3
     this.frame = 0
+    # A walk frame_hold still in the future would pin the swing on frame 0.
+    # The mace and star have no weapon box on that frame, so the hit lands late.
+    this.frame_hold = 0
     return 1
 
 

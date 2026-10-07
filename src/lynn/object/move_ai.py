@@ -204,10 +204,46 @@ def __make_face(this: CharType) -> int:
     return 1
 
 
-def __chase(this: CharType) -> int:
-    """FB object_move.bas: home in on the hero until out_proximity resets."""
+def _chase_polarity(px: int, py: int) -> int | None:
+    if px == 1 and py == 1:
+        return 6
+    if px == 1 and py == 0:
+        return 1
+    if px == 1 and py == -1:
+        return 5
+    if px == -1 and py == 1:
+        return 7
+    if px == -1 and py == 0:
+        return 3
+    if px == -1 and py == -1:
+        return 4
+    if px == 0 and py == 1:
+        return 2
+    if px == 0 and py == -1:
+        return 0
+    return None
+
+
+def _chase_sway(this: CharType, room, others) -> None:
+    """FB do_sway: one cardinal sidestep, then retry the saved direction."""
     import math
 
+    tmp = this.direction
+    sway_calc = math.sin(math.radians(this.degree))
+    if sway_calc > 0:
+        this.direction += 1
+    elif sway_calc < 0:
+        this.direction -= 1
+    this.direction = _in_dir_small(this.direction)
+    move_object(this, room, only_looking=0, moment=1, others=others)
+    this.direction = tmp
+    this.swaying = -1
+    if move_object(this, room, only_looking=0, moment=1, others=others) != 0:
+        this.swaying = 0
+
+
+def __chase(this: CharType) -> int:
+    """FB object_move.bas: home in on the hero until out_proximity resets."""
     hero = events.hero
     room = events.current_room
     others = events.current_others
@@ -226,37 +262,19 @@ def __chase(this: CharType) -> int:
     n, this.walk_hold = clock.pop_due(this.walk_hold, rate)
     if room is not None:
         for _ in range(n):
-            px = 1 if hx > ox else (-1 if hx < ox else 0)
-            py = 1 if hy > oy else (-1 if hy < oy else 0)
-            if px == 1 and py == 1:
-                this.direction = 6
-            elif px == 1 and py == 0:
-                this.direction = 1
-            elif px == 1 and py == -1:
-                this.direction = 5
-            elif px == -1 and py == 1:
-                this.direction = 7
-            elif px == -1 and py == 0:
-                this.direction = 3
-            elif px == -1 and py == -1:
-                this.direction = 4
-            elif px == 0 and py == 1:
-                this.direction = 2
-            elif px == 0 and py == -1:
-                this.direction = 0
-            if px != 0 or py != 0:
-                if move_object(this, room, only_looking=0, moment=1, others=others) == 0:
-                    tmp = this.direction
-                    sway_calc = math.sin(math.radians(this.degree))
-                    if sway_calc > 0:
-                        this.direction += 1
-                    elif sway_calc < 0:
-                        this.direction -= 1
-                    this.direction = _in_dir_small(this.direction)
-                    move_object(this, room, only_looking=0, moment=1, others=others)
-                    this.direction = tmp
-            if this.uni_directional == 0:
-                this.direction = _in_dir_small(this.direction)
+            # Once a direct step is blocked, later passes skip it and keep
+            # sidestepping until that saved direction can move.
+            if this.swaying != 0:
+                _chase_sway(this, room, others)
+            else:
+                px = 1 if hx > ox else (-1 if hx < ox else 0)
+                py = 1 if hy > oy else (-1 if hy < oy else 0)
+                direction = _chase_polarity(px, py)
+                if direction is not None:
+                    this.direction = direction
+                    if move_object(this, room, only_looking=0, moment=1, others=others) == 0:
+                        _chase_sway(this, room, others)
+            this.direction = _in_dir_small(this.direction)
             __make_face(this)
             if this.animControl and this.current_anim < len(this.animControl):
                 if LLObject_IncrementFrame(this) != 0:
