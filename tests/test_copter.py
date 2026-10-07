@@ -82,8 +82,8 @@ def test_red_copter_keeps_aggro_after_lynn_steps_outside():
         clock.timer = saved
 
 
-def test_red_copter_returns_to_the_chase_after_a_hit():
-    """A hit clears mad. Lynn still in the vision box should not make it land."""
+def test_red_copter_lands_after_a_hit_inside_vision():
+    """A hit clears mad. The landing still plays while Lynn is in the box."""
     import lynn.object.move_ai  # noqa: F401 — bind __chase before the XML load
 
     from lynn.constants import DF_MAIN_CHAR
@@ -112,14 +112,15 @@ def test_red_copter_returns_to_the_chase_after_a_hit():
         cop.dmg_id = DF_MAIN_CHAR
         LLObject_DamageCalc(cop)
         assert cop.funcs.active_state == cop.hit_state
+        landed = False
         for _ in range(40):
             clock.timer += 0.005
             tick_objects([cop])
-            if cop.funcs.active_state == cop.jump_state and cop.mad == 1:
+            if cop.funcs.active_state == cop.reset_state:
+                landed = True
                 break
-        assert cop.funcs.active_state == cop.jump_state
-        assert cop.mad == 1
-        assert cop.funcs.current_func[cop.jump_state] >= 2
+        assert landed
+        assert cop.mad == 0
     finally:
         clock.timer = saved
 

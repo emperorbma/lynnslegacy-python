@@ -217,20 +217,11 @@ def tick_objects(objs: list[CharType], cam: tuple[int, int] | None = None) -> No
             # FB checks the leash on the same pass that first sets mad.
             # Waiting a tick leaves reset_delay at 0, so the next step
             # outside the box drops aggro before lose_time can start.
-            # A red copter's hit state is numbered above reset, so that
-            # test never runs during the knockback. Flyback then clears
-            # mad and the finished hit plays the landing. If Lynn is still
-            # in the vision box, take the chase back instead.
-            on_hit = obj.funcs.active_state == obj.hit_state and obj.id.replace(
-                "\\", "/"
-            ).endswith("rcopter.xml")
-            reacquire = obj.funcs.active_state < obj.reset_state or on_hit
-            if obj.mad == 0 and reacquire:
+            # A hit state numbered above reset (red copter) is left alone.
+            # Flyback clears mad and the landing plays. in_proximity runs
+            # again only after that state is back below reset.
+            if obj.mad == 0 and obj.funcs.active_state < obj.reset_state:
                 obj.funcs.active_state = in_proximity(obj)
-                # ShiftState cleared the jump block. Replaying it would
-                # take off from the ground instead of continuing the chase.
-                if on_hit and obj.funcs.active_state == obj.jump_state:
-                    obj.funcs.current_func[obj.jump_state] = 2
             if obj.mad != 0:
                 obj.funcs.active_state = out_proximity(obj)
         if getattr(obj, "grult_proj_trig", 0) != 0:
