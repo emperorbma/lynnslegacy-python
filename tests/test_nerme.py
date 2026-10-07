@@ -2,8 +2,14 @@
 
 import lynn.object  # noqa: F401
 from lynn import clock
-from lynn.constants import DF_ROOM_ENEMY, TRUE, u_pmouth, u_savepoint
-from lynn.events import bind_hero, bind_hero_only, bind_room, reset_events
+from lynn.constants import (
+    DF_ROOM_ENEMY,
+    TRUE,
+    u_boss5_crystal,
+    u_pmouth,
+    u_savepoint,
+)
+from lynn.events import bind_hero, bind_hero_only, bind_room, now, reset_events
 from lynn.gfx.image import LLSystem_FaceType, LLSystem_FrameShell, LLSystem_ImageHeader
 from lynn.hero import ctor_hero, ctor_hero_only
 from lynn.map.types import RoomType
@@ -199,3 +205,113 @@ def test_plant_mouth_opens_then_reforms():
         assert mouth.impassable == 0
     finally:
         clock.timer = saved
+
+
+def test_weapon_wakes_the_logosta_crystal():
+    reset_events()
+    hero = ctor_hero(load_images=False)
+    hero.perimeter_x = 16
+    hero.perimeter_y = 16
+    bind_hero(hero)
+    crystal = _load("boss5_crystal.xml")
+    crystal.coords_x = 100
+    crystal.coords_y = 100
+    assert crystal.unique_id == u_boss5_crystal
+    assert crystal.funcs.func[0][1].__name__ == "__check_for_dead_faces"
+    bind_room(RoomType(), [crystal])
+    _weapon_at(hero, 400, 400)
+    LLObject_MAINAttack([crystal], hero)
+    assert crystal.funcs.active_state == 0
+    _weapon_at(hero, 100, 100)
+    LLObject_MAINAttack([crystal], hero)
+    assert crystal.funcs.active_state == 1
+    assert crystal.impassable != 0
+    assert crystal.hp == 1
+    assert crystal.dmg_id == 0
+
+
+def test_logosta_faces_fire_inward():
+    from lynn.object.projectile import LLObject_InitializeProjectiles
+
+    left = _load("boss5_left.xml")
+    left.coords_x = 0
+    left.coords_y = 0
+    left.direction = 0
+    LLObject_InitializeProjectiles(left)
+    assert left.projectile.direction == 3
+    mid_y = left.coords_y + (int(left.perimeter_y) >> 1)
+    assert left.projectile.coords[0][1] == mid_y - 3
+    down = _load("boss5_down.xml")
+    down.direction = 0
+    LLObject_InitializeProjectiles(down)
+    assert down.projectile.direction == 2
+
+
+def test_red_crystal_reflects_a_face_beam():
+    from lynn.object.projectile import LLObject_ProjectileDamage
+
+    face = _load("boss5_right.xml")
+    crystal = _load("boss5_crystal.xml")
+    crystal.coords_x = 200
+    crystal.coords_y = 200
+    crystal.funcs.active_state = 1
+    proj = face.projectile
+    proj.active = face.proj_style
+    proj.direction = 1
+    proj.coords[0][0] = 200
+    proj.coords[0][1] = 200
+    proj.coords[1][0] = 232
+    proj.coords[1][1] = 200
+    LLObject_ProjectileDamage([face], crystal)
+    assert crystal.funcs.active_state == 2
+    assert face.shifty == -1
+    assert proj.direction == 3
+    assert proj.active != 0
+
+
+def test_reflected_beam_hurts_the_face_that_fired_it():
+    reset_events()
+    face = _load("boss5_left.xml")
+    face.coords_x = 100
+    face.coords_y = 100
+    face.shifty = -1
+    proj = face.projectile
+    proj.active = face.proj_style
+    proj.coords[0][0] = 100
+    proj.coords[0][1] = 100
+    proj.coords[1][0] = 0
+    proj.coords[1][1] = 0
+    bind_room(RoomType(), [face])
+    tick_objects([face])
+    assert face.hp == 3
+    assert face.funcs.active_state == face.hit_state
+    assert face.shifty == 0
+    assert proj.active == 0
+
+
+def test_three_dead_faces_start_the_crystal_ending():
+    reset_events()
+    crystal = _load("boss5_crystal.xml")
+    faces = [
+        _load("boss5_left.xml"),
+        _load("boss5_right.xml"),
+        _load("boss5_down.xml"),
+    ]
+    for face in faces:
+        face.dead = TRUE
+    bind_room(RoomType(), faces + [crystal])
+    tick_objects([crystal])
+    tick_objects([crystal])
+    assert crystal.funcs.active_state == 3
+
+
+def test_happen_598_skips_the_logosta_death_cinematic():
+    reset_events()
+    face = _load("boss5_right.xml")
+    now[598] = TRUE
+    try:
+        lookup_func("__make_dead")(face)
+        assert face.dead != 0
+        assert face.funcs.active_state == 4
+    finally:
+        now[598] = 0

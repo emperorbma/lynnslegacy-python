@@ -8,6 +8,10 @@ from lynn.constants import (
     TRUE,
     u_bluechest,
     u_bluechestitem,
+    u_boss5_crystal,
+    u_boss5_down,
+    u_boss5_left,
+    u_boss5_right,
     u_button,
     u_chest,
     u_coldrock,
@@ -444,6 +448,12 @@ def __make_dead(this: CharType) -> int:
             from lynn.object.combat import LLObject_ShiftState
 
             LLObject_ShiftState(this, 5)
+    if this.unique_id in (u_boss5_right, u_boss5_left, u_boss5_down, u_boss5_crystal):
+        # Already-defeated reload. Happen 598 skips the death cinematic.
+        if events.now[598] != 0:
+            from lynn.object.combat import LLObject_ShiftState
+
+            LLObject_ShiftState(this, 4)
     return 1
 
 

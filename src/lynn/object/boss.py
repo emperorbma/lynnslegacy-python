@@ -7,7 +7,16 @@ import random
 
 import lynn.events as events
 from lynn import clock
-from lynn.constants import MO_JUST_CHECKING, u_dyssius, u_grult, u_gtorch, u_steelstrider
+from lynn.constants import (
+    MO_JUST_CHECKING,
+    u_boss5_down,
+    u_boss5_left,
+    u_boss5_right,
+    u_dyssius,
+    u_grult,
+    u_gtorch,
+    u_steelstrider,
+)
 from lynn.object.char import CharType
 from lynn.object.dispatch import register_func
 from lynn.object.gfx_frame import LLObject_IncrementFrame
@@ -857,6 +866,20 @@ def __sword_jump(this: CharType) -> int:
     return 1
 
 
+def __check_for_dead_faces(this: CharType) -> int:
+    """FB object_boss.bas: three dead Logosta faces start the crystal ending."""
+    dead_face = 0
+    faces = (u_boss5_left, u_boss5_right, u_boss5_down)
+    for obj in events.current_others or []:
+        if obj.unique_id in faces and obj.dead != 0:
+            dead_face += 1
+    if dead_face == 3:
+        from lynn.object.combat import LLObject_ShiftState
+
+        LLObject_ShiftState(this, 3)
+    return 0
+
+
 def __sterach_call(this: CharType) -> int:
     """FB __sterach_call: Sterach (enemy[1]) plays the arm-throw anim."""
     boss = _room_enemy(1)
@@ -896,3 +919,4 @@ register_func("__sword_return", __sword_return)
 register_func("__sword_glow", __sword_glow)
 register_func("__sword_jump", __sword_jump)
 register_func("__sterach_call", __sterach_call)
+register_func("__check_for_dead_faces", __check_for_dead_faces)

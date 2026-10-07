@@ -20,6 +20,7 @@ from lynn.constants import (
     u_bshape,
     u_grult,
     u_gshape,
+    u_boss5_crystal,
     u_pmouth,
     u_steelstrider,
     u_sterach,
@@ -330,11 +331,15 @@ def LLObject_MAINAttack(enemies: list[CharType], hr: CharType) -> None:
                 target = LLObject_VectorPair(enemy)
                 if check_bounds(origin, target) != 0:
                     continue
-                # A closed plant mouth opens and stays undamaged. The boss
-                # crystal shares this faces==0 branch and is left alone.
+                # A closed plant mouth opens and stays undamaged.
+                # Logosta's crystal wakes the same way and stays impassable.
                 if enemy.unique_id == u_pmouth:
                     if enemy.funcs.active_state == 0:
                         enemy.impassable = 0
+                        LLObject_ShiftState(enemy, 1)
+                    continue
+                if enemy.unique_id == u_boss5_crystal:
+                    if enemy.funcs.active_state == 0:
                         LLObject_ShiftState(enemy, 1)
                     continue
                 enemy.dmg_id = DF_MAIN_CHAR

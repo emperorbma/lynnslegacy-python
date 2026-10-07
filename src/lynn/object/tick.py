@@ -170,6 +170,11 @@ def tick_objects(objs: list[CharType], cam: tuple[int, int] | None = None) -> No
     from lynn.audio import play_sample
     from lynn.constants import (
         u_anger,
+        u_beamcrystal,
+        u_boss5_crystal,
+        u_boss5_down,
+        u_boss5_left,
+        u_boss5_right,
         u_dyssius,
         u_gbutton,
         u_gold,
@@ -242,6 +247,19 @@ def tick_objects(objs: list[CharType], cam: tuple[int, int] | None = None) -> No
         # flash inside tick_dyssius.
         if obj.dmg_id != 0 and obj.unique_id not in (u_dyssius, u_steelstrider):
             __flashy(obj)
+        # FB tests room beams against Logosta's faces and crystal before the
+        # state func. A red crystal sends the beam back; shifty lets it hurt
+        # the face that fired it.
+        if obj.unique_id in (
+            u_beamcrystal,
+            u_boss5_right,
+            u_boss5_down,
+            u_boss5_left,
+            u_boss5_crystal,
+        ):
+            from lynn.object.projectile import LLObject_ProjectileDamage
+
+            LLObject_ProjectileDamage(objs, obj)
         tick_object(obj)
         proj = obj.projectile
         if proj is not None and proj.active != 0:

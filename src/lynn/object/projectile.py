@@ -18,12 +18,19 @@ from lynn.constants import (
     PROJECTILE_ORB,
     PROJECTILE_SCHIZO,
     u_anger,
+    u_beamcrystal,
+    u_boss5_crystal,
+    u_boss5_down,
+    u_boss5_left,
+    u_boss5_right,
     u_dyssius,
     u_fbug,
     u_grult,
     u_ibug,
     u_steelstrider,
 )
+
+_BOSS5_FACES = (u_boss5_left, u_boss5_right, u_boss5_down)
 
 # FB engine--LL.bas IncrementProjectiles: cross, 8-way, and schizo share this fan.
 _FAN_STYLES = (PROJECTILE_CROSS, PROJECTILE_8WAY, PROJECTILE_SCHIZO)
@@ -58,15 +65,28 @@ def LLObject_InitializeProjectiles(obj: CharType) -> None:
     proj = obj.projectile
     if proj is None or not proj.coords:
         return
-    if proj.saveDirection == 0:
+    # Logosta's faces always fire inward. The saved facing is not the beam.
+    if obj.unique_id == u_boss5_left:
+        proj.direction = 3
+    elif obj.unique_id == u_boss5_right:
+        proj.direction = 1
+    elif obj.unique_id == u_boss5_down:
+        proj.direction = 2
+    elif proj.saveDirection == 0:
         proj.direction = int(obj.direction) & 3
         proj.saveDirection = -1
     pw, ph = _proj_wh(obj)
     sx = (obj.coords_x + (int(obj.perimeter_x) >> 1)) - (pw >> 1)
     sy = (obj.coords_y + (int(obj.perimeter_y) >> 1)) - (ph >> 1)
-    for pair in proj.coords:
-        pair[0] = sx
-        pair[1] = sy
+    # Left and right beams sit three pixels above the vertical middle.
+    if obj.unique_id in (u_boss5_left, u_boss5_right):
+        sy = (obj.coords_y + (int(obj.perimeter_y) >> 1)) - 3
+        proj.coords[0][0] = sx
+        proj.coords[0][1] = sy
+    else:
+        for pair in proj.coords:
+            pair[0] = sx
+            pair[1] = sy
     if obj.proj_style == PROJECTILE_BEAM and len(proj.coords) > 1:
         beam = 16
         d = proj.direction & 3
@@ -172,14 +192,30 @@ def __do_proj(this: CharType) -> int:
     return 1
 
 
+def _reflect_boss5_beam(enemy: CharType) -> None:
+    """FB crystal case: reverse the beam and step it back toward the face."""
+    proj = enemy.projectile
+    if proj is None or len(proj.coords) < 2:
+        return
+    proj.direction = (int(proj.direction) + 2) & 3
+    proj.coords[0], proj.coords[1] = proj.coords[1], proj.coords[0]
+    LLObject_IncrementProjectiles(enemy)
+    enemy.shifty = -1
+
+
 def LLObject_ProjectileDamage(enemies: list[CharType], hr: CharType) -> None:
-    """FB ProjectileDamage: active orb/beam vs hero AABB."""
+    """FB ProjectileDamage: shots vs the hero, or a Logosta piece vs room beams."""
     from lynn.map.collision import check_bounds
 
-    if hr.invincible != 0 or hr.dead != 0 or hr.dmg_id != 0:
+    boss_piece = hr.unique_id in _BOSS5_FACES or hr.unique_id in (
+        u_boss5_crystal,
+        u_beamcrystal,
+    )
+    if not boss_piece and (hr.invincible != 0 or hr.dead != 0 or hr.dmg_id != 0):
         return
     for index, enemy in enumerate(enemies):
-        if enemy is hr:
+        # A Logosta face is hit by its own reflected beam. The hero is not.
+        if enemy is hr and not boss_piece:
             continue
         # Firebugs and ice bugs throw on death. The corpse must still hit.
         if enemy.dead != 0 and enemy.unique_id not in (u_fbug, u_ibug):
@@ -196,6 +232,28 @@ def LLObject_ProjectileDamage(enemies: list[CharType], hr: CharType) -> None:
                 continue
             origin = (pair[0], pair[1], pw, ph)
             if check_bounds(origin, (hr.coords_x, hr.coords_y, hr.perimeter_x, hr.perimeter_y)) != 0:
+                continue
+            if hr.unique_id in _BOSS5_FACES:
+                # A reflected beam hurts the face that fired it.
+                if enemy.unique_id == hr.unique_id and hr.shifty:
+                    from lynn.object.combat import LLObject_ShiftState
+
+                    LLObject_ShiftState(hr, hr.hit_state)
+                    LLObject_ClearProjectiles(enemy)
+                    hr.hp -= 1
+                    enemy.shifty = 0
+                continue
+            if hr.unique_id == u_boss5_crystal:
+                if hr.funcs.active_state == 1:
+                    from lynn.object.combat import LLObject_ShiftState
+
+                    LLObject_ShiftState(hr, 2)
+                    _reflect_boss5_beam(enemy)
+                elif enemy.unique_id != u_boss5_crystal:
+                    LLObject_ClearProjectiles(enemy)
+                continue
+            if hr.unique_id == u_beamcrystal:
+                LLObject_ClearProjectiles(enemy)
                 continue
             hr.dmg_id = DF_ROOM_ENEMY | DF_PROJ
             hr.dmg_index = index

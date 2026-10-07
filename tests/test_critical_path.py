@@ -7,9 +7,10 @@ fails in one place.
 
 Shipped so far: forest sapling → town portal → Interport → Moenia → Grult →
 seed portal back to town → Gelidus chasm switch (happen 357) → Dyssius
-(happen 297) → seed portal back to forest_fall room 12 → desert →
-interport4 → Arx scraps (happen 479) → Arx bridge (happen 470) →
-Sterach (happen 1202) → island.
+(happen 297) → seed portal back to forest_fall room 12 → ruins →
+interport5 → Nerme Logosta (happen 597) → seed portal back to forest
+room 3 → desert → interport4 → Arx scraps (happen 479) → Arx bridge
+(happen 470) → Sterach (happen 1202) → island.
 """
 
 from pathlib import Path
@@ -20,6 +21,10 @@ from lynn import clock
 from lynn.constants import (
     DF_MAIN_CHAR,
     TRUE,
+    u_boss5_crystal,
+    u_boss5_down,
+    u_boss5_left,
+    u_boss5_right,
     u_bush,
     u_dyssius,
     u_gold,
@@ -38,7 +43,12 @@ from lynn.map.loader import load_mapV
 from lynn.object.combat import LLObject_DamageCalc
 from lynn.object.tick import LLObject_CheckSpawn, tick_object, tick_objects
 from lynn.paths import data_file, resolve_map_path
-from lynn.sequence import play_sequence, try_action_sequence, try_touch_sequence
+from lynn.sequence import (
+    play_sequence,
+    sequence_FullReset,
+    try_action_sequence,
+    try_touch_sequence,
+)
 
 
 def _map_stem(demo: MapDemo) -> str:
@@ -409,8 +419,34 @@ def _tele_chain(demo: MapDemo, steps: tuple[tuple[int, int], ...]) -> None:
         assert demo.hero_room == dest, (tele_i, dest, demo.hero_room)
 
 
-def _forest_fall_to_arx(demo: MapDemo) -> None:
-    """Room 12 south to the desert pad, then interport4 into Arx entry 0."""
+def _play_until_happen(demo: MapDemo, seq, flag: int, limit: int = 4000):
+    """Play until now[flag] is set. The Logosta cinematic keeps going after that."""
+    box = demo.box if demo.box is not None else BoxControl()
+    demo.box = box
+    only = demo.hero_only
+    room = (
+        demo.game_map.room[demo.hero_room]
+        if demo.hero_room < len(demo.game_map.room)
+        else None
+    )
+    bind_room(room, _objs(demo))
+    for i in range(limit):
+        clock.timer = i * 0.05
+        if box.activated != 0:
+            only.action = TRUE
+        seq = play_sequence(seq, box, only)
+        only.action = 0
+        if now[flag] != 0:
+            demo.seq = seq
+            return
+        if seq is None:
+            demo.seq = None
+            break
+    raise AssertionError(f"happen {flag} was not set")
+
+
+def _forest_to_nerme(demo: MapDemo) -> None:
+    """Room 12 to the ruins pad, then interport5 into Nerme and the boss room."""
     _tele_chain(
         demo,
         (
@@ -421,8 +457,119 @@ def _forest_fall_to_arx(demo: MapDemo) -> None:
             (0, 7),
             (0, 1),
             (1, 2),
+            (2, 3),
         ),
     )
+    _take_tele(demo, 1)
+    assert _map_stem(demo) == "ruins"
+    _drain_entry_seq(demo)
+    _tele_chain(demo, ((0, 1), (1, 2)))
+    _take_tele(demo, 3)
+    assert _map_stem(demo) == "interport5"
+    _drain_entry_seq(demo)
+    _take_tele(demo, 0)
+    assert _map_stem(demo) == "nerme"
+    assert demo.hero_room == 0
+    _drain_entry_seq(demo)
+    _tele_chain(demo, ((0, 1), (1, 8), (2, 30), (3, 43)))
+    assert demo.hero_room == 43
+
+
+def _defeat_logosta(demo: MapDemo) -> None:
+    """Kill the three faces. The crystal sequence sets happen 597."""
+    objs = _objs(demo)
+    bind_room(demo.game_map.room[demo.hero_room], objs)
+    faces = [
+        o
+        for o in objs
+        if o.unique_id in (u_boss5_left, u_boss5_right, u_boss5_down)
+    ]
+    crystal = next(o for o in objs if o.unique_id == u_boss5_crystal)
+    assert len(faces) == 3
+    assert crystal.funcs.func[0][1].__name__ == "__check_for_dead_faces"
+    for face in faces:
+        face.hp = 0
+    seq = None
+    for i in range(800):
+        clock.timer = 30 + i * 0.05
+        tick_objects(objs)
+        if events.pending_seq is not None:
+            seq = events.pending_seq
+            events.pending_seq = None
+            break
+    assert seq is not None, "Logosta crystal sequence did not start"
+    assert all(face.dead != 0 for face in faces)
+    hero = demo.hero
+    hero.walk_hold = 0
+    hero.pause = 0
+    hero.fade_timer = 0
+    hero.fade_count = 0
+    events.fade_black = 0
+    events.fade_white = 0
+    events.fade_red = 0
+    _play_until_happen(demo, seq, 597)
+    sequence_FullReset(seq, demo.hero_only)
+    demo.seq = None
+    events.current_seq = None
+    events.pending_seq = None
+    demo.hero_only.dropoutSequence = 0
+    hero.to_map = ""
+    hero.switch_room = -1
+    hero.fade_timer = 0
+    hero.fade_count = 0
+    events.fade_black = 0
+    events.fade_white = 0
+    events.fade_red = 0
+    assert now[597] != 0
+
+
+def _logosta_seed_home(demo: MapDemo) -> None:
+    """The boss-room seed returns through ruins to forest room 3."""
+    seed = _named(demo, "seedfloat.xml")
+    assert seed is not None, "Logosta room has no seed"
+    hero = demo.hero
+    hero.perimeter_x = 16
+    hero.perimeter_y = 16
+    seed.perimeter_x = 16
+    seed.perimeter_y = 16
+    hero.coords_x = seed.coords_x
+    hero.coords_y = seed.coords_y + 8
+    hero.switch_room = -1
+    hero.to_map = ""
+    hero.walk_hold = 0
+    hero.pause = 0
+    seq = try_touch_sequence(hero, _objs(demo))
+    assert seq is not None, "Logosta seed touch sequence did not start"
+    _play_until_done(demo, seq, limit=4000)
+    consume_title_events(demo)
+    demo.hero_room = events.hero_room
+    assert _map_stem(demo) == "ruins"
+    _drain_entry_seq(demo)
+    _tele_chain(demo, ((0, 1), (0, 0)))
+    _take_tele(demo, 1)
+    assert _map_stem(demo) == "forest_fall"
+    assert demo.hero_room == 3
+    _drain_entry_seq(demo)
+
+
+def _forest_fall_to_arx(demo: MapDemo) -> None:
+    """Room 12, or room 3 after Nerme, then the desert pad into Arx entry 0."""
+    if demo.hero_room == 3:
+        _take_tele(demo, 0)
+    else:
+        _tele_chain(
+            demo,
+            (
+                (0, 11),
+                (0, 10),
+                (0, 9),
+                (0, 8),
+                (0, 7),
+                (0, 1),
+                (1, 2),
+            ),
+        )
+    assert demo.hero_room == 2
     _take_tele(demo, 4)
     assert _map_stem(demo) == "desert"
     assert demo.hero_room == 0
@@ -522,8 +669,8 @@ def _defeat_sterach(demo: MapDemo) -> None:
 def test_critical_path_as_far_as_ported():
     """Player route through everything the port currently implements.
 
-    Today that ends on island after Sterach: scraps, the Arx span, and the
-    sword dying with him.
+    Today that ends on island after Sterach. Nerme is the ruins portal
+    between Dyssius and the desert, and its seed returns to forest room 3.
     """
     demo = _new_game()
     assert _map_stem(demo) == "forest_fall"
@@ -588,6 +735,12 @@ def test_critical_path_as_far_as_ported():
     assert now[357] != 0
     assert now[1010] != 0
 
+    _forest_to_nerme(demo)
+    _defeat_logosta(demo)
+    _logosta_seed_home(demo)
+    assert now[597] != 0
+    assert demo.hero_room == 3
+
     _forest_fall_to_arx(demo)
     _tele_chain(
         demo,
@@ -628,6 +781,7 @@ def test_critical_path_as_far_as_ported():
     _defeat_sterach(demo)
     assert now[470] != 0
     assert now[479] != 0
+    assert now[597] != 0
     assert now[1202] != 0
     assert demo.hero_only.hasItem[2] != 0
     assert bridge_menu_icons(demo.hero_only) == (menu_bridge2, menu_bridge2_select)
