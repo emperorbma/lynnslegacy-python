@@ -707,6 +707,165 @@ def __dyssius_full_explode(this: CharType) -> int:
     return 1
 
 
+def _mid(obj: CharType) -> tuple[float, float]:
+    return (
+        float(obj.coords_x) + float(obj.perimeter_x) / 2.0,
+        float(obj.coords_y) + float(obj.perimeter_y) / 2.0,
+    )
+
+
+def _room_enemy(index: int) -> CharType | None:
+    others = events.current_others
+    if others is None or not (0 <= index < len(others)):
+        return None
+    return others[index]
+
+
+def _get_angle(ux: float, uy: float, vx: float, vy: float) -> float:
+    """FB Get_Angle. 0 is up, 90 is right, and y grows downward."""
+    o = abs(vy - uy)
+    a = abs(vx - ux)
+    if vy == uy and vx > ux:
+        return 90.0
+    if vy == uy and vx < ux:
+        return 270.0
+    if vx == ux and vy > uy:
+        return 180.0
+    if vx == ux and vy < uy:
+        return 0.0
+    if a == 0:
+        return 0.0
+    atan_deg = math.atan(o / a) / (math.pi / 180.0)
+    if vy < uy and vx > ux:
+        return 180.0 - (atan_deg + 90.0)
+    if vy > uy and vx > ux:
+        return atan_deg + 90.0
+    if vy < uy and vx < ux:
+        return 180.0 + (atan_deg + 90.0)
+    if vy > uy and vx < ux:
+        return 360.0 - (atan_deg + 90.0)
+    return 0.0
+
+
+def __sword_angle(this: CharType) -> int:
+    """FB __sword_angle: 16-frame facing, nudged by 22.5/4 degrees."""
+    hero = events.hero
+    if hero is None:
+        return 1
+    sx, sy = _mid(this)
+    hx, hy = _mid(hero)
+    angle = _get_angle(sx, sy, hx, hy) + (22.5 / 4.0)
+    if angle < 0:
+        angle += 360.0
+    elif angle >= 360.0:
+        angle -= 360.0
+    this.frame = int(angle / (360.0 / 16.0))
+    return 1
+
+
+def _sword_axes(this: CharType, scale: float, finish_on_block: bool) -> None:
+    """One FB sword axis pair. The throw uses scale 2 and ends if a wall hits."""
+    from lynn.map.collision import move_object
+
+    room = events.current_room
+    others = events.current_others
+    this.fly_hold = int(this.direction)
+
+    def _move(direction: int, moment: float) -> None:
+        this.direction = direction
+        if room is None:
+            return
+        moved = move_object(this, room, moment=moment, others=others)
+        if finish_on_block and moved == 0:
+            this.fly_count = int(this.fly_length) - 1
+
+    fly_y = float(this.fly_y)
+    if fly_y > 0:
+        _move(0, abs(fly_y) * scale)
+    elif fly_y < 0:
+        _move(2, abs(fly_y) * scale)
+    fly_x = float(this.fly_x)
+    if fly_x > 0:
+        _move(3, abs(fly_x) * scale)
+    elif fly_x < 0:
+        _move(1, abs(fly_x) * scale)
+    this.fly_timer = clock.timer + float(this.fly_speed or 0)
+    this.direction = this.fly_hold
+
+
+def __sword_fly(this: CharType) -> int:
+    """FB __sword_fly: aim at Lynn once, then step at twice the unit vector."""
+    hero = events.hero
+    if this.fly_count == 0 and hero is not None:
+        sx, sy = _mid(this)
+        hx, hy = _mid(hero)
+        this.fly_x, this.fly_y = _v2_calc_flyback(sx, sy, hx, hy)
+    if this.fly_timer == 0:
+        _sword_axes(this, 2.0, True)
+        this.fly_count += 1
+    if clock.timer >= this.fly_timer:
+        this.fly_timer = 0
+    if this.fly_count >= int(this.fly_length):
+        this.fly_count = 0
+        this.fly_timer = 0
+        return 1
+    return 0
+
+
+def __sword_return(this: CharType) -> int:
+    """FB __sword_return: fly back to Sterach, then reset when the mids meet."""
+    from lynn.map.collision import check_bounds
+    from lynn.object.combat import LLObject_ShiftState, LLObject_VectorPair
+
+    sterach = _room_enemy(1)
+    if sterach is not None:
+        sx, sy = _mid(this)
+        tx, ty = _mid(sterach)
+        this.fly_x, this.fly_y = _v2_calc_flyback(sx, sy, tx, ty)
+    if this.fly_timer == 0:
+        _sword_axes(this, 1.0, False)
+    if clock.timer >= this.fly_timer:
+        this.fly_timer = 0
+    if sterach is None:
+        return 0
+    if sterach.funcs.active_state != 1:
+        if check_bounds(LLObject_VectorPair(this), LLObject_VectorPair(sterach)) == 0:
+            LLObject_ShiftState(sterach, 1)
+    else:
+        sx, sy = _mid(this)
+        tx, ty = _mid(sterach)
+        if abs(tx - sx) < 1 and abs(ty - sy) < 1:
+            LLObject_ShiftState(this, 0)
+    return 0
+
+
+def __sword_glow(this: CharType) -> int:
+    """FB __sword_glow: toggle enemy[0] between the sword and the flash."""
+    sword = _room_enemy(0)
+    if sword is not None:
+        sword.current_anim ^= 1
+    return 1
+
+
+def __sword_jump(this: CharType) -> int:
+    """FB __sword_jump: Sterach sends enemy[0], the sword, into its throw."""
+    sword = _room_enemy(0)
+    if sword is not None:
+        from lynn.object.combat import LLObject_ShiftState
+
+        LLObject_ShiftState(sword, 1)
+    return 1
+
+
+def __sterach_call(this: CharType) -> int:
+    """FB __sterach_call: Sterach (enemy[1]) plays the arm-throw anim."""
+    boss = _room_enemy(1)
+    if boss is not None:
+        boss.current_anim = 3
+        boss.frame = 0
+    return 1
+
+
 register_func("__do_circle", __do_circle)
 register_func("__grult_fireball", __grult_fireball)
 register_func("__do_grult_proj", __do_grult_proj)
@@ -731,3 +890,9 @@ register_func("__anger_trigger", __anger_trigger)
 register_func("__anger_shoot", __anger_shoot)
 register_func("__anger_fireball2", __anger_fireball2)
 register_func("__do_anger_proj", __do_anger_proj)
+register_func("__sword_angle", __sword_angle)
+register_func("__sword_fly", __sword_fly)
+register_func("__sword_return", __sword_return)
+register_func("__sword_glow", __sword_glow)
+register_func("__sword_jump", __sword_jump)
+register_func("__sterach_call", __sterach_call)

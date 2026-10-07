@@ -253,6 +253,8 @@ def play_sequence(seq: SequenceType | None, box: BoxControl, hero_only, palette=
                         events.pending_load = link
                     sequence_FullReset(seq, hero_only)
                     events.do_hud = TRUE
+                    events.current_seq = None
+                    events.seq_box = None
                     return None
                 if hero_only.dropoutSequence != 0:
                     hero_only.dropoutSequence = 0
@@ -266,6 +268,8 @@ def play_sequence(seq: SequenceType | None, box: BoxControl, hero_only, palette=
                         return nxt
                     sequence_FullReset(seq, hero_only)
                     events.do_hud = TRUE
+                    events.current_seq = None
+                    events.seq_box = None
                     return None
         if _command_progressing(seq, box, ent) != 0:
             for e2 in cmd.ent:
@@ -281,7 +285,12 @@ def play_sequence(seq: SequenceType | None, box: BoxControl, hero_only, palette=
             box.box_IsInited = 0
             break
     if seq.current_command >= seq.commands:
+        # FB nulls the caller's seq pointer here. FullReset rewinds to
+        # command 0, so leaving current_seq set still looks like a live
+        # sequence and the material bridge will not start.
         sequence_FullReset(seq, hero_only)
         events.do_hud = TRUE
+        events.current_seq = None
+        events.seq_box = None
         return None
     return seq

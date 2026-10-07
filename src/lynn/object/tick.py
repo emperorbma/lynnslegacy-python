@@ -133,6 +133,39 @@ def _tick_gbutton(obj: CharType, objs: list[CharType]) -> None:
     obj.funcs.active_state = 1 if pressed else 0
 
 
+def LLObject_TorchModify(torch: CharType, enemies: list[CharType]) -> None:
+    """FB LLObject_TorchModify: nearby ghosts and guards recolor an ltorch.
+
+    Guards dim it (anim 3). A red shapeless (bshape) turns it red (anim 1)
+    and hurts on contact. A green shapeless (gshape) turns it green (anim 2)
+    and heals. The first living match in room order wins. Otherwise anim 0.
+    """
+    from lynn.constants import u_bguard, u_bshape, u_cguard, u_eguard, u_gshape, u_tguard
+
+    tx = float(torch.coords_x) + float(torch.perimeter_x) / 2.0
+    ty = float(torch.coords_y) + float(torch.perimeter_y) / 2.0
+    reach = float(torch.vision_field)
+    guards = (u_eguard, u_bguard, u_tguard, u_cguard)
+    for enemy in enemies:
+        if enemy.dead != 0:
+            continue
+        uid = enemy.unique_id
+        if uid not in guards and uid not in (u_bshape, u_gshape):
+            continue
+        ex = float(enemy.coords_x) + float(enemy.perimeter_x) / 2.0
+        ey = float(enemy.coords_y) + float(enemy.perimeter_y) / 2.0
+        if abs(tx - ex) >= reach or abs(ty - ey) >= reach:
+            continue
+        if uid in guards:
+            torch.current_anim = 3
+        elif uid == u_bshape:
+            torch.current_anim = 1
+        else:
+            torch.current_anim = 2
+        return
+    torch.current_anim = 0
+
+
 def tick_objects(objs: list[CharType], cam: tuple[int, int] | None = None) -> None:
     from lynn.audio import play_sample
     from lynn.constants import (
@@ -142,6 +175,7 @@ def tick_objects(objs: list[CharType], cam: tuple[int, int] | None = None) -> No
         u_gold,
         u_grult,
         u_health,
+        u_ltorch,
         u_silver,
         u_steelstrider,
         u_sterach,
@@ -177,6 +211,8 @@ def tick_objects(objs: list[CharType], cam: tuple[int, int] | None = None) -> No
             from lynn.gfx.loot import LLObject_GrabItems
 
             LLObject_GrabItems(obj)
+        if obj.unique_id == u_ltorch:
+            LLObject_TorchModify(obj, objs)
         if obj.dead == 0 and obj.froggy != 0:
             if obj.mad == 0:
                 if obj.funcs.active_state < obj.reset_state:

@@ -15,6 +15,7 @@ from lynn.constants import (
     u_ghut,
     u_greyrock,
     u_hotrock,
+    u_sterach,
 )
 from lynn.object.char import CharType
 from lynn.object.dispatch import register_func
@@ -382,9 +383,24 @@ def __make_vulnerable(this: CharType) -> int:
     return 1
 
 
+def __cool_down(this: CharType) -> int:
+    """FB object_modification.bas: the charger leaves its mad state."""
+    this.mad = 0
+    return 1
+
+
 def __make_dead(this: CharType) -> int:
     this.dead = TRUE
     this.invisible = 0
+    if this.unique_id == u_sterach:
+        # FB object_modification.bas: the sword in enemy[0] dies with him.
+        others = events.current_others
+        if others:
+            others[0].hp = 0
+        if events.now[1203] != 0:
+            from lynn.object.combat import LLObject_ShiftState
+
+            LLObject_ShiftState(this, 5)
     return 1
 
 

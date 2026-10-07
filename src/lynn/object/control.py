@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import lynn.events as events
 from lynn import clock
+from lynn.constants import u_charger
 from lynn.object.char import CharType
 
 
@@ -37,6 +38,10 @@ def in_proximity(this: CharType) -> int:
 
 
 def out_proximity(this: CharType) -> int:
+    # FB returns before the range test. A charger finishes the dash, the
+    # wall flinch, and the retreat after Lynn has left.
+    if this.unique_id == u_charger:
+        return this.funcs.active_state
     hero = events.hero
     if hero is None:
         return this.funcs.active_state

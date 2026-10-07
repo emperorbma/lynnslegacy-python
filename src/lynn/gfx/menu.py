@@ -8,6 +8,7 @@ from lynn.constants import TRUE
 from lynn.gfx.image import LLSystem_ImageLoad, frame_surfaces
 from lynn.gfx.palette import LLPalette
 from lynn.hero import MainCharType
+import lynn.events as events
 
 # FB ll_menu_gfx
 menu_blankspace = 0
@@ -211,8 +212,31 @@ def _slot(canvas, menu, x, y, owned, selected, icon, icon_sel) -> None:
         _blit_i(canvas, menu, x, y, menu_blankspace)
 
 
+def bridge_menu_icons(hero_only: MainCharType) -> tuple[int, int]:
+    """FB menu_Blit scraps slot. 470 is the Arx span, 1206 the TempleWood rope."""
+    if hero_only.has_weapon == 2:
+        return menu_blank, menu_blank_select
+    if events.now[1206] != 0:
+        return menu_bridge3, menu_bridge3_select
+    if events.now[470] != 0:
+        return menu_bridge2, menu_bridge2_select
+    return menu_bridge, menu_bridge_select
+
+
+def scraps_menu_name(menu: MainMenu, hero_only: MainCharType) -> str:
+    """FB hover text. Happen 470 changes the picture only; 1206 renames it."""
+    items = hero_only.hasItem
+    if len(items) < 3 or items[2] == 0:
+        return ""
+    if hero_only.has_weapon == 2:
+        return "Nothing left!"
+    if events.now[1206] != 0:
+        return "A sturdy rope."
+    return menu.menuNames[menu_bridge_select]
+
+
 def menu_Blit(canvas, menu: MainMenu, hero_only: MainCharType) -> None:
-    """FB menu_Blit. Plot-gated bridge/idol variants omitted until llg(now)."""
+    """FB menu_Blit. Idol plot text still waits on happen 1212."""
     _blit_i(canvas, menu, 0, 0, menu_full_background)
     hw = hero_only.has_weapon
     weap = hero_only.weapon
@@ -225,10 +249,7 @@ def menu_Blit(canvas, menu: MainMenu, hero_only: MainCharType) -> None:
     _slot(canvas, menu, 18, 54, items[0] != 0, sel == 1, menu_flare, menu_flare_select)
     _slot(canvas, menu, 42, 54, items[1] != 0, sel == 2, menu_ice, menu_ice_select)
     if items[2] != 0:
-        if weap == 2:
-            bridge, bridge_sel = menu_blank, menu_blank_select
-        else:
-            bridge, bridge_sel = menu_bridge, menu_bridge_select
+        bridge, bridge_sel = bridge_menu_icons(hero_only)
         _blit_i(canvas, menu, 66, 54, bridge_sel if sel == 3 else bridge)
     else:
         _blit_i(canvas, menu, 66, 54, menu_blankspace)
@@ -268,11 +289,7 @@ def _hover_name(menu: MainMenu, hero_only: MainCharType, i: int) -> str:
         2: menu.menuNames[menu_star_select] if hw >= 2 else "",
         3: menu.menuNames[menu_flare_select] if items[0] != 0 else "",
         4: menu.menuNames[menu_ice_select] if items[1] != 0 else "",
-        5: (
-            "Nothing left!"
-            if items[2] != 0 and hero_only.weapon == 2
-            else (menu.menuNames[menu_bridge_select] if items[2] != 0 else "")
-        ),
+        5: scraps_menu_name(menu, hero_only),
         6: menu.menuNames[menu_idol_select] if items[3] != 0 else "",
         7: menu.menuNames[menu_regen_select] if items[4] != 0 else "",
         8: menu.menuNames[menu_heal_select] if items[5] != 0 else "",

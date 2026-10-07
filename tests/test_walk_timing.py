@@ -91,6 +91,22 @@ def test_walk_proc_matches_walk_speed_at_60hz():
     assert moved <= 112
 
 
+def test_logic_ticks_stay_near_200_hz():
+    clock.reset_logic_clock()
+    now = 10.0
+    total = clock.take_logic_steps(now)
+    for i in range(1, 61):
+        total += clock.take_logic_steps(now + i / 60.0)
+    assert 190 <= total <= 210
+
+
+def test_logic_ticks_drop_a_long_pause():
+    clock.reset_logic_clock()
+    assert clock.take_logic_steps(0.0) == 1
+    assert clock.take_logic_steps(2.0) == 1
+    assert clock.take_logic_steps(2.0 + 1.0 / 60.0) >= 2
+
+
 def test_pop_due_does_not_burst_after_a_pause():
     clock.timer = 0.0
     n, hold = clock.pop_due(0.0, 0.009)

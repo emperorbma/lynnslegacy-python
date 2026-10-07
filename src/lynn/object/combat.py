@@ -17,7 +17,9 @@ from lynn.constants import (
     u_greyrock,
     u_anger,
     u_dyssius,
+    u_bshape,
     u_grult,
+    u_gshape,
     u_steelstrider,
     u_sterach,
 )
@@ -294,6 +296,15 @@ def LLObject_ProcessHurt(h: CharType) -> None:
 def LLObject_DamageCalc(h: CharType) -> None:
     LLObject_DeriveHurt(h)
     if h.hurt != 0:
+        # A shapeless touch is spent either way: green heals, red hurts,
+        # and the ghost is removed before the hp change.
+        if h.dmg_id == DF_ROOM_ENEMY:
+            enemy = _damager(h)
+            if enemy is not None and enemy.unique_id in (u_gshape, u_bshape):
+                from lynn.object.seq_funcs import __cripple, __make_dead
+
+                __make_dead(enemy)
+                __cripple(enemy)
         LLObject_ProcessHurt(h)
     else:
         LLObject_ClearDamage(h)

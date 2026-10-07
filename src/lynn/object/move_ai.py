@@ -405,6 +405,56 @@ def __move_normal(this: CharType) -> int:
     return 1
 
 
+def __charger_charge(this: CharType) -> int:
+    """FB object_move.bas: dash to a wall, flinch, retreat, then face forward.
+
+    One pixel per engine pass. The play loop runs a pass about every 1/200 s,
+    so the 0.005 s rush and the 0.013 s return keep the original gap. Doing
+    several pixels here would skip the pass FB spends clearing walk_hold.
+    """
+    from lynn.audio import play_sample, sound_explosion, sound_switch
+    from lynn.object.time_procs import __q_second_pause
+
+    result = 0
+    if this.walk_hold == 0:
+        room = events.current_room
+        if room is None:
+            return 0
+        others = events.current_others
+        state = int(this.internalState)
+        if state == 0:
+            this.current_anim = 1
+            moved = move_object(this, room, only_looking=0, moment=1, others=others)
+            if moved == 0:
+                this.internalState += 1
+            this.walk_speed = 0.005
+        elif state == 1:
+            if this.sway == 0:
+                play_sample(sound_explosion, 40)
+                this.sway = -1
+            this.internalState += __q_second_pause(this)
+        elif state == 2:
+            this.sway = 0
+            this.direction = (int(this.direction) + 2) & 3
+            this.internalState += 1
+            this.current_anim = 0
+            this.walk_speed = 0.013
+        elif state == 3:
+            moved = move_object(this, room, only_looking=0, moment=1, others=others)
+            if moved == 0:
+                this.internalState += 1
+        elif state == 4:
+            this.direction = (int(this.direction) + 2) & 3
+            this.internalState = 0
+            play_sample(sound_switch, 40)
+            # FB stores the return value and still arms walk_hold.
+            result = 1
+        this.walk_hold = clock.timer + (this.walk_speed or 0.005)
+    if clock.timer >= this.walk_hold:
+        this.walk_hold = 0
+    return result
+
+
 register_func("__push", __push)
 register_func("__randomize_path", __randomize_path)
 register_func("__walk", __walk)
@@ -419,3 +469,4 @@ register_func("__move_up", __move_up)
 register_func("__move_upright", __move_upright)
 register_func("__move_backwards", __move_backwards)
 register_func("__move_normal", __move_normal)
+register_func("__charger_charge", __charger_charge)

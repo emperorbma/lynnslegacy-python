@@ -7,7 +7,9 @@ fails in one place.
 
 Shipped so far: forest sapling → town portal → Interport → Moenia → Grult →
 seed portal back to town → Gelidus chasm switch (happen 357) → Dyssius
-(happen 297) → seed portal back to forest_fall room 12.
+(happen 297) → seed portal back to forest_fall room 12 → desert →
+interport4 → Arx scraps (happen 479) → Arx bridge (happen 470) →
+Sterach (happen 1202) → island.
 """
 
 from pathlib import Path
@@ -15,16 +17,26 @@ from pathlib import Path
 import lynn.object  # noqa: F401
 
 from lynn import clock
-from lynn.constants import DF_MAIN_CHAR, TRUE, u_bush, u_dyssius, u_gold, u_grult
+from lynn.constants import (
+    DF_MAIN_CHAR,
+    TRUE,
+    u_bush,
+    u_dyssius,
+    u_gold,
+    u_grult,
+    u_sterach,
+    u_swordie,
+)
 from lynn.demos import MapDemo, consume_title_events, try_hero_teleport
 from lynn.events import bind_hero, bind_hero_only, bind_room, now, reset_events
 import lynn.events as events
 from lynn.gfx.box import BoxControl
+from lynn.gfx.menu import bridge_menu_icons, menu_bridge2, menu_bridge2_select
 from lynn.gfx.palette import load_pal
 from lynn.hero import DIR_DOWN, DIR_UP, ctor_hero, ctor_hero_only, hero_walk_step, place_hero
 from lynn.map.loader import load_mapV
 from lynn.object.combat import LLObject_DamageCalc
-from lynn.object.tick import LLObject_CheckSpawn, tick_objects
+from lynn.object.tick import LLObject_CheckSpawn, tick_object, tick_objects
 from lynn.paths import data_file, resolve_map_path
 from lynn.sequence import play_sequence, try_action_sequence, try_touch_sequence
 
@@ -391,11 +403,127 @@ def _dyssius_seed_home(demo: MapDemo) -> None:
     assert last_song.replace("\\", "/").endswith("forest.it")
 
 
+def _tele_chain(demo: MapDemo, steps: tuple[tuple[int, int], ...]) -> None:
+    for tele_i, dest in steps:
+        _take_tele(demo, tele_i)
+        assert demo.hero_room == dest, (tele_i, dest, demo.hero_room)
+
+
+def _forest_fall_to_arx(demo: MapDemo) -> None:
+    """Room 12 south to the desert pad, then interport4 into Arx entry 0."""
+    _tele_chain(
+        demo,
+        (
+            (0, 11),
+            (0, 10),
+            (0, 9),
+            (0, 8),
+            (0, 7),
+            (0, 1),
+            (1, 2),
+        ),
+    )
+    _take_tele(demo, 4)
+    assert _map_stem(demo) == "desert"
+    assert demo.hero_room == 0
+    _drain_entry_seq(demo)
+    _take_tele(demo, 5)
+    assert _map_stem(demo) == "interport4"
+    _drain_entry_seq(demo)
+    _take_tele(demo, 0)
+    assert _map_stem(demo) == "arx"
+    assert demo.hero_room == 0
+    assert demo.seq is None
+
+
+def _pick_up_scraps(demo: MapDemo) -> None:
+    chest = _named(demo, "bluechestitem.xml")
+    assert chest is not None, "Arx room 49 has no scraps chest"
+    hero = demo.hero
+    hero.perimeter_x = 16
+    hero.perimeter_y = 16
+    hero.direction = DIR_UP
+    hero.coords_x = chest.coords_x
+    hero.coords_y = chest.coords_y + 15
+    demo.hero_only.action = TRUE
+    seq = try_action_sequence(hero, demo.hero_only, _objs(demo))
+    assert seq is not None, "scraps chest action sequence did not start"
+    demo.hero_only.action = 0
+    _play_until_done(demo, seq)
+    assert demo.hero_only.hasItem[2] != 0
+    assert now[479] != 0
+
+
+def _build_arx_bridge(demo: MapDemo) -> None:
+    bridge = _named(demo, "abridge.xml")
+    assert bridge is not None, "Arx room 57 has no bridge"
+    hero = demo.hero
+    hero.perimeter_x = 16
+    hero.perimeter_y = 16
+    hero.direction = DIR_UP
+    hero.coords_x = bridge.coords_x
+    hero.coords_y = bridge.coords_y + 32
+    bind_room(demo.game_map.room[demo.hero_room], _objs(demo))
+    demo.hero_only.action = TRUE
+    tick_object(bridge)
+    assert events.pending_seq is bridge.seq[0]
+    seq = events.pending_seq
+    events.pending_seq = None
+    demo.hero_only.action = 0
+    _play_until_done(demo, seq, limit=4000)
+    assert now[470] != 0
+    assert now[471] == 0
+    # The span stays invisible until the bridge func sees happen 470.
+    tick_object(bridge)
+    assert bridge.invisible == 0
+    assert demo.hero_only.hasItem[2] != 0
+    assert bridge_menu_icons(demo.hero_only) == (menu_bridge2, menu_bridge2_select)
+
+
+def _defeat_sterach(demo: MapDemo) -> None:
+    objs = _objs(demo)
+    bind_room(demo.game_map.room[demo.hero_room], objs)
+    sword = next(o for o in objs if o.unique_id == u_swordie)
+    boss = next(o for o in objs if o.unique_id == u_sterach)
+    assert objs[0] is sword
+    assert objs[1] is boss
+    throw = [fn.__name__ for fn in sword.funcs.func[1]]
+    assert "__sword_fly" in throw
+    assert "__sword_return" in throw
+    assert "__sterach_call" in throw
+    boss.hp = 0
+    for i in range(160):
+        clock.timer = 20 + i * 0.05
+        tick_objects(objs)
+        if events.pending_seq is not None:
+            demo.seq = events.pending_seq
+            events.pending_seq = None
+            break
+    assert demo.seq is not None, "Sterach death sequence did not start"
+    assert sword.hp == 0
+    assert sword.dead != 0
+    hero = demo.hero
+    hero.walk_hold = 0
+    hero.pause = 0
+    hero.fade_timer = 0
+    hero.fade_count = 0
+    events.fade_black = 0
+    events.fade_white = 0
+    events.fade_red = 0
+    _play_until_done(demo, demo.seq, limit=4000)
+    assert now[1202] != 0
+    assert sword.hp == 0
+    consume_title_events(demo)
+    demo.hero_room = events.hero_room
+    assert _map_stem(demo) == "island"
+    assert demo.hero_room == 0
+
+
 def test_critical_path_as_far_as_ported():
     """Player route through everything the port currently implements.
 
-    Today that ends after Dyssius: happen 297, the moth sequence, and the
-    seed portal back to forest_fall room 12.
+    Today that ends on island after Sterach: scraps, the Arx span, and the
+    sword dying with him.
     """
     demo = _new_game()
     assert _map_stem(demo) == "forest_fall"
@@ -459,3 +587,47 @@ def test_critical_path_as_far_as_ported():
     assert now[297] != 0
     assert now[357] != 0
     assert now[1010] != 0
+
+    _forest_fall_to_arx(demo)
+    _tele_chain(
+        demo,
+        (
+            (0, 1),
+            (5, 20),
+            (9, 21),
+            (11, 22),
+            (1, 23),
+            (1, 24),
+            (1, 25),
+            (1, 26),
+            (1, 27),
+            (1, 28),
+            (4, 33),
+            (1, 34),
+            (1, 41),
+            (10, 47),
+            (1, 48),
+            (1, 49),
+        ),
+    )
+    _pick_up_scraps(demo)
+    _tele_chain(
+        demo,
+        (
+            (0, 48),
+            (0, 47),
+            (0, 41),
+            (1, 42),
+            (1, 56),
+            (1, 57),
+        ),
+    )
+    _build_arx_bridge(demo)
+    _take_tele(demo, 1)
+    assert demo.hero_room == 58
+    _defeat_sterach(demo)
+    assert now[470] != 0
+    assert now[479] != 0
+    assert now[1202] != 0
+    assert demo.hero_only.hasItem[2] != 0
+    assert bridge_menu_icons(demo.hero_only) == (menu_bridge2, menu_bridge2_select)

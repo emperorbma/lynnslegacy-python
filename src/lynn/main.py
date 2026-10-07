@@ -302,6 +302,156 @@ def _run_palette(canvas, frame_clock, scale_option: int) -> int:
     return 0
 
 
+def _simulate_play_step(demo, room_i, cam_x, cam_y, god_menu, frame_hold, keys):
+    """One FreeBASIC engine pass: hero, sequence, then enemies.
+
+    The display loop calls this about three times per 60 Hz present.
+    Drawing stays with the caller.
+    """
+    if not (0 <= room_i < demo.game_map.rooms):
+        room_i = 0
+    room = demo.game_map.room[room_i]
+    others = demo.objects_by_room[room_i] if room_i < len(demo.objects_by_room) else []
+    locked = (
+        (demo.hero_only is not None and demo.hero_only.action_lock != 0)
+        or (demo.hero is not None and demo.hero.menu_sel != 0)
+        or (demo.hero is not None and demo.hero.dead != 0)
+    )
+    if (
+        demo.seq is None
+        and demo.menu_open == 0
+        and not god_menu.open
+        and not frame_hold
+        and not locked
+        and demo.hero is not None
+        and demo.hero_only is not None
+    ):
+        started = try_action_sequence(demo.hero, demo.hero_only, others)
+        if started is not None:
+            demo.seq = started
+            demo.do_hud = 0
+            events.do_hud = 0
+    if demo.hero is not None:
+        apply_debug_god(demo.hero)
+    if (
+        demo.menu_open == 0
+        and not god_menu.open
+        and demo.hero is not None
+        and demo.hero_only is not None
+    ):
+        from lynn.outfit import tick_hero_outfit
+
+        tick_hero_outfit(demo.hero, demo.hero_only)
+    attacking = demo.hero_only is not None and demo.hero_only.attacking != 0
+    if demo.menu_open == 0 and not god_menu.open and not frame_hold and demo.seq is None and not locked:
+        if demo.hero is not None:
+            held: list[int] = []
+            if not attacking:
+                if scancode_held(keys, chart.lkey):
+                    held.append(DIR_LEFT)
+                if scancode_held(keys, chart.rkey):
+                    held.append(DIR_RIGHT)
+                if scancode_held(keys, chart.dkey):
+                    held.append(DIR_DOWN)
+                if scancode_held(keys, chart.ukey):
+                    held.append(DIR_UP)
+            hero_walk_step(demo.hero, room, held, others)
+            try_hero_teleport(demo)
+            room_i = demo.hero_room
+            room = demo.game_map.room[room_i]
+            others = demo.objects_by_room[room_i] if room_i < len(demo.objects_by_room) else []
+            cam_x, cam_y = update_cam(demo.hero, room)
+        else:
+            if scancode_held(keys, chart.lkey):
+                cam_x -= PAN_SPEED
+            if scancode_held(keys, chart.rkey):
+                cam_x += PAN_SPEED
+            if scancode_held(keys, chart.ukey):
+                cam_y -= PAN_SPEED
+            if scancode_held(keys, chart.dkey):
+                cam_y += PAN_SPEED
+            cam_x, cam_y = _clamp_cam(room, cam_x, cam_y)
+    elif demo.hero is not None and demo.seq is None and demo.hero.on_ice == 0:
+        demo.hero.walk_hold = 0
+    if (
+        demo.seq is None
+        and demo.menu_open == 0
+        and not god_menu.open
+        and not frame_hold
+        and not locked
+        and demo.hero is not None
+        and demo.hero_only is not None
+    ):
+        started = try_touch_sequence(demo.hero, others)
+        if started is not None:
+            demo.seq = started
+            demo.do_hud = 0
+            events.do_hud = 0
+    if demo.seq is None and not god_menu.open and not frame_hold and events.pending_seq is not None:
+        demo.seq = events.pending_seq
+        events.pending_seq = None
+        demo.do_hud = 0
+        events.do_hud = 0
+    others = demo.objects_by_room[room_i] if room_i < len(demo.objects_by_room) else []
+    if demo.hero_only is not None and demo.seq is None and demo.menu_open == 0:
+        from lynn.hero import cache_crazy, decay_crazy
+
+        cache_crazy(demo.hero_only)
+        decay_crazy(demo.hero_only)
+    if (
+        demo.hero is not None
+        and demo.hero_only is not None
+        and demo.hero_only.attacking != 0
+        and demo.seq is None
+        and demo.menu_open == 0
+        and not god_menu.open
+        and not frame_hold
+    ):
+        hero_attack(demo.hero)
+        LLObject_MAINAttack(others, demo.hero)
+    if (
+        demo.hero is not None
+        and demo.seq is None
+        and demo.menu_open == 0
+        and not god_menu.open
+        and not frame_hold
+    ):
+        if demo.hero.dead == 0:
+            LLObject_MAINDamage(demo.hero, others)
+            if demo.hero.dmg_id != 0:
+                __flashy(demo.hero)
+            if demo.hero.hurt:
+                hero_hurt_tick(demo.hero)
+        else:
+            if demo.hero_only is not None:
+                demo.hero_only.attacking = 0
+            hero_death_tick(demo.hero)
+    if demo.seq is not None and demo.hero_only is not None and not god_menu.open and not frame_hold:
+        from lynn.events import bind_room
+
+        bind_room(room, others)
+        demo.seq = play_sequence(
+            demo.seq, demo.box, demo.hero_only, demo.palette, demo.menu
+        )
+        for obj in others:
+            LLObject_CheckSpawn(obj)
+    if consume_title_events(demo) or events.xxyxx != 0:
+        return room_i, cam_x, cam_y, True
+    room_i = demo.hero_room if demo.hero is not None else room_i
+    if not (0 <= room_i < demo.game_map.rooms):
+        room_i = 0
+    room = demo.game_map.room[room_i]
+    if demo.hero is not None:
+        cam_x, cam_y = update_cam(demo.hero, room)
+    if demo.menu_open == 0 and not god_menu.open:
+        tick_map_demo(demo, room_i)
+    else:
+        from lynn.audio import tick_music
+
+        tick_music()
+    return room_i, cam_x, cam_y, False
+
+
 def _run_map(
     canvas,
     frame_clock,
@@ -340,7 +490,7 @@ def _run_map(
         action_pulse = 0
         events.keys.enter_pulse = 0
         seq_busy = demo.seq is not None
-        ll_clock.timer = time.perf_counter()
+        now = time.perf_counter()
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
@@ -470,10 +620,12 @@ def _run_map(
                         demo.hero_only.powder = 0
         mm = demo.minimap
         if mm is not None and mm.open:
+            ll_clock.hold_logic(now)
+            ll_clock.timer = now
             keys = pygame.key.get_pressed()
             pan_minimap(
                 mm,
-                ll_clock.timer,
+                now,
                 keys[pygame.K_UP],
                 keys[pygame.K_RIGHT],
                 keys[pygame.K_DOWN],
@@ -483,7 +635,7 @@ def _run_map(
             from lynn.audio import tick_music
 
             tick_music()
-            blit_minimap(canvas, demo, ll_clock.timer)
+            blit_minimap(canvas, demo, now)
             _present(canvas, scale_option)
             frame_clock.tick(60)
             continue
@@ -494,7 +646,6 @@ def _run_map(
             if menu_confirm and handleKeybSelected(demo.menu, demo.hero_only) != 0:
                 demo.menu_open = 0
                 demo.menu_backdrop = None
-        room = demo.game_map.room[room_i]
         keys = pygame.key.get_pressed()
         events.keys.up = scancode_held(keys, chart.ukey)
         events.keys.down = scancode_held(keys, chart.dkey)
@@ -502,91 +653,25 @@ def _run_map(
         events.keys.right = scancode_held(keys, chart.rkey)
         events.keys.enter = scancode_held(keys, SC_ENTER)
         events.keys.escape = scancode_held(keys, chart.menu)
-        others = demo.objects_by_room[room_i] if room_i < len(demo.objects_by_room) else []
-        locked = (
-            (demo.hero_only is not None and demo.hero_only.action_lock != 0)
-            or (demo.hero is not None and demo.hero.menu_sel != 0)
-            or (demo.hero is not None and demo.hero.dead != 0)
-        )
         if demo.hero_only is not None:
             if demo.hero_only.selected_item == 0 and demo.hero_only.hasItem[0]:
                 demo.hero_only.selected_item = 1
-        if (
-            demo.seq is None
-            and demo.menu_open == 0
-            and not god_menu.open
-            and not frame_hold
-            and not locked
-            and demo.hero is not None
-            and demo.hero_only is not None
-        ):
-            started = try_action_sequence(demo.hero, demo.hero_only, others)
-            if started is not None:
-                demo.seq = started
-                demo.do_hud = 0
-                events.do_hud = 0
-        if demo.hero is not None:
-            apply_debug_god(demo.hero)
-        if (
-            demo.menu_open == 0
-            and not god_menu.open
-            and demo.hero is not None
-            and demo.hero_only is not None
-        ):
-            from lynn.outfit import tick_hero_outfit
-
-            tick_hero_outfit(demo.hero, demo.hero_only)
-        attacking = demo.hero_only is not None and demo.hero_only.attacking != 0
-        if demo.menu_open == 0 and not god_menu.open and not frame_hold and demo.seq is None and not locked:
-            if demo.hero is not None:
-                held: list[int] = []
-                if not attacking:
-                    if scancode_held(keys, chart.lkey):
-                        held.append(DIR_LEFT)
-                    if scancode_held(keys, chart.rkey):
-                        held.append(DIR_RIGHT)
-                    if scancode_held(keys, chart.dkey):
-                        held.append(DIR_DOWN)
-                    if scancode_held(keys, chart.ukey):
-                        held.append(DIR_UP)
-                hero_walk_step(demo.hero, room, held, others)
-                try_hero_teleport(demo)
-                room_i = demo.hero_room
-                room = demo.game_map.room[room_i]
-                others = demo.objects_by_room[room_i] if room_i < len(demo.objects_by_room) else []
-                cam_x, cam_y = update_cam(demo.hero, room)
-            else:
-                if scancode_held(keys, chart.lkey):
-                    cam_x -= PAN_SPEED
-                if scancode_held(keys, chart.rkey):
-                    cam_x += PAN_SPEED
-                if scancode_held(keys, chart.ukey):
-                    cam_y -= PAN_SPEED
-                if scancode_held(keys, chart.dkey):
-                    cam_y += PAN_SPEED
-                cam_x, cam_y = _clamp_cam(room, cam_x, cam_y)
-        elif demo.hero is not None and demo.seq is None and demo.hero.on_ice == 0:
-            demo.hero.walk_hold = 0
-        if (
-            demo.seq is None
-            and demo.menu_open == 0
-            and not god_menu.open
-            and not frame_hold
-            and not locked
-            and demo.hero is not None
-            and demo.hero_only is not None
-        ):
-            started = try_touch_sequence(demo.hero, others)
-            if started is not None:
-                demo.seq = started
-                demo.do_hud = 0
-                events.do_hud = 0
-        if demo.seq is None and not god_menu.open and not frame_hold and events.pending_seq is not None:
-            demo.seq = events.pending_seq
-            events.pending_seq = None
-            demo.do_hud = 0
-            events.do_hud = 0
-        others = demo.objects_by_room[room_i] if room_i < len(demo.objects_by_room) else []
+        # FB runs hero_main, enemy_main, and play_sequence every pass, and
+        # only sleeps once the loop is above ~200 fps. A 60 Hz present keeps
+        # that rate by stepping Timer 5 ms at a time. One pass per present
+        # makes every two-phase hold (the sword's 0.004 s fly) wait a whole
+        # display frame between pixels.
+        stop_play = False
+        for _logic in range(ll_clock.take_logic_steps(now)):
+            ll_clock.advance_logic_timer()
+            room_i, cam_x, cam_y, stop_play = _simulate_play_step(
+                demo, room_i, cam_x, cam_y, god_menu, frame_hold, keys,
+            )
+            if stop_play:
+                break
+        if stop_play:
+            running = False
+            continue
         if debug_caption:
             shown = _map_caption(
                 demo.game_map.filename, room_i, demo.game_map.rooms, cam_x, cam_y, shown,
@@ -598,65 +683,6 @@ def _run_map(
             if shown != title:
                 pygame.display.set_caption(title)
                 shown = title
-        from lynn.audio import tick_music
-
-        tick_music()
-        if demo.hero_only is not None and demo.seq is None and demo.menu_open == 0:
-            from lynn.hero import cache_crazy, decay_crazy
-
-            cache_crazy(demo.hero_only)
-            decay_crazy(demo.hero_only)
-        if (
-            demo.hero is not None
-            and demo.hero_only is not None
-            and demo.hero_only.attacking != 0
-            and demo.seq is None
-            and demo.menu_open == 0
-            and not god_menu.open
-            and not frame_hold
-        ):
-            hero_attack(demo.hero)
-            LLObject_MAINAttack(others, demo.hero)
-        if (
-            demo.hero is not None
-            and demo.seq is None
-            and demo.menu_open == 0
-            and not god_menu.open
-            and not frame_hold
-        ):
-            if demo.hero.dead == 0:
-                LLObject_MAINDamage(demo.hero, others)
-                if demo.hero.dmg_id != 0:
-                    __flashy(demo.hero)
-                if demo.hero.hurt:
-                    hero_hurt_tick(demo.hero)
-            else:
-                if demo.hero_only is not None:
-                    demo.hero_only.attacking = 0
-                hero_death_tick(demo.hero)
-        if demo.seq is not None and demo.hero_only is not None and not god_menu.open and not frame_hold:
-            from lynn.events import bind_room
-
-            bind_room(room, others)
-            demo.seq = play_sequence(
-                demo.seq, demo.box, demo.hero_only, demo.palette, demo.menu
-            )
-            for obj in others:
-                LLObject_CheckSpawn(obj)
-        if consume_title_events(demo):
-            running = False
-            continue
-        # __set_finish sets xxyxx. Window close and title quit leave it at 0.
-        if events.xxyxx != 0:
-            running = False
-            continue
-        room_i = demo.hero_room if demo.hero is not None else room_i
-        if not (0 <= room_i < demo.game_map.rooms):
-            room_i = 0
-        room = demo.game_map.room[room_i]
-        others = demo.objects_by_room[room_i] if room_i < len(demo.objects_by_room) else []
-        if demo.hero is not None:
-            cam_x, cam_y = update_cam(demo.hero, room)
         if god_menu.open:
             if demo.menu_backdrop is None:
                 draw_map_demo(canvas, demo, room_i, cam_x, cam_y)
@@ -666,7 +692,6 @@ def _run_map(
 
             blit_god_menu(canvas, demo.menu, god_menu, demo.palette, demo.hud)
         elif demo.menu_open == 0:
-            tick_map_demo(demo, room_i)
             draw_map_demo(canvas, demo, room_i, cam_x, cam_y)
             demo.menu_backdrop = None
         else:
