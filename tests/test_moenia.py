@@ -18,7 +18,7 @@ from lynn.constants import (
 )
 from lynn.events import bind_hero, bind_hero_only, bind_room, reset_events
 import lynn.events as events
-from lynn.hero import ctor_hero_only, item_l_key, item_r_key
+from lynn.hero import ctor_hero, ctor_hero_only, item_l_key, item_r_key
 from lynn.object.char import CharType
 from lynn.object.combat import LLObject_DeriveHurt, start_item_use
 from lynn.object.dispatch import lookup_func
@@ -182,6 +182,45 @@ def test_flare_powder_destroys_coldrock():
     assert rock.hp == 0
     tick_objects([rock])
     assert rock.funcs.active_state == rock.death_state
+
+
+def test_powder_puff_does_not_break_a_greyrock():
+    """Key release clears powder while the puff is still attack state 8/9.
+
+    Those frames used to fall through as a mace hit. Grey rocks break with
+    the mace only. Ice rocks still melt, and fire rocks still go out.
+    """
+    reset_events()
+    hero = ctor_hero(load_images=False)
+    hero.attack_state = 8
+    only = ctor_hero_only()
+    only.attacking = TRUE
+    only.powder = 0
+    only.selected_item = 1
+    only.weapon = 1
+    bind_hero(hero)
+    bind_hero_only(only)
+    grey = _load("greyrock.xml")
+    grey.dmg_id = DF_MAIN_CHAR
+    LLObject_DeriveHurt(grey)
+    assert grey.hp == 1
+    ice = _load("coldrock.xml")
+    ice.dmg_id = DF_MAIN_CHAR
+    LLObject_DeriveHurt(ice)
+    assert ice.hp == 0
+    hero.attack_state = 9
+    hot = _load("hotrock.xml")
+    hot.dmg_id = DF_MAIN_CHAR
+    LLObject_DeriveHurt(hot)
+    assert hot.hp == 0
+    grey.dmg_id = DF_MAIN_CHAR
+    grey.hp = 1
+    LLObject_DeriveHurt(grey)
+    assert grey.hp == 1
+    hero.attack_state = 6
+    grey.dmg_id = DF_MAIN_CHAR
+    LLObject_DeriveHurt(grey)
+    assert grey.hp == 0
 
 
 def test_start_item_use_sets_flare_state():

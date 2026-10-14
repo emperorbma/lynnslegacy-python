@@ -14,6 +14,7 @@ from lynn.map.loader import load_mapV
 from lynn.object.char import CharType
 from lynn.object.dispatch import lookup_func
 from lynn.object.seq_funcs import __poondodge_branch
+from lynn.map.collision import check_against
 from lynn.object.tick import tick_object, tick_objects
 from lynn.object.xml_load import LLSystem_ObjectFromXML
 from lynn.paths import data_file, resolve_map_path
@@ -143,7 +144,14 @@ def test_turning_in_the_silk_finishes_the_ninja_suit():
     assert finished.spawn_wait_trig != 0
     assert finished.action_sequence != 0
     assert "ninja2" in str(finished.anim[0].filename).replace("\\", "/").lower()
-    _face(demo.hero, finished)
+    # null.xml is unstoppable. That flag must not stick, or Lynn walks onto
+    # the suit and is_facing fails from the same cell.
+    assert finished.unstoppable_by_object == 0
+    assert finished.impassable != 0
+    demo.hero.coords_x = finished.coords_x
+    demo.hero.coords_y = finished.coords_y + 16
+    demo.hero.direction = DIR_UP
+    assert check_against(demo.hero, finished, 0) == 1
     demo.hero_only.action = TRUE
     seq = try_action_sequence(demo.hero, demo.hero_only, objs)
     demo.hero_only.action = 0

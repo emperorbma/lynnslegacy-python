@@ -365,7 +365,35 @@ def _stamp_frame_sound(anim, ctrl, start_frame: int, field: str, value, uni: boo
         fi += stride
 
 
+# FB LLSystem_ObjectInitialCopy keeps the map placement and reloads the body
+# from the template. A wait-spawn first copies null.xml, and those flags must
+# not survive onto the real object: null.xml is unstoppable, so the finished
+# ninja suit let Lynn walk onto it and is_facing never succeeded.
+_COPY_KEEP = (
+    "id",
+    "x_origin",
+    "y_origin",
+    "coords_x",
+    "coords_y",
+    "direction",
+    "ori_dir",
+    "chap",
+    "seq_here",
+    "seq",
+    "spawn_cond",
+    "spawn_info",
+    "num",
+    "is_temp",
+)
+
+
 def LLSystem_CopyNewObject(obj: CharType, load_images: bool = True) -> CharType:
+    kept = {name: getattr(obj, name) for name in _COPY_KEEP}
+    fresh = CharType()
+    obj.__dict__.clear()
+    obj.__dict__.update(fresh.__dict__)
+    for name, value in kept.items():
+        setattr(obj, name, value)
     return LLSystem_ObjectFromXML(obj, load_images=load_images)
 
 

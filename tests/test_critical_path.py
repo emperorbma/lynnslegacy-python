@@ -436,6 +436,10 @@ def _play_until_happen(demo: MapDemo, seq, flag: int, limit: int = 4000):
             only.action = TRUE
         seq = play_sequence(seq, box, only)
         only.action = 0
+        # main.py CheckSpawns on the same tick a happen is set, so a
+        # wait-spawn such as the Logosta seed is already the real object.
+        for obj in _objs(demo):
+            LLObject_CheckSpawn(obj)
         if now[flag] != 0:
             demo.seq = seq
             return

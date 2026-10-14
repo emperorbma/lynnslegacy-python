@@ -117,10 +117,25 @@ def _face_strength(enemy: CharType, specific: int) -> int:
     return int(enemy.strength)
 
 
-def _derive_powder(h: CharType, only) -> None:
+def _powder_item(only) -> int:
+    """1 flare, 2 ice, 0 not a powder hit.
+
+    Key release clears hero_only.powder while the puff is still playing.
+    Those frames stay attack state 8 or 9, and they must not fall through
+    into a mace hit or a grey rock breaks.
+    """
+    hero = events.hero
+    if hero is not None and only.attacking != 0 and hero.attack_state in (8, 9):
+        return 1 if hero.attack_state == 8 else 2
+    if only.powder == 0:
+        return 0
+    return 1 if only.selected_item == 1 else 2
+
+
+def _derive_powder(h: CharType, only, item: int) -> None:
     """FB DeriveHurt DF_MAIN_CHAR powder branch."""
     if h.invincible != 0:
-        if only.selected_item == 1:
+        if item == 1:
             if h.torch != 0:
                 st = h.funcs.active_state
                 count = h.funcs.func_count[st] if 0 <= st < len(h.funcs.func_count) else 0
@@ -140,7 +155,7 @@ def _derive_powder(h: CharType, only) -> None:
                     h.hp = 0
         LLObject_ClearDamage(h)
         return
-    if only.selected_item == 1:
+    if item == 1:
         if h.fire_weak != 0:
             if h.melt == 0:
                 LLObject_ShiftState(h, h.fire_state)
@@ -171,8 +186,9 @@ def LLObject_DeriveHurt(h: CharType) -> None:
             return
         h.hurt = int(enemy.projectile.strength)
         return
-    if h.dmg_id == DF_MAIN_CHAR and only is not None and only.powder != 0:
-        _derive_powder(h, only)
+    powder = _powder_item(only) if only is not None else 0
+    if h.dmg_id == DF_MAIN_CHAR and powder != 0:
+        _derive_powder(h, only, powder)
         return
     if h.invincible != 0:
         if weap >= 1 and h.mace_weak != 0:
