@@ -150,6 +150,35 @@ def test_npc_cannot_walk_onto_hero():
     assert check_against_entities(npc, 2, []) == 1
 
 
+def test_unstoppable_object_does_not_stop_an_impassable_mover():
+    """FB check_against: either side's unstoppable_by_object cancels the block."""
+    mover = CharType()
+    mover.num = 1
+    mover.impassable = 1
+    mover.perimeter_x = 16
+    mover.perimeter_y = 16
+    mover.coords_x = 3936
+    mover.coords_y = 1600
+    prop = CharType()
+    prop.num = 2
+    prop.unstoppable_by_object = 1
+    prop.perimeter_x = 16
+    prop.perimeter_y = 16
+    prop.coords_x = 3920
+    prop.coords_y = 1600
+    mover.direction = 3
+    assert check_against(mover, prop, 3) == 0
+    from lynn.map.types import RoomType
+
+    room = RoomType()
+    room.x = 400
+    room.y = 200
+    n = 400 * 201
+    room.layout = [[0] * n for _ in range(3)]
+    assert move_object(mover, room, moment=1, others=[prop]) != 0
+    assert mover.coords_x == 3935
+
+
 def test_sparkle_does_not_block_impassable_step():
     """FB check_against: u_sparkle never stops a mover (Gelidus pushrocks)."""
     from lynn.constants import u_pushrock, u_sparkle

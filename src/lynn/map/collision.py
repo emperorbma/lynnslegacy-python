@@ -318,8 +318,10 @@ def check_against(o: CharType, other: CharType, d: int) -> int:
 
     FB check_against tests the stepped box, including when the two already
     overlap. Sparkles, green buttons, and gold never block, and a god statue
-    is never stopped by another object. A step that only shrinks an overlap
-    is allowed so a full embed can be walked out of.
+    is never stopped by another object. Either actor's unstoppable_by_object
+    cancels the block, which is how the desert thief walks onto the idol.
+    A step that only shrinks an overlap is allowed so a full embed can be
+    walked out of.
     """
     if o is other or o.num == other.num:
         return 0
@@ -332,6 +334,9 @@ def check_against(o: CharType, other: CharType, d: int) -> int:
             for box_n in rest_n:
                 if _overlap(box_o, box_n):
                     return 1
+        return 0
+    # FB IIf: a would-be block is 0 when either side is unstoppable_by_object.
+    if o.unstoppable_by_object != 0 or other.unstoppable_by_object != 0:
         return 0
     if o.dead != 0 or other.dead != 0:
         return 0

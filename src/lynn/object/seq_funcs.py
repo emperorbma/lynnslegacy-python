@@ -181,6 +181,18 @@ def __healthguy_branch(this: CharType) -> int:
     return 1
 
 
+def __bandit_check(this: CharType) -> int:
+    """FB object_etc.bas: desert thief seq 1 is the Nerme idol turn-in.
+
+    Idle stays on this check. hasItem[3] is the idol. The sequence sets
+    happen 1212 and does not clear the item; the menu blanks the icon.
+    """
+    only = events.hero_only
+    if only is not None and len(only.hasItem) > 3 and only.hasItem[3] != 0:
+        this.sel_seq = 1
+    return 0
+
+
 def __heal_lynn(this: CharType) -> int:
     """FB object_etc.bas: the green save point fills Lynn before the file menu."""
     hero = events.hero

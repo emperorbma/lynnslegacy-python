@@ -235,8 +235,25 @@ def scraps_menu_name(menu: MainMenu, hero_only: MainCharType) -> str:
     return menu.menuNames[menu_bridge_select]
 
 
+def idol_menu_icons() -> tuple[int, int]:
+    """FB menu_Blit: happen 1212 blanks the idol. hasItem[3] stays set."""
+    if events.now[1212] != 0:
+        return menu_blank, menu_blank_select
+    return menu_idol, menu_idol_select
+
+
+def idol_menu_name(menu: MainMenu, hero_only: MainCharType) -> str:
+    """FB hover text. 1212 is the desert thief taking the Nerme idol."""
+    items = hero_only.hasItem
+    if len(items) < 4 or items[3] == 0:
+        return ""
+    if events.now[1212] != 0:
+        return "Gave it away..."
+    return menu.menuNames[menu_idol_select]
+
+
 def menu_Blit(canvas, menu: MainMenu, hero_only: MainCharType) -> None:
-    """FB menu_Blit. Idol plot text still waits on happen 1212."""
+    """FB menu_Blit."""
     _blit_i(canvas, menu, 0, 0, menu_full_background)
     hw = hero_only.has_weapon
     weap = hero_only.weapon
@@ -253,7 +270,8 @@ def menu_Blit(canvas, menu: MainMenu, hero_only: MainCharType) -> None:
         _blit_i(canvas, menu, 66, 54, bridge_sel if sel == 3 else bridge)
     else:
         _blit_i(canvas, menu, 66, 54, menu_blankspace)
-    _slot(canvas, menu, 18, 78, items[3] != 0, sel == 4, menu_idol, menu_idol_select)
+    idol, idol_sel = idol_menu_icons()
+    _slot(canvas, menu, 18, 78, items[3] != 0, sel == 4, idol, idol_sel)
     _slot(canvas, menu, 42, 78, items[4] != 0, sel == 5, menu_regen, menu_regen_select)
     _slot(canvas, menu, 66, 78, items[5] != 0, sel == 6, menu_heal, menu_heal_select)
 
@@ -290,7 +308,7 @@ def _hover_name(menu: MainMenu, hero_only: MainCharType, i: int) -> str:
         3: menu.menuNames[menu_flare_select] if items[0] != 0 else "",
         4: menu.menuNames[menu_ice_select] if items[1] != 0 else "",
         5: scraps_menu_name(menu, hero_only),
-        6: menu.menuNames[menu_idol_select] if items[3] != 0 else "",
+        6: idol_menu_name(menu, hero_only),
         7: menu.menuNames[menu_regen_select] if items[4] != 0 else "",
         8: menu.menuNames[menu_heal_select] if items[5] != 0 else "",
         9: menu.menuNames[menu_standard_select] if cos[0] != 0 else "",
