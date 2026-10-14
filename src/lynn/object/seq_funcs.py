@@ -181,6 +181,17 @@ def __healthguy_branch(this: CharType) -> int:
     return 1
 
 
+def __poondodge_branch(this: CharType) -> int:
+    """FB object_etc.bas: Evernight Silk turn-in while 1221 is set and 1220 is clear.
+
+    1221 is the Evernight chest. 1220 is handing the silk to Poondodge.
+    The check does not clear sel_seq; the turn-in sequence decrements it.
+    """
+    if events.now[1220] == 0 and events.now[1221] != 0:
+        this.sel_seq = 1
+    return 1
+
+
 def __bandit_check(this: CharType) -> int:
     """FB object_etc.bas: desert thief seq 1 is the Nerme idol turn-in.
 
