@@ -253,6 +253,8 @@ def __chase(this: CharType) -> int:
     hy = hero.coords_y + (int(hero.perimeter_y) >> 1)
     ox = this.coords_x + (int(this.perimeter_x) >> 1)
     oy = this.coords_y + (int(this.perimeter_y) >> 1)
+    more_x = abs(hx - ox)
+    more_y = abs(hy - oy)
     if this.sway == 0:
         this.degree = (this.degree + 1) % 360
         this.sway = clock.timer + 0.002
@@ -286,6 +288,20 @@ def __chase(this: CharType) -> int:
             hy = hero.coords_y + (int(hero.perimeter_y) >> 1)
             ox = this.coords_x + (int(this.perimeter_x) >> 1)
             oy = this.coords_y + (int(this.perimeter_y) >> 1)
+    # A kam-bot (and any other thruster) detonates once it is on top of Lynn.
+    # diag_thrust uses a 16px box; a cardinal thrust is tighter on one axis.
+    if this.thrust != 0:
+        if this.diag_thrust != 0:
+            close = more_x <= 16 and more_y <= 16
+        else:
+            close = (more_x <= 16 and more_y <= 8) or (more_x <= 8 and more_y <= 16)
+        if close:
+            st = this.funcs.active_state
+            if 0 <= st < len(this.funcs.current_func):
+                this.funcs.current_func[st] = 0
+            this.funcs.active_state = this.thrust_state
+            this.frame_hold = 0
+            return 0
     return 0
 
 

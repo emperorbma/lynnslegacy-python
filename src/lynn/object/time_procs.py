@@ -27,6 +27,22 @@ def __return_jump(this: CharType) -> int:
     return 0
 
 
+def __return_jump_1(this: CharType) -> int:
+    """FB object_time.bas: re-enter jump_state on its second func.
+
+    Haywire's shoot state ends here, so the next pass aligns and fires
+    again instead of restarting the shoot pose.
+    """
+    st = this.funcs.active_state
+    if 0 <= st < len(this.funcs.current_func):
+        this.funcs.current_func[st] = 0
+    this.funcs.active_state = this.jump_state
+    js = this.jump_state
+    if 0 <= js < len(this.funcs.current_func):
+        this.funcs.current_func[js] = 1
+    return 0
+
+
 def __return_jump_back(this: CharType) -> int:
     """FB object_time.bas: re-enter jump_state on the second func (the chase)."""
     from lynn.object.combat import LLObject_ShiftState
@@ -183,6 +199,7 @@ def __jump_2_back(this: CharType) -> int:
 register_func("__return_idle", __return_idle)
 register_func("__return_reset", __return_reset)
 register_func("__return_jump", __return_jump)
+register_func("__return_jump_1", __return_jump_1)
 register_func("__return_jump_back", __return_jump_back)
 register_func("__return_jump_npc", __return_jump_npc)
 register_func("__return_reset_npc", __return_reset_npc)

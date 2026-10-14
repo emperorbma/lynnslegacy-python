@@ -891,6 +891,36 @@ def __check_for_dead_faces(this: CharType) -> int:
     return 0
 
 
+def __divine_fireball(this: CharType) -> int:
+    """FB object_boss.bas: send enemy 21 down the side Lynn is standing on.
+
+    Enemy 20's faces stay invincible until that shot expires.
+    """
+    from lynn.object.combat import LLObject_ShiftState
+
+    ball = _room_enemy(21)
+    if ball is not None:
+        LLObject_ShiftState(ball, 1)
+        ball.walk_buffer = ball.walk_length
+        hero = events.hero
+        room = events.current_room
+        tile_x = int(hero.coords_x) >> 4 if hero is not None else 0
+        mid = int(room.x) >> 1 if room is not None else 0
+        ball.direction = 6 if tile_x > mid else 7
+    statue = _room_enemy(20)
+    if statue is not None and statue.anim and statue.anim[0].frame:
+        for face in statue.anim[0].frame[0].face:
+            face.invincible = -1
+    return 1
+
+
+def __divine_ball_return(this: CharType) -> int:
+    """FB object_boss.bas: the ball parks back above the statue."""
+    this.coords_x = 152
+    this.coords_y = 24
+    return 1
+
+
 def __sterach_call(this: CharType) -> int:
     """FB __sterach_call: Sterach (enemy[1]) plays the arm-throw anim."""
     boss = _room_enemy(1)
@@ -931,3 +961,5 @@ register_func("__sword_glow", __sword_glow)
 register_func("__sword_jump", __sword_jump)
 register_func("__sterach_call", __sterach_call)
 register_func("__check_for_dead_faces", __check_for_dead_faces)
+register_func("__divine_fireball", __divine_fireball)
+register_func("__divine_ball_return", __divine_ball_return)

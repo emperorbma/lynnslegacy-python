@@ -241,6 +241,9 @@ class CharType:
     froggy: int = 0
     vision_field: int = 0
     jump_state: int = 0
+    thrust: int = 0
+    diag_thrust: int = 0
+    thrust_state: int = 0
     internalState: int = 0
     lose_time: float = 0.0
     must_align: int = 0

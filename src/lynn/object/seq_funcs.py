@@ -13,12 +13,20 @@ from lynn.constants import (
     u_boss5_left,
     u_boss5_right,
     u_button,
+    u_charger,
     u_chest,
     u_coldrock,
+    u_divine,
+    u_divine_bug,
+    u_fbug,
+    u_ferus,
     u_gbutton,
     u_ghut,
     u_greyrock,
     u_hotrock,
+    u_ibug,
+    u_kambot,
+    u_pekkle_bomb,
     u_sterach,
 )
 from lynn.object.char import CharType
@@ -459,9 +467,63 @@ def __cool_down(this: CharType) -> int:
     return 1
 
 
+def _room_enemy(index: int) -> CharType | None:
+    others = events.current_others
+    if others is None or index < 0 or index >= len(others):
+        return None
+    return others[index]
+
+
 def __make_dead(this: CharType) -> int:
-    this.dead = TRUE
+    from lynn.object.combat import LLObject_ClearDamage
+
+    # Death art is one strip. explosion.spr stores a blank cell in frame 0
+    # and dir_frames 5, so a sideways facing draws that blank cell.
+    if this.unique_id not in (u_charger, u_ferus):
+        this.direction = 0
+        this.animating = 1
+    this.hurt = 0
+    LLObject_ClearDamage(this)
+    this.flash_timer = 0
+    this.flash_count = 0
     this.invisible = 0
+    this.dead = TRUE
+    if this.unique_id in (u_pekkle_bomb, u_kambot):
+        # The blast grows to a 64px square centered on the old body.
+        from lynn.audio import play_sample, sound_explosion
+
+        play_sample(sound_explosion, 80)
+        this.coords_x -= 24
+        this.coords_y -= 24
+        this.perimeter_x = 64
+        this.perimeter_y = 64
+        this.strength = 3
+    else:
+        this.strength = 0
+    this.fly_x = 0
+    this.fly_y = 0
+    if this.unique_id not in (u_ibug, u_fbug, u_boss5_down, u_boss5_left, u_boss5_right):
+        this.proj_style = 0
+    if this.unique_id == u_divine:
+        # The statue's death drops the fireball and wakes the bug form.
+        from lynn.object.combat import LLObject_ShiftState
+
+        ball = _room_enemy(21)
+        if ball is not None:
+            ball.hp = 0
+        bug = _room_enemy(22)
+        if bug is not None:
+            LLObject_ShiftState(bug, 1)
+            bug.invisible = 0
+    if this.unique_id == u_divine_bug:
+        for index in range(0, 6):
+            shell = _room_enemy(index)
+            if shell is not None:
+                shell.hp = 0
+        for index in range(7, 20):
+            shell = _room_enemy(index)
+            if shell is not None:
+                shell.hp = 0
     if this.unique_id == u_sterach:
         # FB object_modification.bas: the sword in enemy[0] dies with him.
         others = events.current_others
@@ -982,6 +1044,17 @@ def __fade_to_black(this: CharType) -> int:
             LLMusic_Stop()
         return 1
     return 0
+
+
+def __turn_off_tiles(this: CharType) -> int:
+    """FB object_etc.bas: the Divine ending drops the room art."""
+    events.tiles_disabled = TRUE
+    return 1
+
+
+def __turn_on_tiles(this: CharType) -> int:
+    events.tiles_disabled = 0
+    return 1
 
 
 for _name, _fn in list(globals().items()):

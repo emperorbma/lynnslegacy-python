@@ -24,6 +24,7 @@ from lynn.constants import (
     u_boss5_left,
     u_boss5_right,
     u_dyssius,
+    u_divine_ball,
     u_fbug,
     u_grult,
     u_ibug,
@@ -149,6 +150,27 @@ def LLObject_IncrementProjectiles(obj: CharType) -> None:
         proj.coords[1][1] += proj.coords[1][1] - old[1]
 
 
+def _divine_statue_faces() -> list:
+    """Divine is room enemy 20. The ball's shot locks and unlocks its faces."""
+    others = events.current_others
+    if not others or len(others) <= 20:
+        return []
+    statue = others[20]
+    if not statue.anim or not statue.anim[0].frame:
+        return []
+    return statue.anim[0].frame[0].face
+
+
+def __cond_trigger_projectile(this: CharType) -> int:
+    """FB object_states.bas: 8 of 10 rolls actually fire. Always advances."""
+    import random
+
+    per = int(random.random() * 10)
+    if per >= 2 and this.projectile is not None:
+        this.projectile.active = this.proj_style
+    return 1
+
+
 def __trigger_projectile(this: CharType) -> int:
     """FB object_states.bas: projectile.active = proj_style."""
     if this.projectile is None:
@@ -182,6 +204,9 @@ def __do_proj(this: CharType) -> int:
         length = proj.length if proj.length else 20
         if proj.travelled >= length:
             LLObject_ClearProjectiles(this)
+            if this.unique_id == u_divine_ball:
+                for face in _divine_statue_faces():
+                    face.invincible = 0
             return 1
         rate = 0.08
         if this.animControl and 0 <= this.proj_anim < len(this.animControl):
@@ -333,5 +358,6 @@ def blit_enemy_proj(canvas, obj: CharType, cam_x: int, cam_y: int, proj_surfs) -
             canvas.blit(proj_surfs[fi], (int(pair[0]) - cam_x, int(pair[1]) - cam_y))
 
 
+register_func("__cond_trigger_projectile", __cond_trigger_projectile)
 register_func("__trigger_projectile", __trigger_projectile)
 register_func("__do_proj", __do_proj)

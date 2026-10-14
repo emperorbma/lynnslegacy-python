@@ -53,6 +53,11 @@ def blit_room_tiles(
     para_surf: pygame.Surface | None = None,
     layers: tuple[int, ...] = (0, 1, 2),
 ) -> None:
+    import lynn.events as events
+
+    # The Dimension Seed ending hides the room while the portrait plays.
+    if events.tiles_disabled != 0:
+        return
     if para_surf is not None:
         canvas.blit(para_surf, (-cam_x // 12, -cam_y // 12))
     for layer in layers:

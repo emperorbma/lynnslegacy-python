@@ -41,9 +41,12 @@ def __flashy(this: CharType) -> int:
         this.flash_timer = 0
         this.invisible = 0
         this.dmg_id = 0
+        from lynn.constants import u_pekkle_grey
         from lynn.object.combat import LLObject_ClearDamage
 
-        LLObject_ClearDamage(this)
+        # A grey pekkle keeps the hit fields. ClearDamage would wipe them.
+        if this.unique_id != u_pekkle_grey:
+            LLObject_ClearDamage(this)
     return 0
 
 
