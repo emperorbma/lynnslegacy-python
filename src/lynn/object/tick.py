@@ -72,6 +72,15 @@ def LLObject_CheckSpawn(obj: CharType) -> None:
             obj.coords_x = obj.x_origin
             obj.coords_y = obj.y_origin
             obj.spawn_wait_trig = TRUE
+            # make_dead already shifted this slot to state 1, but that hit
+            # the null placeholder. The reload above starts the template at
+            # state 0, so Divine's second form would stand still until struck.
+            from lynn.constants import u_divine_bug
+
+            if obj.unique_id == u_divine_bug:
+                from lynn.object.combat import LLObject_ShiftState
+
+                LLObject_ShiftState(obj, 1)
     if info.kill_n == 0:
         return
     if spawn_pairs_met(info.kill_spawn):

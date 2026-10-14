@@ -6,7 +6,15 @@ import lynn.object  # noqa: F401
 import lynn.object.move_ai  # noqa: F401
 
 from lynn import clock
-from lynn.constants import DF_MAIN_CHAR, TRUE, u_charger, u_fbug, u_goldblock, u_pekkle_grey
+from lynn.constants import (
+    DF_MAIN_CHAR,
+    TRUE,
+    u_charger,
+    u_divine_bug,
+    u_fbug,
+    u_goldblock,
+    u_pekkle_grey,
+)
 from lynn.macros import LLObject_CalculateFrame
 from lynn.events import bind_hero, bind_hero_only, bind_room, reset_events
 import lynn.events as events
@@ -20,6 +28,7 @@ from lynn.object.combat_funcs import __flashy
 from lynn.object.dispatch import lookup_func
 from lynn.object.move_ai import __chase
 from lynn.object.projectile import __do_proj
+from lynn.object.tick import tick_objects
 from lynn.object.xml_load import LLSystem_ObjectFromXML
 from lynn.paths import project_root
 
@@ -265,6 +274,49 @@ def test_divine_death_wakes_the_bug_and_the_bug_drops_the_shells():
             assert shell.hp == 9
         else:
             assert shell.hp == 0
+
+
+def test_divine_second_form_fights_as_soon_as_it_appears():
+    """The statue wakes enemy 22 before happen 681 reloads the real bug.
+
+    That shift hits the null placeholder. The reload must leave the bug in
+    its walk state, or the room stays sealed on an idle body.
+    """
+    from lynn.demos import MapDemo, set_up_room_enemies
+    from lynn.gfx.palette import load_pal
+    from lynn.map.loader import load_mapV
+    from lynn.paths import data_file, resolve_map_path
+
+    _hero_at(160, 180)
+    game_map = load_mapV(str(resolve_map_path("divius")), load_tileset=False)
+    demo = MapDemo(
+        palette=load_pal(data_file("palette", "ll.pal")),
+        game_map=game_map,
+        tile_surfs=[],
+        load_images=0,
+        load_tileset=0,
+    )
+    set_up_room_enemies(demo, 118, load_images=False)
+    objs = demo.objects_by_room[118]
+    room = game_map.room[118]
+    bind_room(room, objs)
+    statue = objs[20]
+    bug = objs[22]
+    assert bug.unique_id != u_divine_bug
+    statue.hp = 0
+    woke = False
+    for i in range(2500):
+        clock.timer = i / 200.0
+        tick_objects(objs)
+        if bug.unique_id == u_divine_bug and events.now[681] != 0:
+            woke = True
+            break
+    assert woke
+    assert bug.funcs.active_state == bug.reset_state
+    assert bug.reset_state == 1
+    assert bug.invisible == 0
+    assert bug.hp == 30
+    assert bug.funcs.func[bug.funcs.active_state][0].__name__ == "__randomize_path"
 
 
 def test_divine_ending_hides_the_room_tiles():
