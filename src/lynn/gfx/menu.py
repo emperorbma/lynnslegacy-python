@@ -148,6 +148,39 @@ class MainMenu:
     img: list = field(default_factory=list)
     menuNames: list = field(default_factory=list)
     font: list = field(default_factory=list)
+    font_src: object | None = None
+    font_palette: object | None = None
+    font_variants: dict = field(default_factory=dict)
+
+
+FONT_FG_DEFAULT = 15
+FONT_BG_DEFAULT = 241
+font_state = {"fg": FONT_FG_DEFAULT, "bg": FONT_BG_DEFAULT}
+
+
+def reset_font_colors() -> None:
+    font_state["fg"] = FONT_FG_DEFAULT
+    font_state["bg"] = FONT_BG_DEFAULT
+
+
+def font_glyphs(menu: MainMenu) -> list:
+    """FB remaps llfont pixels in place; here the glyphs are rebuilt per (fg, bg) from the pristine sheet."""
+    key = (font_state["fg"], font_state["bg"])
+    if key == (FONT_FG_DEFAULT, FONT_BG_DEFAULT) or menu.font_src is None or menu.font_palette is None:
+        return menu.font
+    cached = menu.font_variants.get(key)
+    if cached is None:
+        import dataclasses
+
+        src = menu.font_src
+        frames = []
+        for shell in src.frame:
+            px = bytes(key[0] if p == FONT_FG_DEFAULT else key[1] if p == FONT_BG_DEFAULT else p for p in shell.pixels)
+            frames.append(dataclasses.replace(shell, pixels=px))
+        recolored = dataclasses.replace(src, frame=frames)
+        cached = [_crop_glyph(s) for s in frame_surfaces(recolored, menu.font_palette)]
+        menu.font_variants[key] = cached
+    return cached
 
 
 def load_menu(palette: LLPalette) -> MainMenu:
@@ -174,7 +207,9 @@ def load_menu(palette: LLPalette) -> MainMenu:
     menu.menuNames[menu_rknight_select] = "Regenerative power."
     menu.menuNames[menu_menu_select] = "Back to title screen."
     menu.menuNames[menu_resume_select] = "Back to the game."
-    menu.font = [_crop_glyph(s) for s in frame_surfaces(LLSystem_ImageLoad("data/pictures/llfont.spr"), palette)]
+    menu.font_src = LLSystem_ImageLoad("data/pictures/llfont.spr")
+    menu.font_palette = palette
+    menu.font = [_crop_glyph(s) for s in frame_surfaces(menu.font_src, palette)]
     return menu
 
 
@@ -189,14 +224,15 @@ def _crop_glyph(surf):
 def graphicalString(canvas, menu: MainMenu, text: str, x: int, y: int) -> None:
     """FB graphicalString: 8px advance, glyph = ASCII index into llfont.spr."""
     origin_x = x
+    font = font_glyphs(menu)
     for ch in text:
         if ch == "\n":
             y += 16
             x = origin_x
             continue
         idx = ord(ch)
-        if 0 <= idx < len(menu.font) and menu.font[idx] is not None:
-            canvas.blit(menu.font[idx], (x, y))
+        if 0 <= idx < len(font) and font[idx] is not None:
+            canvas.blit(font[idx], (x, y))
         x += 8
 
 

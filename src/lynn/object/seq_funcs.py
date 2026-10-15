@@ -652,6 +652,27 @@ def __invis_entry(this: CharType) -> int:
     return 1
 
 
+def _font_color_arg(this) -> int:
+    """FB: argument below 256 is the colour itself, else the command's chap."""
+    if isinstance(this, int):
+        return this if this < 256 else 0
+    return int(this.chap)
+
+
+def __set_font_fg(this) -> int:
+    from lynn.gfx.menu import font_state
+
+    font_state["fg"] = _font_color_arg(this)
+    return 1
+
+
+def __set_font_bg(this) -> int:
+    from lynn.gfx.menu import font_state
+
+    font_state["bg"] = _font_color_arg(this)
+    return 1
+
+
 def __black_text_on(this: CharType) -> int:
     return 1
 

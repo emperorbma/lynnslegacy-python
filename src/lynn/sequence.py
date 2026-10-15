@@ -219,7 +219,11 @@ def play_sequence(seq: SequenceType | None, box: BoxControl, hero_only, palette=
     for ent in cmd.ent:
         if ent.active_ent == SF_BOX:
             if box.box_IsInited == 0:
-                make_box(box, ent.text, palette, menu, conf=ent.water_align)
+                make_box(
+                    box, ent.text, palette, menu, conf=ent.water_align,
+                    color=ent.dest_x, invis=ent.dest_y, auto=ent.walk_speed,
+                    x=ent.mod_x, y=ent.mod_y, spd=ent.water_align,
+                )
             tick_box(box, hero_only.action)
         else:
             if not (0 <= ent.active_ent < len(seq.ent)):

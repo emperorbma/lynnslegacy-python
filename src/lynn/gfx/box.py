@@ -46,7 +46,14 @@ class BoxControl:
     confBox: int = 0
     selected: int = 0
     sound: int = 0
-
+    invis: int = 0
+    auto: int = 0
+    autosleep: float = 0.0
+    autohook: float = 0.0
+    x_loc: int = 0
+    y_loc: int = 0
+    last_fg: int = 15
+    hold_box: float = 0.0
 
 def parse_text(text: str) -> str:
     """FB parseText: expand {tokens}. {NEWLINE} is kept for wrapping."""
@@ -133,12 +140,21 @@ def make_box(
     palette: LLPalette | None = None,
     menu=None,
     conf: int = 0,
+    color: int = 0,
+    invis: int = 0,
+    auto: float = 0.0,
+    x: int = 0,
+    y: int = 0,
+    spd: int = 0,
 ) -> None:
+    from lynn.gfx.menu import font_state
+
     box.activated = TRUE
     box.text = text
     box.state = TEXTBOX_REGULAR
     box.opcount = 0
     box.timer = clock.timer
+    box.speed = 0.021813
     box.box_IsInited = TRUE
     box.font_menu = menu
     box.rows = [_center_line(line) for line in wrap_lines(text)]
@@ -149,6 +165,17 @@ def make_box(
     box.confBox = TRUE if conf == conf_Box or conf == TRUE else 0
     box.selected = 0
     box.sound = 0
+    box.last_fg = font_state["fg"]
+    if color != 0:
+        font_state["fg"] = int(color)
+    box.invis = -1 if invis != 0 else 0
+    box.auto = -1 if auto != 0 else 0
+    box.autosleep = float(auto)
+    box.autohook = 0.0
+    box.x_loc = int(x)
+    box.y_loc = int(y)
+    if spd != 0 and spd != conf_Box and spd != TRUE:
+        box.speed = spd / 1000
     if palette is not None and box.surf is None:
         header = LLSystem_ImageLoad("data/pictures/textbox.spr")
         if header.frames:
@@ -184,6 +211,16 @@ def _text_beep(box: BoxControl) -> None:
 
     play_sample(sound_texttemp, 25)
     box.sound = -1
+
+
+def _shutdown(box: BoxControl) -> None:
+    from lynn.gfx.menu import font_state
+
+    box.state = TEXTBOX_SHUTDOWN
+    box.activated = FALSE
+    box.box_IsInited = FALSE
+    box.hold_box = clock.timer + 0.03
+    font_state["fg"] = box.last_fg
 
 
 def tick_box(box: BoxControl, action: int) -> None:
@@ -227,15 +264,18 @@ def tick_box(box: BoxControl, action: int) -> None:
             if events.keys.left != 0:
                 box.selected = 0
             if events.keys.enter_pulse != 0:
-                box.state = TEXTBOX_SHUTDOWN
-                box.activated = FALSE
-                box.box_IsInited = FALSE
+                _shutdown(box)
             return
+        if box.auto != 0:
+            if box.autohook == 0.0:
+                box.autohook = clock.timer + box.autosleep
+            if clock.timer >= box.autohook:
+                box.autohook = 0.0
+                _shutdown(box)
+                return
         if action != 0:
             if box.jump_switch == box_kill_switch:
-                box.state = TEXTBOX_SHUTDOWN
-                box.activated = FALSE
-                box.box_IsInited = FALSE
+                _shutdown(box)
             else:
                 box.state = TEXTBOX_REGULAR
                 box.current_line += 1
@@ -245,10 +285,13 @@ def tick_box(box: BoxControl, action: int) -> None:
 
 
 def blit_box(canvas, box: BoxControl) -> None:
+    from lynn.gfx.menu import font_state
+
     if box.activated == 0:
         return
-    if box.surf is not None:
-        canvas.blit(box.surf, (0, 0))
+    ox, oy = box.x_loc, box.y_loc
+    if box.surf is not None and box.invis == 0:
+        canvas.blit(box.surf, (ox, oy))
     if box.font_menu is None or not box.rows:
         return
     page_base = box.current_line & ~3
@@ -256,20 +299,22 @@ def blit_box(canvas, box: BoxControl) -> None:
     for i in range(page_row):
         li = page_base + i
         if 0 <= li < len(box.rows):
-            graphicalString(canvas, box.font_menu, box.rows[li], TEXT_X, TEXT_Y + i * LINE_H)
+            graphicalString(canvas, box.font_menu, box.rows[li], ox + TEXT_X, oy + TEXT_Y + i * LINE_H)
     if 0 <= box.current_line < len(box.rows):
         shown = box.rows[box.current_line][: box.opcount + 1]
-        graphicalString(canvas, box.font_menu, shown, TEXT_X, TEXT_Y + page_row * LINE_H)
+        graphicalString(canvas, box.font_menu, shown, ox + TEXT_X, oy + TEXT_Y + page_row * LINE_H)
     if box.state == TEXTBOX_REGULAR:
         _text_beep(box)
     if box.state == TEXTBOX_CONFIRMATION and box.confBox != 0:
-        yes = "> Yes" if box.selected == 0 else "  Yes"
-        no = "> No" if box.selected == 1 else "  No"
-        graphicalString(canvas, box.font_menu, yes, 9 + (10 << 3), 8 + (3 << 4))
-        graphicalString(canvas, box.font_menu, no, 9 + (26 << 3), 8 + (3 << 4))
+        fg = font_state["fg"]
+        for sel, label, col in ((0, "Yes", 10), (1, "No", 26)):
+            if box.selected == sel:
+                font_state["fg"] = 92
+            graphicalString(canvas, box.font_menu, label, ox + 9 + (col << 3), oy + 8 + (3 << 4))
+            font_state["fg"] = fg
     elif box.state == TEXTBOX_CONFIRMATION and box.jump_switch != box_kill_switch:
         if clock.timer >= box.flashhook:
             box.flashhook = clock.timer + 0.18
             box.flashbox = 0 if box.flashbox != 0 else TRUE
-        if box.flashbox != 0 and box.next_surf is not None:
-            canvas.blit(box.next_surf, (304, 64))
+        if box.flashbox != 0 and box.next_surf is not None and box.invis == 0:
+            canvas.blit(box.next_surf, (ox + 304, oy + 64))
