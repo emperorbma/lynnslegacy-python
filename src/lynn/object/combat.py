@@ -171,6 +171,14 @@ def _derive_powder(h: CharType, only, item: int) -> None:
     LLObject_ClearDamage(h)
 
 
+def _hero_hit(weap: int) -> int:
+    """Weapon damage, doubled by a psycho swing, plus the Adrenaline Booster bonus."""
+    from lynn.items import adrenaline_bonus
+
+    hurt = (2 ** weap) * (2 if events.hero is not None and events.hero.psycho != 0 else 1)
+    return hurt + adrenaline_bonus(events.hero_only, weap)
+
+
 def LLObject_DeriveHurt(h: CharType) -> None:
     only = events.hero_only
     weap = only.weapon if only is not None else 0
@@ -207,7 +215,7 @@ def LLObject_DeriveHurt(h: CharType) -> None:
             return
         if h.star_weak != 0 and weap < 2:
             return
-        h.hurt = (2 ** weap) * (2 if events.hero is not None and events.hero.psycho != 0 else 1)
+        h.hurt = _hero_hit(weap)
         return
     if _face_invincible(h, h.dmg_specific) != 0:
         return
@@ -215,7 +223,7 @@ def LLObject_DeriveHurt(h: CharType) -> None:
         return
     if h.star_weak != 0 and weap < 2:
         return
-    h.hurt = (2 ** weap) * (2 if events.hero is not None and events.hero.psycho != 0 else 1)
+    h.hurt = _hero_hit(weap)
 
 
 def _face_invincible(o: CharType, face_i: int) -> int:
@@ -413,6 +421,12 @@ def start_item_use(hr: CharType) -> None:
     if only is None or only.attacking != 0:
         return
     if only.action_lock != 0 or hr.dead != 0:
+        return
+    if only.selected_item in (5, 6):
+        from lynn.items import use_item
+
+        only.attacking = TRUE
+        use_item(hr, only)
         return
     if only.selected_item == 1:
         only.attacking = TRUE

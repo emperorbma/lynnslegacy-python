@@ -16,7 +16,14 @@ from lynn.constants import (
 )
 from lynn.gfx.blit import blit_object, blit_room_tiles
 from lynn.gfx.hud import blit_hud, load_hud
-from lynn.gfx.loot import blit_drop, blit_enemy_loot, drop_sort_y, is_corpse_drop, load_drop_surfs
+from lynn.gfx.loot import (
+    blit_drop,
+    blit_enemy_loot,
+    drop_sort_y,
+    is_corpse_drop,
+    load_drop_surfs,
+    load_heal_surfs,
+)
 from lynn.gfx.menu import load_menu
 from lynn.gfx.image import LLSystem_ImageLoad, frame_surface, frame_surfaces
 from lynn.gfx.palette import LLPalette, load_pal
@@ -83,6 +90,7 @@ class MapDemo:
     box: object | None = None
     minimap: object | None = None
     drop_surfs: list = field(default_factory=list)
+    heal_surfs: list = field(default_factory=list)
     load_images: int = TRUE
     load_tileset: int = TRUE
 
@@ -139,6 +147,7 @@ def load_map_demo(
     demo.menu = load_menu(palette)
     demo.box = BoxControl()
     demo.drop_surfs = load_drop_surfs(palette)
+    demo.heal_surfs = load_heal_surfs(palette)
     if save is not None and int(demo.hero_only.isWearing) != 0:
         from lynn.outfit import apply_outfit
 
@@ -557,6 +566,7 @@ def draw_map_demo(canvas: pygame.Surface, demo: MapDemo, room_i: int, cam_x: int
             demo.para_cache[room_i] = para
         blit_room_tiles(canvas, room, demo.tile_surfs, cam_x, cam_y, para, layers=(0, 1))
         _blit_y_sorted(canvas, demo, room_i, cam_x, cam_y, save_open)
+        _blit_healing(canvas, demo, cam_x, cam_y)
         blit_room_tiles(canvas, room, demo.tile_surfs, cam_x, cam_y, layers=(2,))
         if room_i < len(demo.objects_by_room):
             blit_enemy_loot(
@@ -607,6 +617,19 @@ def draw_map_demo(canvas: pygame.Surface, demo: MapDemo, room_i: int, cam_x: int
         events.box_entity = None
     if demo.box is not None:
         blit_box(canvas, demo.box)
+
+
+def _blit_healing(canvas, demo: MapDemo, cam_x: int, cam_y: int) -> None:
+    """FB draw: the Healing Symbol sparkle sits just above Lynn."""
+    only = demo.hero_only
+    if only is None or demo.hero is None or only.healing == 0 or not demo.heal_surfs:
+        return
+    frame = int(only.healingFrame)
+    if 0 <= frame < len(demo.heal_surfs):
+        canvas.blit(
+            demo.heal_surfs[frame],
+            (int(demo.hero.coords_x) - cam_x, int(demo.hero.coords_y) - cam_y - 8),
+        )
 
 
 def _sort_y(obj) -> tuple:

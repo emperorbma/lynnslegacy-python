@@ -367,6 +367,9 @@ def _simulate_play_step(demo, room_i, cam_x, cam_y, god_menu, frame_hold, keys):
         from lynn.outfit import tick_hero_outfit
 
         tick_hero_outfit(demo.hero, demo.hero_only)
+        from lynn.items import tick_item_effects
+
+        tick_item_effects(demo.hero, demo.hero_only)
     attacking = demo.hero_only is not None and demo.hero_only.attacking != 0
     if demo.menu_open == 0 and not god_menu.open and not frame_hold and demo.seq is None and not locked:
         if demo.hero is not None:

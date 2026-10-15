@@ -37,6 +37,8 @@ class MainCharType:
     crazy_cache: int = 0
     crazy_dcache: int = 0
     adrenaline: object | None = None
+    healing: int = 0
+    healingFrame: int = 0
     dropoutSequence: int = 0
     invisibleEntry: int = 0
     isLoading: int = 0
@@ -127,6 +129,8 @@ def ctor_hero_only() -> MainCharType:
     only.crazy_cache = 0
     only.crazy_dcache = 0
     only.adrenaline = None
+    only.healing = 0
+    only.healingFrame = 0
     return only
 
 

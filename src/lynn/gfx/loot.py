@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from lynn.constants import u_gold, u_health, u_silver
-from lynn.gfx.image import LLSystem_ImageLoad, frame_surface
+from lynn.gfx.image import LLSystem_ImageLoad, frame_surface, frame_surfaces
 from lynn.gfx.palette import LLPalette
 from lynn.map.collision import check_bounds
 from lynn.object.char import CharType
@@ -24,6 +24,11 @@ def load_drop_surfs(palette: LLPalette) -> list:
         header = LLSystem_ImageLoad(path)
         surfs.append(frame_surface(header, 0, palette) if header.frames else None)
     return surfs
+
+
+def load_heal_surfs(palette: LLPalette) -> list:
+    header = LLSystem_ImageLoad("data/pictures/char/heal.spr")
+    return frame_surfaces(header, palette) if header.frames else []
 
 
 def is_corpse_drop(obj: CharType) -> bool:
