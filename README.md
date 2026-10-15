@@ -81,8 +81,12 @@ Window close quits. Default boot is the splash card, then `data/map/title.map` (
 
 ## Current milestone
 
-Chapter 1 overworld is playable: walk, tile and entity collision, camera, HUD, pause, sapling pickup and swing, contact damage, roamers and copters, signs and NPC talk (including shops), save points, loot, same-map room warps, and map-change doors (houses). Leaving a room respawns its enemies; happen flags keep unique pickups gone.
+The game is playable from the title screen to the end credits. The critical path is covered by automated tests (`tests/test_critical_path.py` and `tests/test_critical_path_ending.py`): start, island, Arx, desert, Divius, the Logosta dungeon (Ferus and the dimension core), the dry world, Limbo and the seed fight, the ending cutscene, then the credit roll. As in the original, the game quits after the credits.
+
+Implemented: walking, collisions, camera, HUD, pause menu and items (including Adrenaline Booster and Healing Symbol), weapons and outfits, shops, signs and NPC talk, save points, loot, room warps and map-change doors, enemies and bosses, scripted sequences and cutscenes, text boxes (with FreeBASIC options for no background, colour, position, auto-dismiss and Yes/No), music and sound, and the credit roll.
+
+Fidelity: all 219 FreeBASIC object functions are registered. Known stub bodies still referenced by shipped XML: `__change_room`, `__outfit_branch`, `__black_text_on`, `__flash_down_gray`. Not started: room-change fade. Ongoing work is auditing behaviour against the FreeBASIC source; no content beyond the original is being added.
+
+Port-only additions (not in the original): godmode (`--godmode`; F8 toggles no damage, F9 opens cheat commands), the pytest suite, and the debug tools (`--save`, `[` `]` room stepping).
 
 Room `.it` music plays through pygame-ce `mixer.music` (no extra library). Title boot starts `title.it`; map changes start the dest room song.
-
-Not started: room-change fade.
