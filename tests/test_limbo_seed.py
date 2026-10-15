@@ -143,3 +143,20 @@ def test_seed_fight_and_death_scene_finish():
             bind_sequence_ents(seq, hero, objs)
             break
     assert seq is not None and _run(seq, demo, hero, only, objs)
+
+def test_ending_scene_sets_finish():
+    demo, hero, only, gm, objs = _arena()
+    gm = load_mapV(str(resolve_map_path("between2")), load_tileset=False)
+    demo.game_map = gm
+    demo.objects_by_room = [[] for _ in gm.room]
+    seq = gm.entry[10].seq[0]
+    bind_sequence_ents(seq, hero, [])
+    for f in range(3000):
+        clock.timer += 0.017
+        only.action = 1 if (demo.box.activated and f % 20 == 0) else 0
+        seq = play_sequence(seq, demo.box, only)
+        if events.xxyxx != 0:
+            break
+    assert events.xxyxx != 0
+
+
