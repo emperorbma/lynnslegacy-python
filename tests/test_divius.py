@@ -319,6 +319,123 @@ def test_divine_second_form_fights_as_soon_as_it_appears():
     assert bug.funcs.func[bug.funcs.active_state][0].__name__ == "__randomize_path"
 
 
+def test_divine_victory_chapter_card_transfers_to_logosta():
+    from lynn.demos import MapDemo, consume_title_events, set_up_room_enemies
+    from lynn.gfx.box import BoxControl
+    from lynn.gfx.palette import load_pal
+    from lynn.map.loader import load_mapV
+    from lynn.object.tick import LLObject_CheckSpawn
+    from lynn.paths import data_file, resolve_map_path
+    from lynn.sequence import play_sequence
+
+    _hero_at(160, 180)
+    clock.timer = 0
+    game_map = load_mapV(str(resolve_map_path("divius")), load_tileset=False)
+    demo = MapDemo(
+        palette=load_pal(data_file("palette", "ll.pal")),
+        game_map=game_map,
+        tile_surfs=[],
+        load_images=0,
+        load_tileset=0,
+    )
+    demo.objects_by_room = [[] for _ in game_map.room]
+    demo.hero = events.hero
+    demo.hero_only = events.hero_only
+    demo.hero_room = 118
+    demo.box = BoxControl()
+    set_up_room_enemies(demo, 118, load_images=False)
+    objs = demo.objects_by_room[118]
+    bind_room(game_map.room[118], objs)
+
+    statue, bug = objs[20], objs[22]
+    statue.hp = 0
+    for i in range(2500):
+        clock.timer = i / 200.0
+        tick_objects(objs)
+        if bug.unique_id == u_divine_bug and events.now[681] != 0:
+            break
+    assert bug.unique_id == u_divine_bug
+
+    bug.hp = 0
+    for _ in range(1200):
+        clock.timer += 0.05
+        tick_objects(objs)
+        if events.pending_seq is not None:
+            demo.seq = events.pending_seq
+            events.pending_seq = None
+            break
+    assert demo.seq is not None, "Divine victory sequence did not start"
+
+    seen_maps = []
+    saw_chapter_card = False
+    for _ in range(8000):
+        if demo.seq is not None:
+            bind_room(
+                demo.game_map.room[demo.hero_room],
+                demo.objects_by_room[demo.hero_room],
+            )
+            if demo.box.activated != 0:
+                demo.hero_only.action = TRUE
+            clock.timer += 0.05
+            demo.seq = play_sequence(demo.seq, demo.box, demo.hero_only)
+            demo.hero_only.action = 0
+            for obj in demo.objects_by_room[demo.hero_room]:
+                LLObject_CheckSpawn(obj)
+
+        if demo.game_map.filename.endswith("between.map"):
+            card = next(
+                (
+                    obj
+                    for obj in demo.objects_by_room[demo.hero_room]
+                    if obj.id.replace("\\", "/").endswith("chapters.xml")
+                ),
+                None,
+            )
+            saw_chapter_card |= card is not None and card.current_anim == 1
+
+        if demo.seq is None:
+            old_map = demo.game_map.filename
+            consume_title_events(demo)
+            if demo.game_map.filename != old_map:
+                seen_maps.append(
+                    demo.game_map.filename.replace("\\", "/").rsplit("/", 1)[-1]
+                )
+            elif not demo.hero.to_map:
+                break
+    else:
+        raise AssertionError(
+            f"Divine portal sequence stalled on {demo.game_map.filename}, "
+            f"command {demo.seq.current_command if demo.seq is not None else 'map change'}"
+        )
+
+    assert seen_maps == ["between.map", "l_entry.map"]
+    assert saw_chapter_card
+    assert demo.seq is None
+    assert demo.hero.invisible == 0
+
+
+def test_tick_leaves_actors_the_running_sequence_command_animates():
+    from types import SimpleNamespace
+
+    from lynn.object.tick import tick_objects
+
+    seed = _load("seedbig.xml")
+    seed.mod_lock = 1
+    ent = SimpleNamespace(active_ent=0)
+    seq = SimpleNamespace(
+        current_command=0, commands=1, ent=[seed], Command=[SimpleNamespace(ent=[ent])]
+    )
+    calls = []
+    seed.funcs.func[seed.funcs.active_state][0] = lambda this: calls.append(1) or 0
+    reset_events()
+    events.current_seq = seq
+    tick_objects([seed])
+    assert calls == []
+    events.current_seq = None
+    tick_objects([seed])
+    assert calls == [1]
+
+
 def test_divine_ending_hides_the_room_tiles():
     _hero_at(0, 0)
     lynn = _load("lynn.xml")

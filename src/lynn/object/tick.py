@@ -175,6 +175,21 @@ def LLObject_TorchModify(torch: CharType, enemies: list[CharType]) -> None:
     torch.current_anim = 0
 
 
+def _driven_by_sequence(obj: CharType, seq) -> bool:
+    """True while the running command animates this actor itself.
+
+    The idle state shares frame_hold with the sequence's active_animate. When
+    the idle tick runs second it takes the frame edge first, so the sequence
+    never sees it finish and the animation repeats.
+    """
+    if seq is None or obj.mod_lock == 0 or seq.current_command >= seq.commands:
+        return False
+    for ent in seq.Command[seq.current_command].ent:
+        if 0 <= ent.active_ent < len(seq.ent) and seq.ent[ent.active_ent] is obj:
+            return True
+    return False
+
+
 def tick_objects(objs: list[CharType], cam: tuple[int, int] | None = None) -> None:
     from lynn.audio import play_sample
     from lynn.constants import (
@@ -202,6 +217,8 @@ def tick_objects(objs: list[CharType], cam: tuple[int, int] | None = None) -> No
     from lynn.macros import LLObject_IsWithin
     from lynn.object.move_ai import __push
 
+    import lynn.events as events
+
     cam_x = 0
     cam_y = 0
     if cam is not None:
@@ -212,6 +229,14 @@ def tick_objects(objs: list[CharType], cam: tuple[int, int] | None = None) -> No
         # else stays frozen until the camera padding reaches them, which is
         # what keeps the open desert from ticking the whole room.
         if cam is not None and LLObject_IsWithin(obj, cam_x, cam_y) == 0:
+            continue
+        # FB act_enemies: a seq-paused actor is driven only by the sequence.
+        # Ticking its idle state too races the sequence's active_animate and
+        # wraps the frame before the edge check sees it (portal looped forever).
+        if obj.seq_paused != 0 and events.current_seq is not None:
+            continue
+        obj.seq_paused = 0
+        if _driven_by_sequence(obj, events.current_seq):
             continue
         if obj.spawn_cond != 0:
             LLObject_CheckSpawn(obj)
