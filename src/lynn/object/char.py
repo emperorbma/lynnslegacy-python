@@ -25,6 +25,8 @@ class EntityProjectile:
     strength: int = 0
     active: int = 0
     coords: list = field(default_factory=list)
+    startVector: list = field(default_factory=lambda: [0, 0])
+    flightPath: list = field(default_factory=lambda: [0.0, 0.0])
 
 
 @dataclass

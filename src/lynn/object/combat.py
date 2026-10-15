@@ -10,6 +10,7 @@ from lynn.constants import (
     DF_TEMP_ENEMY,
     TRUE,
     u_bombrock,
+    u_battleseed,
     u_bush,
     u_crate,
     u_crate_health,
@@ -312,6 +313,8 @@ def LLObject_ProcessHurt(h: CharType) -> None:
         _play_dead_sound(h)
         from lynn.object.projectile import LLObject_ClearProjectiles
 
+        if h.unique_id == u_battleseed and events.current_others and len(events.current_others) > 2:
+            events.current_others[2].hp = 0
         LLObject_ClearProjectiles(h)
         LLObject_ShiftState(h, h.death_state)
         h.dead = 1

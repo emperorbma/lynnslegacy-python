@@ -717,6 +717,46 @@ def __red_tint(this: CharType) -> int:
     return 1
 
 
+def _jump_to_random_tile(this: CharType, tiles: tuple[tuple[int, int], ...]) -> int:
+    """FB object_boss.bas: pick one of five tiles. Picking the current one is a no-op."""
+    import random
+
+    tx, ty = tiles[int(random.random() * len(tiles))]
+    if (this.coords_x, this.coords_y) != (tx << 4, ty << 4):
+        this.coords_x, this.coords_y = tx << 4, ty << 4
+    return 1
+
+
+def __moth_random_loc(this: CharType) -> int:
+    return _jump_to_random_tile(this, ((13, 41), (17, 62), (60, 51), (44, 26), (65, 16)))
+
+
+def __seed_random_loc(this: CharType) -> int:
+    return _jump_to_random_tile(this, ((2, 47), (2, 61), (68, 46), (33, 19), (66, 2)))
+
+
+def __moth_random_proj(this: CharType) -> int:
+    """FB object_boss.bas: the moth rolls sun, track or spiral for its next shot."""
+    import random
+
+    from lynn.constants import PROJECTILE_SPIRAL, PROJECTILE_SUN, PROJECTILE_TRACK
+
+    style, strength, count, anim = (
+        (PROJECTILE_SUN, 3, 128, 3),
+        (PROJECTILE_TRACK, 7, 1, 4),
+        (PROJECTILE_SPIRAL, 5, 16, 5),
+    )[int(random.random() * 3)]
+    this.proj_style = style
+    this.proj_anim = anim
+    proj = this.projectile
+    if proj is not None:
+        proj.strength = strength
+        proj.projectiles = count
+        while len(proj.coords) < count:
+            proj.coords.append([0, 0])
+    return 1
+
+
 def __flash(this: CharType) -> int:
     """FB object--gfx_palette.bas: full-white palette hold ~0.125s (psycho swing)."""
     events.fade_white = 255

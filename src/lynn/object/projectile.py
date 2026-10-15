@@ -17,6 +17,9 @@ from lynn.constants import (
     PROJECTILE_NONE,
     PROJECTILE_ORB,
     PROJECTILE_SCHIZO,
+    PROJECTILE_SPIRAL,
+    PROJECTILE_SUN,
+    PROJECTILE_TRACK,
     u_anger,
     u_beamcrystal,
     u_boss5_crystal,
@@ -35,6 +38,8 @@ _BOSS5_FACES = (u_boss5_left, u_boss5_right, u_boss5_down)
 
 # FB engine--LL.bas IncrementProjectiles: cross, 8-way, and schizo share this fan.
 _FAN_STYLES = (PROJECTILE_CROSS, PROJECTILE_8WAY, PROJECTILE_SCHIZO)
+_RADIAL_STYLES = (PROJECTILE_SPIRAL, PROJECTILE_SUN)
+_MULTI_STYLES = _FAN_STYLES + _RADIAL_STYLES
 _RAD = math.pi / 180.0
 from lynn.object.char import CharType, EntityProjectile
 from lynn.object.dispatch import register_func
@@ -85,6 +90,7 @@ def LLObject_InitializeProjectiles(obj: CharType) -> None:
         proj.coords[0][0] = sx
         proj.coords[0][1] = sy
     else:
+        proj.startVector = [sx, sy]
         for pair in proj.coords:
             pair[0] = sx
             pair[1] = sy
@@ -142,12 +148,49 @@ def LLObject_IncrementProjectiles(obj: CharType) -> None:
             proj.coords[i][1] += math.cos(angle * _RAD)
             angle += step
         return
+    if obj.proj_style in _RADIAL_STYLES:
+        n = min(proj.projectiles or len(proj.coords), len(proj.coords))
+        if n <= 0:
+            return
+        step = 360.0 / n
+        angle = 0.0
+        sway = int(obj.sway)
+        sx, sy = proj.startVector
+        for i in range(n):
+            a = ((int(angle) + sway) % 360) * _RAD
+            proj.coords[i][0] = sx + math.sin(a) * proj.travelled
+            proj.coords[i][1] = sy + math.cos(a) * proj.travelled
+            angle += step
+        obj.sway = 0 if sway == 359 else sway + 1
+        return
+    if obj.proj_style == PROJECTILE_TRACK:
+        _increment_track(obj, proj)
+        return
     if obj.proj_style == PROJECTILE_BEAM and len(proj.coords) > 1:
         old = proj.coords[0][:]
         proj.coords[0][0] = proj.coords[1][0]
         proj.coords[0][1] = proj.coords[1][1]
         proj.coords[1][0] += proj.coords[1][0] - old[0]
         proj.coords[1][1] += proj.coords[1][1] - old[1]
+
+
+def _increment_track(obj: CharType, proj: EntityProjectile) -> None:
+    """FB PROJECTILE_TRACK: home on the hero every 4th step until within 48px."""
+    hero = events.hero
+    if hero is not None and (proj.travelled & 3) == 0:
+        if abs(proj.coords[0][0] - hero.coords_x) < 48 and abs(proj.coords[0][1] - hero.coords_y) < 48:
+            proj.plock = 1
+        if proj.plock == 0:
+            pw, ph = _proj_wh(obj)
+            mx = hero.coords_x + hero.perimeter_x / 2
+            my = hero.coords_y + hero.perimeter_y / 2
+            nx = proj.coords[0][0] + pw / 2
+            ny = proj.coords[0][1] + ph / 2
+            from lynn.object.boss import _v2_calc_flyback
+
+            proj.flightPath = list(_v2_calc_flyback(mx, my, nx, ny))
+    proj.coords[0][0] += proj.flightPath[0]
+    proj.coords[0][1] += proj.flightPath[1]
 
 
 def _divine_statue_faces() -> list:
@@ -304,7 +347,7 @@ def enemy_proj_drawable(obj: CharType) -> bool:
         return False
     if not proj.coords:
         return False
-    fan = obj.proj_style in _FAN_STYLES or obj.proj_style == PROJECTILE_DIAGONAL
+    fan = obj.proj_style in _MULTI_STYLES or obj.proj_style == PROJECTILE_DIAGONAL
     if fan:
         if not any(pair[0] or pair[1] for pair in proj.coords):
             return False
@@ -325,7 +368,7 @@ def blit_enemy_proj(canvas, obj: CharType, cam_x: int, cam_y: int, proj_surfs) -
     grult_shot = getattr(obj, "grult_proj_trig", 0) != 0
     anger_shot = getattr(obj, "anger_proj_trig", 0) != 0
     boss_beam = obj.unique_id in (u_dyssius, u_steelstrider)
-    fan = obj.proj_style in _FAN_STYLES or obj.proj_style == PROJECTILE_DIAGONAL
+    fan = obj.proj_style in _MULTI_STYLES or obj.proj_style == PROJECTILE_DIAGONAL
     if proj is None or proj.invisible != 0 or not proj_surfs:
         return
     if proj.active == 0 and not grult_shot and not anger_shot and not boss_beam:
@@ -338,7 +381,7 @@ def blit_enemy_proj(canvas, obj: CharType, cam_x: int, cam_y: int, proj_surfs) -
     if not grult_shot and not anger_shot and not boss_beam and not fan and proj.travelled == 1:
         return
     n = len(proj_surfs)
-    if obj.proj_style in (PROJECTILE_ORB, PROJECTILE_FIREBALL) or grult_shot or anger_shot:
+    if obj.proj_style in (PROJECTILE_ORB, PROJECTILE_FIREBALL, PROJECTILE_TRACK) or grult_shot or anger_shot:
         fi = proj.travelled % n if n else 0
         canvas.blit(proj_surfs[fi], (int(proj.coords[0][0]) - cam_x, int(proj.coords[0][1]) - cam_y))
         return
