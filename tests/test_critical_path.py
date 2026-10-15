@@ -670,7 +670,7 @@ def _defeat_sterach(demo: MapDemo) -> None:
     assert demo.hero_room == 0
 
 
-def test_critical_path_as_far_as_ported():
+def play_to_island() -> MapDemo:
     """Player route through everything the port currently implements.
 
     Today that ends on island after Sterach. Nerme is the ruins portal
@@ -789,3 +789,10 @@ def test_critical_path_as_far_as_ported():
     assert now[1202] != 0
     assert demo.hero_only.hasItem[2] != 0
     assert bridge_menu_icons(demo.hero_only) == (menu_bridge2, menu_bridge2_select)
+    return demo
+
+
+def test_critical_path_as_far_as_ported():
+    demo = play_to_island()
+    assert _map_stem(demo) == "island"
+
