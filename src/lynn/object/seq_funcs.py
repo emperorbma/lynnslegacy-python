@@ -1056,6 +1056,11 @@ def __after_moenia_townspeople(this: CharType) -> int:
 def __fade_up_to_color(this: CharType) -> int:
     """FB palette restore after fade-to-black. Black overlay stands in for palette."""
     if this.fade_timer == 0:
+        if events.color_mode != 0:
+            # FB writes every palette entry from fade_count/64, so it overrides color_off/red_tint and ramps up from black.
+            events.color_mode = 0
+            events.fade_black = 255
+            this.fade_count = 0
         events.fade_black = max(0, int(events.fade_black) - 4)
         events.fade_white = 0
         this.fade_count += 1
