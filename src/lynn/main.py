@@ -522,6 +522,10 @@ def _run_map(
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
+            elif event.type == pygame.KEYDOWN and events.console is not None:
+                from lynn.console import feed_key
+
+                feed_key(events.console, event.key if event.key in (8, 13) else 0, event.unicode)
             elif event.type == pygame.KEYDOWN:
                 mm = demo.minimap
                 if mm is not None and mm.open:
@@ -729,6 +733,10 @@ def _run_map(
             canvas.blit(demo.menu_backdrop, (0, 0))
             if demo.menu is not None and demo.hero_only is not None:
                 menu_Blit(canvas, demo.menu, demo.hero_only)
+        if events.console is not None:
+            from lynn.console import draw_console
+
+            draw_console(canvas, now)
         _present(canvas, scale_option)
         frame_clock.tick(60)
     if events.xxyxx != 0:

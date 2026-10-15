@@ -820,6 +820,44 @@ def __set_gray_fade(this: CharType) -> int:
     return 1
 
 
+def __set_explosions(this: CharType) -> int:
+    this.explosions = int(this.chap)
+    return 1
+
+
+def __logosta_console(this: CharType) -> int:
+    """FB object_etc.bas: type a password; seq 2 on a match, seq 1 otherwise.
+
+    FB blocks in a private input loop. Here the sequence keeps ticking this
+    func (returning 0) while main.py feeds keys, then it drops out as FB does.
+    """
+    from lynn.console import PASSWORD, ConsoleState
+    from lynn.sequence import sequence_FullReset
+
+    con = events.console
+    if con is None:
+        events.console = ConsoleState(this)
+        return 0
+    if not con.done:
+        return 0
+    events.console = None
+    seq = events.current_seq
+    only = events.hero_only
+    if seq is not None and only is not None:
+        sequence_FullReset(seq, only)
+    idx = 2 if con.text == PASSWORD else 1
+    if 0 <= idx < len(this.seq):
+        nxt = this.seq[idx]
+        nxt.current_command = 0
+        for cmd in nxt.Command:
+            for ent in cmd.ent:
+                ent.ent_func = 0
+        events.pending_seq = nxt
+    if only is not None:
+        only.dropoutSequence = TRUE
+    return 0
+
+
 def __set_anim(this: CharType) -> int:
     """FB object_modification.bas: show anim chap (chapter cards, Lynn poses)."""
     this.frame = 0

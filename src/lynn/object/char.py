@@ -250,6 +250,7 @@ class CharType:
     shifty: int = 0
     shifty_lock: int = 0
     shifty_state: int = 0
+    trigger: int = 0
     side_vision: int = 0
     menu_lock: int = 0
     menu_sel: int = 0

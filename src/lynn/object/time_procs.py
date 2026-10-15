@@ -166,6 +166,20 @@ def __counted_jump_2(this: CharType) -> int:
     return -2
 
 
+def __back_3(this: CharType) -> int:
+    return -3
+
+
+def __check_trigger(this: CharType) -> int:
+    """FB object_time.bas: a wave trigger wakes the turret into its jump_state."""
+    from lynn.object.combat import LLObject_ShiftState
+
+    if this.trigger != 0:
+        this.invincible = 0
+        LLObject_ShiftState(this, this.jump_state)
+    return 1
+
+
 def __timed_jump(this: CharType) -> int:
     if this.jump_timer == 0:
         this.jump_timer = float(this.jump_time) + clock.timer
@@ -212,6 +226,8 @@ register_func("__half_second_pause", __half_second_pause)
 register_func("__q_second_pause", __q_second_pause)
 register_func("__counted_jump", __counted_jump)
 register_func("__counted_jump_2", __counted_jump_2)
+register_func("__back_3", __back_3)
+register_func("__check_trigger", __check_trigger)
 register_func("__timed_jump", __timed_jump)
 register_func("__timed_jump_2", __timed_jump_2)
 register_func("__cond_jump", __cond_jump)

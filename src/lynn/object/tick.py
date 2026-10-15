@@ -190,6 +190,46 @@ def _driven_by_sequence(obj: CharType, seq) -> bool:
     return False
 
 
+_CORE_WAVES = ((5, 10), (11, 18), (19, 28), (29, 48))
+
+
+def tick_core_waves(core: CharType, objs: list[CharType]) -> None:
+    """FB act_enemies 'Hack Fest': the core releases four turret waves, then opens."""
+    from lynn.audio import play_sample, sound_turret
+    from lynn.events import now
+    from lynn.object.combat import LLObject_ShiftState
+
+    if not (725 < len(now) and now[725] != 0):
+        return
+
+    def release(wave: int) -> None:
+        lo, hi = _CORE_WAVES[wave]
+        for i in range(lo, min(hi, len(objs) - 1) + 1):
+            objs[i].trigger = 1
+        play_sample(sound_turret, 80)
+
+    def wave_dead(wave: int) -> bool:
+        lo, hi = _CORE_WAVES[wave]
+        return all(objs[i].dead != 0 for i in range(lo, min(hi, len(objs) - 1) + 1))
+
+    st = core.shifty_state
+    if st == 0:
+        core.shifty_state = 1
+        release(0)
+        core.unstoppable_by_object = 0
+    elif 1 <= st <= 3:
+        if wave_dead(st - 1):
+            core.shifty_state += 1
+            release(st)
+    elif st == 4 and wave_dead(3):
+        core.shifty_state = 5
+        if core.anim and core.current_anim < len(core.anim) and core.anim[core.current_anim].frame:
+            for face in core.anim[core.current_anim].frame[0].face[:8]:
+                face.invincible = 0
+        core.invincible = 0
+        LLObject_ShiftState(core, core.jump_state)
+
+
 def tick_objects(objs: list[CharType], cam: tuple[int, int] | None = None) -> None:
     from lynn.audio import play_sample
     from lynn.constants import (
@@ -199,6 +239,7 @@ def tick_objects(objs: list[CharType], cam: tuple[int, int] | None = None) -> No
         u_boss5_down,
         u_boss5_left,
         u_boss5_right,
+        u_core,
         u_dyssius,
         u_gbutton,
         u_gold,
@@ -238,6 +279,8 @@ def tick_objects(objs: list[CharType], cam: tuple[int, int] | None = None) -> No
         obj.seq_paused = 0
         if _driven_by_sequence(obj, events.current_seq):
             continue
+        if obj.unique_id == u_core:
+            tick_core_waves(obj, objs)
         if obj.spawn_cond != 0:
             LLObject_CheckSpawn(obj)
         if obj.spawn_kill_trig != 0:
