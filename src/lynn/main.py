@@ -740,6 +740,10 @@ def _run_map(
             from lynn.console import draw_console
 
             draw_console(canvas, now)
+        if demo.hero_only is not None:
+            from lynn.gfx.quake import screen_quake
+
+            screen_quake(canvas, int(demo.hero_only.quakeViolence))
         _present(canvas, scale_option)
         frame_clock.tick(60)
     if events.xxyxx != 0:

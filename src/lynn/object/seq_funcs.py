@@ -53,6 +53,13 @@ def __return_trig(this: CharType) -> int:
     return 1
 
 
+def __quake(this: CharType) -> int:
+    """FB object_etc.bas: the command's chap sets the shake size (-1 or 0 stops it)."""
+    if events.hero_only is not None:
+        events.hero_only.quakeViolence = 0 if this.chap == -1 else int(this.chap)
+    return 1
+
+
 def __do_nothing(this: CharType) -> int:
     return 1
 

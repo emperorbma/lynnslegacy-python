@@ -39,6 +39,7 @@ class MainCharType:
     adrenaline: object | None = None
     healing: int = 0
     healingFrame: int = 0
+    quakeViolence: int = 0
     dropoutSequence: int = 0
     invisibleEntry: int = 0
     isLoading: int = 0
@@ -131,6 +132,7 @@ def ctor_hero_only() -> MainCharType:
     only.adrenaline = None
     only.healing = 0
     only.healingFrame = 0
+    only.quakeViolence = 0
     return only
 
 
