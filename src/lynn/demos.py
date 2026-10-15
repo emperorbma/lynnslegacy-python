@@ -356,6 +356,7 @@ def enter_map(
     events.fade_black = 0
     events.fade_white = 0
     events.fade_red = 0
+    events.color_mode = 0
     events.map_filename = Path(path).name
     events.hero_room = demo.hero_room
     _maybe_start_entry_seq(demo, entry_i)

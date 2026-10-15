@@ -736,6 +736,10 @@ def _run_map(
             canvas.blit(demo.menu_backdrop, (0, 0))
             if demo.menu is not None and demo.hero_only is not None:
                 menu_Blit(canvas, demo.menu, demo.hero_only)
+        if events.color_mode:
+            from lynn.gfx.tint import apply_color_mode
+
+            apply_color_mode(canvas, events.color_mode)
         if events.console is not None:
             from lynn.console import draw_console
 

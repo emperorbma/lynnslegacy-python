@@ -230,6 +230,20 @@ def tick_core_waves(core: CharType, objs: list[CharType]) -> None:
         LLObject_ShiftState(core, core.jump_state)
 
 
+def _tick_ferus_volley(obj: CharType) -> None:
+    """FB act_enemies: Ferus fires its spiral every 3-6 seconds."""
+    import random
+
+    from lynn import clock
+    from lynn.object.dispatch import lookup_func
+
+    if obj.radius == 0:
+        obj.radius = clock.timer + 3 + random.random() * 3
+    if clock.timer > obj.radius:
+        obj.radius = 0
+        lookup_func("__trigger_projectile")(obj)
+
+
 def tick_objects(objs: list[CharType], cam: tuple[int, int] | None = None) -> None:
     from lynn.audio import play_sample
     from lynn.constants import (
@@ -241,6 +255,7 @@ def tick_objects(objs: list[CharType], cam: tuple[int, int] | None = None) -> No
         u_boss5_right,
         u_core,
         u_dyssius,
+        u_ferus,
         u_gbutton,
         u_gold,
         u_grult,
@@ -259,6 +274,7 @@ def tick_objects(objs: list[CharType], cam: tuple[int, int] | None = None) -> No
     from lynn.object.move_ai import __push
 
     import lynn.events as events
+    from lynn import clock
 
     cam_x = 0
     cam_y = 0
@@ -341,6 +357,8 @@ def tick_objects(objs: list[CharType], cam: tuple[int, int] | None = None) -> No
         proj = obj.projectile
         if proj is not None and proj.active != 0:
             lookup_func("__do_proj")(obj)
+        if obj.unique_id == u_ferus:
+            _tick_ferus_volley(obj)
         if obj.vol_fade_trig != 0:
             lookup_func("__do_vol_fade")(obj)
         if obj.hurt != 0 and obj.unique_id not in (u_dyssius, u_steelstrider):
@@ -355,6 +373,11 @@ def tick_objects(objs: list[CharType], cam: tuple[int, int] | None = None) -> No
                         obj.funcs.current_func[obj.stun_state] = 2
                 else:
                     LLObject_ShiftState(obj, obj.reset_state)
+                    if obj.unique_id == u_ferus:
+                        from lynn.object.projectile import LLObject_ClearProjectiles
+
+                        LLObject_ClearProjectiles(obj)
+                        obj.radius = clock.timer
                 LLObject_ClearDamage(obj)
                 obj.invisible = 0
                 obj.flash_count = 0

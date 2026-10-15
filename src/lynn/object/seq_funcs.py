@@ -700,10 +700,20 @@ def __chapter_1_off(this: CharType) -> int:
 
 
 def __color_on(this: CharType) -> int:
+    """FB object--gfx_palette.bas: restore the display palette."""
+    events.color_mode = 0
     return 1
 
 
 def __color_off(this: CharType) -> int:
+    """FB object--gfx_palette.bas: every palette entry to black."""
+    events.color_mode = 1
+    return 1
+
+
+def __red_tint(this: CharType) -> int:
+    """FB object--gfx_palette.bas: drop 64 from red and green on every colour."""
+    events.color_mode = 2
     return 1
 
 
