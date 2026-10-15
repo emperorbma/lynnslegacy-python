@@ -113,7 +113,7 @@ def test_red_copter_lands_after_a_hit_inside_vision():
         LLObject_DamageCalc(cop)
         assert cop.funcs.active_state == cop.hit_state
         landed = False
-        for _ in range(40):
+        for _ in range(200):
             clock.timer += 0.005
             tick_objects([cop])
             if cop.funcs.active_state == cop.reset_state:
@@ -149,7 +149,7 @@ def test_red_copter_lands_when_a_hit_knocks_lynn_out_of_vision():
         hero.coords_x = 400
         hero.coords_y = 400
         landed = False
-        for _ in range(40):
+        for _ in range(200):
             clock.timer += 0.005
             tick_objects([cop])
             if cop.funcs.active_state == cop.reset_state:

@@ -51,12 +51,12 @@ def __flashy(this: CharType) -> int:
 
 
 def __flicker(this: CharType) -> int:
-    if this.flash_length <= 0:
-        this.invisible = 0
-        return 1
+    """FB object--gfx.bas: blink for flash_length toggles; a dead boss, Charger or Swordie bails out."""
+    from lynn.constants import u_charger, u_swordie
+
     if this.flash_timer == 0:
         this.invisible = -1 if this.invisible == 0 else 0
-        this.flash_timer = clock.timer + (this.flash_time or 0.02)
+        this.flash_timer = clock.timer + this.flash_time
         this.flash_count += 1
     if clock.timer >= this.flash_timer:
         this.flash_timer = 0
@@ -64,6 +64,8 @@ def __flicker(this: CharType) -> int:
         this.flash_count = 0
         this.flash_timer = 0
         this.invisible = 0
+        return 1
+    if this.dead != 0 and (this.isBoss != 0 or this.unique_id in (u_charger, u_swordie)):
         return 1
     return 0
 

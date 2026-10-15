@@ -489,7 +489,30 @@ def __charger_charge(this: CharType) -> int:
     return result
 
 
+def __cell_bounce(this: CharType) -> int:
+    """FB object_move.bas: diagonal drift that reflects off whatever blocks it."""
+    room = events.current_room
+    if room is None:
+        return 1
+    if this.walk_hold == 0:
+        moved = move_object(this, room, others=events.current_others)
+        if (moved >> 16) == 0:
+            this.direction -= 1 if this.direction & 1 else -1
+            this.direction = (this.direction & 3) + 4
+        elif (moved & 0xFF) == 0:
+            this.direction += 1 if this.direction & 1 else -1
+            this.direction = (this.direction & 3) + 4
+        if LLObject_IncrementFrame(this) != 0:
+            this.frame = 0
+            this.frame_hold = clock.timer + this.animControl[this.current_anim].rate
+        this.walk_hold = clock.timer + this.walk_speed
+    elif clock.timer >= this.walk_hold:
+        this.walk_hold = 0
+    return 1
+
+
 register_func("__push", __push)
+register_func("__cell_bounce", __cell_bounce)
 register_func("__randomize_path", __randomize_path)
 register_func("__walk", __walk)
 register_func("__copter_path", __copter_path)

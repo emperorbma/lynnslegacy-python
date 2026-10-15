@@ -923,10 +923,6 @@ def __set_anim(this: CharType) -> int:
     return 1
 
 
-def __flicker(this: CharType) -> int:
-    return 1
-
-
 def __change_map(this: CharType) -> int:
     """FB object_etc.bas: start a map-change tele from this.chap, drop the seq."""
     only = events.hero_only
