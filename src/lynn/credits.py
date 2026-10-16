@@ -64,7 +64,8 @@ _LOVE_LINES = (
     "be enjoyed for years to come.",
 )
 _PYTHON_LINES = (
-    "Ported to Python by Grok and",
+    "Ported to Python by Grok, Claude,",
+    "and all of the AI brethren, with",
     "Brian Angeletti (emperorbma)",
 )
 

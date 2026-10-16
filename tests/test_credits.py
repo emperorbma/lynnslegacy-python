@@ -28,7 +28,8 @@ _LOVE = (
     "be enjoyed for years to come.",
 )
 _PYTHON = (
-    "Ported to Python by Grok and",
+    "Ported to Python by Grok, Claude,",
+    "and all of the AI brethren, with",
     "Brian Angeletti (emperorbma)",
 )
 _THANKS = "And, thank you for playing!"
@@ -55,6 +56,7 @@ def test_credit_lines_keep_fb_text_and_add_ports():
     assert lines[love + 3] == ""
     assert lines[love + 4] == align_text(_PYTHON[0])
     assert lines[love + 5] == align_text(_PYTHON[1])
+    assert lines[love + 6] == align_text(_PYTHON[2])
     thanks = lines.index(align_text(_THANKS))
     assert love < thanks
     assert lines[thanks - 1] == ""
