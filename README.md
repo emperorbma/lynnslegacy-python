@@ -6,7 +6,7 @@ Original project: [https://sourceforge.net/projects/lynn/](https://sourceforge.n
 
 LÖVE port: [https://github.com/gradualgames/lynnslegacy](https://github.com/gradualgames/lynnslegacy)
 
-This is not a rewrite and not a map-editor port. Function names, field names, and binary layouts follow the original engine.
+The FreeBASIC source is in `fbsrc/`, the same snapshot the LÖVE port ships. This is not a rewrite and not a map-editor port. Function names, field names, and binary layouts follow that engine.
 
 ## License
 
@@ -79,7 +79,7 @@ Window close quits. Default boot is the splash card, then `data/map/title.map` (
 - Use `iif(cond, a, b)` (real ternary). Do not use Python truthiness on engine integers.
 - 0-based lists. Preserve FB tile-array padding (`x * (y + 1) + 1`).
 - Wall-clock `timer` for gameplay (`time.perf_counter()`), not frame `dt`.
-- When Lua comments say “rewritten” / “FIXME”, read the FreeBASIC file.
+- When Lua comments say “rewritten” / “FIXME”, read the matching file under `fbsrc/`.
 
 ## Current milestone
 

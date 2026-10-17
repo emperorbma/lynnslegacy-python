@@ -19,6 +19,7 @@ build/
 .idea/
 .vscode/
 *.log
+!fbsrc/**/*.log
 ll_save*.sav
 # Local debug saves and expected-state metadata; not published.
 tests/fixtures/*
