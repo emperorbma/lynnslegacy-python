@@ -152,6 +152,13 @@ def test_save_fullscreen_keeps_fixed_item_switch(tmp_path):
     assert load_item_switch(path) == ITEM_SWITCH_FIXED
 
 
+def test_item_switch_is_loaded_where_keys_are_read():
+    import lynn.main as main
+
+    assert "item_switch" in main._run_map.__code__.co_varnames
+    assert "item_switch" not in main.main.__code__.co_varnames
+
+
 def test_original_item_keys_both_step_back_and_fixed_splits_them():
     bound = KeyChart()
     assert item_cycle_for_key(pygame.K_COMMA, bound, ITEM_SWITCH_ORIGINAL) == "l"

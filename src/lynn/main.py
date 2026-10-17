@@ -121,7 +121,6 @@ def main(argv: list[str] | None = None) -> int:
 
     chdir_project_root()
     load_controls()
-    item_switch = load_item_switch()
     save = None
     if save_spec:
         from lynn.object.save import LLSystem_ReadSaveFile, resolve_save_spec
@@ -498,6 +497,7 @@ def _run_map(
     debug_caption: bool = True,
     debug_god: bool = False,
 ) -> int:
+    item_switch = load_item_switch()
     demo = load_map_demo(with_objects=with_objects, map_path=map_path, save=save)
     if debug_god:
         events.debug_god = TRUE
