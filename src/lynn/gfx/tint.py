@@ -10,6 +10,7 @@ COLOR_RED = 2
 
 
 def apply_color_mode(canvas: pygame.Surface, mode: int) -> None:
+    """Leftover hook. color_off / red_tint now write the palette itself."""
     if mode == COLOR_OFF:
         canvas.fill((0, 0, 0))
     elif mode == COLOR_RED:

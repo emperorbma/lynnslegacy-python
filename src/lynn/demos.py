@@ -93,6 +93,12 @@ class MapDemo:
     heal_surfs: list = field(default_factory=list)
     load_images: int = TRUE
     load_tileset: int = TRUE
+    pal_epoch: int = -1
+    _tile_epoch: int = -1
+    _hud_epoch: int = -1
+    _loot_epoch: int = -1
+    _hero_anim_epochs: list = field(default_factory=list)
+    _obj_anim_epochs: dict = field(default_factory=dict)
 
 
 def load_map_demo(
@@ -112,6 +118,7 @@ def load_map_demo(
         game_map=game_map,
         tile_surfs=frame_surfaces(game_map.tileset, palette),
     )
+    demo._tile_epoch = palette.epoch
     demo.load_images = TRUE if with_objects else 0
     if not with_objects:
         demo.objects_by_room = [[] for _ in game_map.room]
@@ -143,11 +150,13 @@ def load_map_demo(
     events.load_images = TRUE if demo.load_images else 0
     events.do_hud = TRUE
     demo.hud = load_hud(palette)
+    demo._hud_epoch = palette.epoch
     demo.do_hud = TRUE
     demo.menu = load_menu(palette)
     demo.box = BoxControl()
     demo.drop_surfs = load_drop_surfs(palette)
     demo.heal_surfs = load_heal_surfs(palette)
+    demo._loot_epoch = palette.epoch
     if save is not None and int(demo.hero_only.isWearing) != 0:
         from lynn.outfit import apply_outfit
 
@@ -160,6 +169,7 @@ def load_map_demo(
     if save is not None and int(getattr(save, "rooms", 0) or 0):
         visited = list(save.hasVisited)
     attach_minimap(demo, visited)
+    demo.pal_epoch = palette.epoch
     return demo
 
 
@@ -232,22 +242,26 @@ def _cache_hero_anims(demo: MapDemo) -> None:
     hero._anim_token = _anim_token(hero)
     if demo.load_images == 0 or demo.palette is None:
         demo.hero_surfs = [[] for _ in hero.anim]
+        demo._hero_anim_epochs = [-1] * len(demo.hero_surfs)
         return
     demo.hero_surfs = [
         frame_surfaces(anim, demo.palette) if anim.frames else []
         for anim in hero.anim
     ]
+    demo._hero_anim_epochs = [int(demo.palette.epoch)] * len(demo.hero_surfs)
 
 
 def _cache_obj_anims(demo: MapDemo, obj, load_images: bool = True) -> None:
     obj._anim_token = _anim_token(obj)
-    if not load_images:
+    if not load_images or demo.palette is None:
         demo.obj_anim_surfs[obj.id] = [[] for _ in obj.anim]
+        demo._obj_anim_epochs[obj.id] = [-1] * len(obj.anim)
         return
     demo.obj_anim_surfs[obj.id] = [
         frame_surfaces(anim, demo.palette) if anim.frames else []
         for anim in obj.anim
     ]
+    demo._obj_anim_epochs[obj.id] = [int(demo.palette.epoch)] * len(obj.anim)
 
 
 def _obj_anims_stale(anims, obj) -> bool:
@@ -257,6 +271,36 @@ def _obj_anims_stale(anims, obj) -> bool:
     if getattr(obj, "_anim_token", None) != _anim_token(obj):
         return True
     return any(len(anims[i]) != obj.anim[i].frames for i in range(len(obj.anim)))
+
+
+def _anim_epochs(demo: MapDemo, obj, anims) -> list:
+    """One epoch per anim. Gulls share an id, so the stamp lives on the cache."""
+    if obj is demo.hero:
+        epochs = demo._hero_anim_epochs
+        if len(epochs) != len(anims):
+            epochs = [-1] * len(anims)
+            demo._hero_anim_epochs = epochs
+        return epochs
+    epochs = demo._obj_anim_epochs.get(obj.id)
+    if not isinstance(epochs, list) or len(epochs) != len(anims):
+        epochs = [-1] * len(anims)
+        demo._obj_anim_epochs[obj.id] = epochs
+    return epochs
+
+
+def _ensure_anim(demo: MapDemo, obj, anims, index: int) -> None:
+    """Bake one anim when the DAC moved. Hidden anims stay until they are drawn."""
+    if demo.load_images == 0 or demo.palette is None or not anims or obj is None:
+        return
+    if index < 0 or index >= len(anims) or index >= len(obj.anim):
+        return
+    epochs = _anim_epochs(demo, obj, anims)
+    epoch = int(demo.palette.epoch)
+    if epochs[index] == epoch:
+        return
+    anim = obj.anim[index]
+    anims[index] = frame_surfaces(anim, demo.palette) if anim.frames else []
+    epochs[index] = epoch
 
 
 def del_room_enemies(demo: MapDemo, room_i: int) -> None:
@@ -332,9 +376,17 @@ def enter_map(
     if load_tileset and (game_map.tileset is None or game_map.rooms == 0):
         raise FileNotFoundError(path)
     demo.game_map = game_map
+    if demo.palette is not None:
+        from lynn.gfx.palette import reset_palette_ramps
+
+        demo.palette.restore_master()
+        reset_palette_ramps()
     demo.tile_surfs = []
+    demo._tile_epoch = -1
     if load_tileset and game_map.tileset is not None:
         demo.tile_surfs = frame_surfaces(game_map.tileset, demo.palette)
+        if demo.palette is not None:
+            demo._tile_epoch = int(demo.palette.epoch)
     demo.para_cache = {}
     demo.objects_by_room = [[] for _ in game_map.room]
     demo.load_images = TRUE if load_images else 0
@@ -357,6 +409,8 @@ def enter_map(
     events.fade_white = 0
     events.fade_red = 0
     events.color_mode = 0
+    events.palette = demo.palette
+    events.current_cam = None
     events.map_filename = Path(path).name
     events.hero_room = demo.hero_room
     _maybe_start_entry_seq(demo, entry_i)
@@ -364,6 +418,8 @@ def enter_map(
     visited = events.pending_visited
     events.pending_visited = None
     attach_minimap(demo, visited)
+    if demo.palette is not None:
+        demo.pal_epoch = demo.palette.epoch
 
 
 def jump_to_title(demo: MapDemo) -> None:
@@ -518,9 +574,9 @@ def tick_map_demo(demo: MapDemo, room_i: int) -> None:
         events.hero_room = room_i
         cam = None
         if demo.hero is not None and room is not None:
-            from lynn.hero import update_cam
+            from lynn.hero import camera_target, update_cam
 
-            cam = update_cam(demo.hero, room)
+            cam = update_cam(camera_target(demo.hero, objs), room)
         tick_objects(objs, cam)
         if demo.hero is not None and demo.hero.vol_fade_trig != 0:
             from lynn.object.dispatch import lookup_func
@@ -548,13 +604,81 @@ def _blit_room_dark(canvas: pygame.Surface) -> None:
     canvas.blit(overlay, (0, 0))
 
 
+def _sync_palette_caches(demo: MapDemo) -> None:
+    """A DAC write must not rebuild every sprite. Draw fills what it shows."""
+    pal = demo.palette
+    if pal is None:
+        return
+    epoch = int(getattr(pal, "epoch", 0))
+    if demo.pal_epoch == epoch:
+        return
+    demo.pal_epoch = epoch
+    demo.para_cache.clear()
+
+
+def _tile_px(demo: MapDemo) -> tuple[int, int]:
+    tileset = getattr(demo.game_map, "tileset", None)
+    if tileset is not None and int(getattr(tileset, "x", 0) or 0) > 0 and int(getattr(tileset, "y", 0) or 0) > 0:
+        return int(tileset.x), int(tileset.y)
+    for surf in demo.tile_surfs:
+        if surf is not None:
+            return surf.get_width(), surf.get_height()
+    return 16, 16
+
+
+def _invalidate_tiles(demo: MapDemo) -> None:
+    """Drop baked tiles after a palette write. The blit fills the visible ones."""
+    if demo.load_images == 0 or demo.load_tileset == 0 or demo.palette is None:
+        return
+    tileset = getattr(demo.game_map, "tileset", None)
+    if tileset is None or not getattr(tileset, "frames", 0):
+        return
+    epoch = int(demo.palette.epoch)
+    if demo._tile_epoch == epoch and len(demo.tile_surfs) == tileset.frames:
+        return
+    demo.tile_surfs = [None] * int(tileset.frames)
+    demo._tile_epoch = epoch
+
+
+def _fill_tile(demo: MapDemo, index: int):
+    tileset = getattr(demo.game_map, "tileset", None)
+    if tileset is None or demo.palette is None:
+        return None
+    if index < 0 or index >= tileset.frames:
+        return None
+    return frame_surface(tileset, index, demo.palette)
+
+
+def _ensure_hud(demo: MapDemo) -> None:
+    if demo.hud is None or demo.palette is None or demo.load_images == 0:
+        return
+    epoch = int(demo.palette.epoch)
+    if demo._hud_epoch == epoch:
+        return
+    demo.hud = load_hud(demo.palette)
+    demo._hud_epoch = epoch
+
+
+def _ensure_loot(demo: MapDemo) -> None:
+    if demo.palette is None or demo.load_images == 0:
+        return
+    epoch = int(demo.palette.epoch)
+    if demo._loot_epoch == epoch:
+        return
+    demo.drop_surfs = load_drop_surfs(demo.palette)
+    demo.heal_surfs = load_heal_surfs(demo.palette)
+    demo._loot_epoch = epoch
+
+
 def draw_map_demo(canvas: pygame.Surface, demo: MapDemo, room_i: int, cam_x: int, cam_y: int) -> None:
+    _sync_palette_caches(demo)
     canvas.fill((0, 0, 0))
     if demo.hero is not None and _obj_anims_stale(demo.hero_surfs, demo.hero):
         _cache_hero_anims(demo)
     save_open = demo.hero is not None and demo.hero.menu_sel != 0
     if events.do_chap != 0 and demo.hero is not None:
         chap = int(demo.hero.chap)
+        _ensure_anim(demo, demo.hero, demo.hero_surfs, chap)
         if 0 <= chap < len(demo.hero_surfs) and demo.hero_surfs[chap]:
             canvas.blit(demo.hero_surfs[chap][0], (88, 28))
     else:
@@ -565,10 +689,24 @@ def draw_map_demo(canvas: pygame.Surface, demo: MapDemo, room_i: int, cam_x: int
             if room.para_img is not None and room.para_img.frames:
                 para = frame_surface(room.para_img, 0, demo.palette)
             demo.para_cache[room_i] = para
-        blit_room_tiles(canvas, room, demo.tile_surfs, cam_x, cam_y, para, layers=(0, 1))
+        _invalidate_tiles(demo)
+        tile_w, tile_h = _tile_px(demo)
+        needs_heal = demo.hero_only is not None and int(getattr(demo.hero_only, "healing", 0) or 0) != 0
+        needs_drop = room_i < len(demo.objects_by_room) and any(
+            is_corpse_drop(obj) for obj in demo.objects_by_room[room_i]
+        )
+        if needs_heal or needs_drop:
+            _ensure_loot(demo)
+        blit_room_tiles(
+            canvas, room, demo.tile_surfs, cam_x, cam_y, para, layers=(0, 1),
+            tile_w=tile_w, tile_h=tile_h, fill_tile=lambda index: _fill_tile(demo, index),
+        )
         _blit_y_sorted(canvas, demo, room_i, cam_x, cam_y, save_open)
         _blit_healing(canvas, demo, cam_x, cam_y)
-        blit_room_tiles(canvas, room, demo.tile_surfs, cam_x, cam_y, layers=(2,))
+        blit_room_tiles(
+            canvas, room, demo.tile_surfs, cam_x, cam_y, layers=(2,),
+            tile_w=tile_w, tile_h=tile_h, fill_tile=lambda index: _fill_tile(demo, index),
+        )
         if room_i < len(demo.objects_by_room):
             blit_enemy_loot(
                 None,
@@ -595,6 +733,7 @@ def draw_map_demo(canvas: pygame.Surface, demo: MapDemo, room_i: int, cam_x: int
         fade.set_alpha(max(0, min(255, int(events.fade_black))))
         canvas.blit(fade, (0, 0))
     if demo.do_hud != 0 and demo.hud is not None and demo.hero is not None and demo.hero_only is not None:
+        _ensure_hud(demo)
         blit_hud(
             canvas,
             demo.hero,
@@ -609,7 +748,10 @@ def draw_map_demo(canvas: pygame.Surface, demo: MapDemo, room_i: int, cam_x: int
         from lynn.object.save import blit_save_menu, blit_title_menu
 
         sp = events.box_entity
+        _ensure_hud(demo)
         anims = demo.obj_anim_surfs.get(sp.id, [])
+        for anim_i in range(len(anims)):
+            _ensure_anim(demo, sp, anims, anim_i)
         if sp.unique_id == u_menu:
             blit_title_menu(canvas, sp, anims, demo.hud)
         else:
@@ -687,6 +829,8 @@ def _blit_y_sorted(canvas, demo: MapDemo, room_i: int, cam_x: int, cam_y: int, s
                 _cache_obj_anims(demo, obj)
                 anims = demo.obj_anim_surfs.get(obj.id)
             proj_i = int(getattr(obj, "proj_anim", 0) or 0)
+            if anims and 0 <= proj_i < len(anims):
+                _ensure_anim(demo, obj, anims, proj_i)
             if anims and 0 <= proj_i < len(anims) and anims[proj_i]:
                 from lynn.object.projectile import blit_enemy_proj
 
@@ -702,13 +846,18 @@ def _blit_y_sorted(canvas, demo: MapDemo, room_i: int, cam_x: int, cam_y: int, s
         if not anims:
             continue
         anim_i = obj.current_anim
-        if anim_i < 0 or anim_i >= len(anims) or not anims[anim_i]:
+        if anim_i < 0 or anim_i >= len(anims):
+            continue
+        _ensure_anim(demo, obj, anims, anim_i)
+        if not anims[anim_i]:
             continue
         proj = getattr(obj, "projectile", None)
         proj_i = int(getattr(obj, "proj_anim", 0) or 0)
         from lynn.object.projectile import enemy_proj_drawable
 
         proj_on = enemy_proj_drawable(obj)
+        if proj_on and 0 <= proj_i < len(anims):
+            _ensure_anim(demo, obj, anims, proj_i)
         if (
             proj_on
             and (proj is None or proj.overChar == 0)
@@ -730,6 +879,8 @@ def _blit_y_sorted(canvas, demo: MapDemo, room_i: int, cam_x: int, cam_y: int, s
 
             blit_enemy_proj(canvas, obj, cam_x, cam_y, anims[proj_i])
         expl_i = int(getattr(obj, "expl_anim", 0) or 0)
+        if getattr(obj, "cur_expl", 0) > 0 and 0 <= expl_i < len(anims):
+            _ensure_anim(demo, obj, anims, expl_i)
         if getattr(obj, "cur_expl", 0) > 0 and 0 <= expl_i < len(anims) and anims[expl_i]:
             from lynn.gfx.blit import blit_explosions
 

@@ -210,7 +210,32 @@ def load_menu(palette: LLPalette) -> MainMenu:
     menu.font_src = LLSystem_ImageLoad("data/pictures/llfont.spr")
     menu.font_palette = palette
     menu.font = [_crop_glyph(s) for s in frame_surfaces(menu.font_src, palette)]
+    menu._baked_epoch = int(getattr(palette, "epoch", 0))
     return menu
+
+
+def rebake_menu(menu: MainMenu, palette: LLPalette) -> None:
+    """Rebuild menu art after a palette write. Names stay put."""
+    menu.img = []
+    for path in _MENU_PATHS:
+        surfs = frame_surfaces(LLSystem_ImageLoad(path), palette)
+        menu.img.append(surfs[0] if surfs else None)
+    menu.font_palette = palette
+    menu.font_variants.clear()
+    if menu.font_src is not None:
+        menu.font = [_crop_glyph(s) for s in frame_surfaces(menu.font_src, palette)]
+    menu._baked_epoch = int(getattr(palette, "epoch", 0))
+
+
+def _ensure_menu_art(menu: MainMenu) -> None:
+    """Menu art is baked RGBA. Rebuild it when the DAC changes, not before."""
+    pal = menu.font_palette
+    if pal is None or not hasattr(pal, "epoch"):
+        return
+    epoch = int(pal.epoch)
+    if getattr(menu, "_baked_epoch", None) == epoch:
+        return
+    rebake_menu(menu, pal)
 
 
 def _crop_glyph(surf):
@@ -290,6 +315,7 @@ def idol_menu_name(menu: MainMenu, hero_only: MainCharType) -> str:
 
 def menu_Blit(canvas, menu: MainMenu, hero_only: MainCharType) -> None:
     """FB menu_Blit."""
+    _ensure_menu_art(menu)
     _blit_i(canvas, menu, 0, 0, menu_full_background)
     hw = hero_only.has_weapon
     weap = hero_only.weapon

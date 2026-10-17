@@ -38,6 +38,7 @@ from lynn.hero import (
     DIR_LEFT,
     DIR_RIGHT,
     DIR_UP,
+    camera_target,
     hero_walk_step,
     item_l_key,
     item_r_key,
@@ -388,7 +389,7 @@ def _simulate_play_step(demo, room_i, cam_x, cam_y, god_menu, frame_hold, keys):
             room_i = demo.hero_room
             room = demo.game_map.room[room_i]
             others = demo.objects_by_room[room_i] if room_i < len(demo.objects_by_room) else []
-            cam_x, cam_y = update_cam(demo.hero, room)
+            cam_x, cam_y = update_cam(camera_target(demo.hero, others), room)
         else:
             if scancode_held(keys, chart.lkey):
                 cam_x -= PAN_SPEED
@@ -472,7 +473,8 @@ def _simulate_play_step(demo, room_i, cam_x, cam_y, god_menu, frame_hold, keys):
         room_i = 0
     room = demo.game_map.room[room_i]
     if demo.hero is not None:
-        cam_x, cam_y = update_cam(demo.hero, room)
+        others = demo.objects_by_room[room_i] if room_i < len(demo.objects_by_room) else []
+        cam_x, cam_y = update_cam(camera_target(demo.hero, others), room)
     if demo.menu_open == 0 and not god_menu.open:
         tick_map_demo(demo, room_i)
     else:
@@ -498,7 +500,8 @@ def _run_map(
         events.debug_god = TRUE
     room_i = demo.hero_room if demo.hero is not None else 0
     if demo.hero is not None:
-        cam_x, cam_y = update_cam(demo.hero, demo.game_map.room[room_i])
+        others = demo.objects_by_room[room_i] if room_i < len(demo.objects_by_room) else []
+        cam_x, cam_y = update_cam(camera_target(demo.hero, others), demo.game_map.room[room_i])
     else:
         cam_x, cam_y = _cam_for_room(demo.game_map, room_i)
     shown = None

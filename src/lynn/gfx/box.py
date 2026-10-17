@@ -287,7 +287,12 @@ def tick_box(box: BoxControl, action: int) -> None:
 def blit_box(canvas, box: BoxControl) -> None:
     from lynn.gfx.menu import font_state
 
+    lingering = box.hold_box != 0 and clock.timer <= box.hold_box
+    if box.hold_box != 0 and clock.timer > box.hold_box:
+        box.hold_box = 0
     if box.activated == 0:
+        if lingering and box.invis == 0 and box.surf is not None:
+            canvas.blit(box.surf, (box.x_loc, box.y_loc))
         return
     ox, oy = box.x_loc, box.y_loc
     if box.surf is not None and box.invis == 0:

@@ -19,6 +19,8 @@ fade_white = 0
 fade_black = 0
 fade_red = 0
 color_mode = 0
+current_cam = None
+palette = None
 debug_god = 0
 debug_fixture = ""
 do_chap = 0
@@ -55,7 +57,7 @@ keys = KeyState()
 
 
 def reset_events() -> None:
-    global hero_only, hero, current_room, current_others, do_hud, box_entity, map_filename, hero_room, fade_white, fade_black, fade_red, color_mode, debug_god, debug_fixture, do_chap, pending_seq, current_seq, seq_box, pending_load, request_quit, goto_title, song, song_fade, song_wait, dark, load_images, minimap, pending_visited, xxyxx, tiles_disabled, console
+    global hero_only, hero, current_room, current_others, do_hud, box_entity, map_filename, hero_room, fade_white, fade_black, fade_red, color_mode, current_cam, palette, debug_god, debug_fixture, do_chap, pending_seq, current_seq, seq_box, pending_load, request_quit, goto_title, song, song_fade, song_wait, dark, load_images, minimap, pending_visited, xxyxx, tiles_disabled, console
     for i in range(len(now)):
         now[i] = 0
     hero_only = None
@@ -70,6 +72,8 @@ def reset_events() -> None:
     fade_black = 0
     fade_red = 0
     color_mode = 0
+    current_cam = None
+    palette = None
     debug_god = 0
     debug_fixture = ""
     do_chap = 0
@@ -91,6 +95,9 @@ def reset_events() -> None:
     console = None
     keys.up = keys.down = keys.enter = keys.escape = keys.enter_pulse = 0
     keys.left = keys.right = 0
+    from lynn.gfx.palette import reset_palette_ramps
+
+    reset_palette_ramps()
 
 
 def bind_hero_only(only) -> None:

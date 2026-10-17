@@ -7,6 +7,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass, field
 
 from lynn import clock
+import lynn.events as events
 from lynn.constants import SCREEN_H, SCREEN_W, TRUE
 from lynn.macros import check_ice
 from lynn.map.collision import check_against_teles, move_object
@@ -40,6 +41,7 @@ class MainCharType:
     healing: int = 0
     healingFrame: int = 0
     quakeViolence: int = 0
+    fadeStyle: int = 0
     dropoutSequence: int = 0
     invisibleEntry: int = 0
     isLoading: int = 0
@@ -176,6 +178,17 @@ def place_hero(hero: CharType, game_map: MapType, entry_i: int = 0) -> int:
     hero.coords_y = entry.y
     hero.direction = entry.direction
     return entry.room
+
+
+def camera_target(fallback: CharType | None, others=None) -> CharType | None:
+    """FB update_cam(current_cam). A target that left the room falls back to Lynn."""
+    cam = events.current_cam
+    if cam is None or cam is fallback:
+        return fallback
+    if others is not None and not any(cam is obj for obj in others):
+        events.current_cam = None
+        return fallback
+    return cam
 
 
 def update_cam(hero: CharType, room: RoomType) -> tuple[int, int]:

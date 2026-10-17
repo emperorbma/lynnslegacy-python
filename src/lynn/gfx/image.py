@@ -142,37 +142,39 @@ def _load_col(header: LLSystem_ImageHeader, blob: bytes) -> None:
             )
 
 
+def _indexed_pixels(shell: LLSystem_FrameShell, w: int, h: int) -> bytes:
+    """Frame bytes padded to the sprite box. Index 0 stays the clear color."""
+    if shell.width == w and shell.height == h and len(shell.pixels) == w * h:
+        return shell.pixels
+    buf = bytearray(w * h)
+    fw = min(shell.width, w)
+    fh = min(max(shell.height, 0), h)
+    pixels = shell.pixels
+    row = shell.width
+    for y in range(fh):
+        src = y * row
+        dst = y * w
+        buf[dst : dst + fw] = pixels[src : src + fw]
+    return bytes(buf)
+
+
 def frame_surface(header: LLSystem_ImageHeader, frame_index: int, palette: LLPalette):
     """Build a 32-bit pygame surface for one frame. Index 0 is transparent.
 
-    Paletted 8-bit surfaces plus convert() washed out to white on Windows;
-    bake the LUT ourselves so SCREEN 13 indices become real RGB.
+    The palette is applied in SDL. A Python pixel loop made the title sea
+    (320x896) cost about 0.16s, so each lightning step stalled the logic clock.
+    convert() without a colorkey washed the picture out; convert_alpha keeps
+    index 0 clear and every other index opaque.
     """
     import pygame
 
     shell = header.frame[frame_index]
     w = header.x
     h = header.y
-    pixels = shell.pixels
-    lut = palette.pygame_palette()
-    rgba = bytearray(w * h * 4)
-    fw = min(shell.width, w)
-    fh = min(shell.height, h)
-    for y in range(fh):
-        src_row = y * shell.width
-        dst_row = y * w
-        for x in range(fw):
-            idx = pixels[src_row + x]
-            if idx == 0:
-                continue
-            r, g, b = lut[idx]
-            o = (dst_row + x) * 4
-            rgba[o] = r
-            rgba[o + 1] = g
-            rgba[o + 2] = b
-            rgba[o + 3] = 255
-    surf = pygame.image.frombytes(bytes(rgba), (w, h), "RGBA")
-    return surf.convert_alpha()
+    indexed = pygame.image.frombytes(_indexed_pixels(shell, w, h), (w, h), "P")
+    indexed.set_palette(palette.pygame_palette())
+    indexed.set_colorkey(0)
+    return indexed.convert_alpha()
 
 
 def frame_surfaces(header: LLSystem_ImageHeader, palette: LLPalette) -> list:

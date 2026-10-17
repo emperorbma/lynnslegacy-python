@@ -8,19 +8,32 @@ from lynn.constants import SCREEN_H, SCREEN_W
 from lynn.map.types import RoomType
 
 
+def _cached_tile_size(tile_surfs: list) -> tuple[int, int]:
+    """Index 0 is never drawn, and a palette step leaves unbaked slots empty."""
+    for surf in tile_surfs:
+        if surf is not None:
+            return surf.get_width(), surf.get_height()
+    return 0, 0
+
+
 def blit_layer(
     canvas: pygame.Surface,
     room: RoomType,
     layer: int,
-    tile_surfs: list[pygame.Surface],
+    tile_surfs: list,
     cam_x: int,
     cam_y: int,
+    tile_w: int = 0,
+    tile_h: int = 0,
+    fill_tile=None,
 ) -> None:
     if layer >= len(room.layout) or not tile_surfs:
         return
+    if tile_w <= 0 or tile_h <= 0:
+        tile_w, tile_h = _cached_tile_size(tile_surfs)
+        if tile_w <= 0 or tile_h <= 0:
+            return
     layout = room.layout[layer]
-    tile_w = tile_surfs[0].get_width()
-    tile_h = tile_surfs[0].get_height()
     top_tx = cam_x // tile_w
     top_ty = cam_y // tile_h
     off_x = -(cam_x % tile_w)
@@ -41,17 +54,26 @@ def blit_layer(
             tile_index = layout[idx] & 0xFF
             if tile_index == 0 or tile_index >= len(tile_surfs):
                 continue
-            canvas.blit(tile_surfs[tile_index], (off_x + col * tile_w, screen_y))
+            surf = tile_surfs[tile_index]
+            if surf is None and fill_tile is not None:
+                surf = fill_tile(tile_index)
+                tile_surfs[tile_index] = surf
+            if surf is None:
+                continue
+            canvas.blit(surf, (off_x + col * tile_w, screen_y))
 
 
 def blit_room_tiles(
     canvas: pygame.Surface,
     room: RoomType,
-    tile_surfs: list[pygame.Surface],
+    tile_surfs: list,
     cam_x: int,
     cam_y: int,
     para_surf: pygame.Surface | None = None,
     layers: tuple[int, ...] = (0, 1, 2),
+    tile_w: int = 0,
+    tile_h: int = 0,
+    fill_tile=None,
 ) -> None:
     import lynn.events as events
 
@@ -61,7 +83,9 @@ def blit_room_tiles(
     if para_surf is not None:
         canvas.blit(para_surf, (-cam_x // 12, -cam_y // 12))
     for layer in layers:
-        blit_layer(canvas, room, layer, tile_surfs, cam_x, cam_y)
+        blit_layer(
+            canvas, room, layer, tile_surfs, cam_x, cam_y, tile_w, tile_h, fill_tile,
+        )
 
 
 def _play_frame_sound(obj) -> None:

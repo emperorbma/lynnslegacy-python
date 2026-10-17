@@ -215,6 +215,8 @@ def play_sequence(seq: SequenceType | None, box: BoxControl, hero_only, palette=
     events.do_hud = 0
     events.current_seq = seq
     events.seq_box = box
+    if palette is not None:
+        events.palette = palette
     cmd = seq.Command[seq.current_command]
     for ent in cmd.ent:
         if ent.active_ent == SF_BOX:

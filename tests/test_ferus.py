@@ -13,7 +13,6 @@ from lynn.demos import MapDemo, set_up_room_enemies
 from lynn.events import bind_hero, bind_hero_only, bind_room, reset_events
 from lynn.gfx.box import BoxControl
 from lynn.gfx.palette import load_pal
-from lynn.gfx.tint import apply_color_mode
 from lynn.hero import ctor_hero, ctor_hero_only
 from lynn.map.loader import load_mapV
 from lynn.object.char import CharType
@@ -43,6 +42,7 @@ def _arena():
     )
     demo.objects_by_room = [[] for _ in gm.room]
     demo.hero, demo.hero_only, demo.box, demo.hero_room = hero, only, BoxControl(), 0
+    events.palette = demo.palette
     set_up_room_enemies(demo, 0, load_images=False)
     objs = demo.objects_by_room[0]
     bind_room(gm.room[0], objs)
@@ -85,18 +85,16 @@ def _death_seq(objs, obj, hero):
 
 def test_red_tint_sets_and_tints():
     reset_events()
+    pal = load_pal(data_file("palette", "ll.pal"))
+    events.palette = pal
     this = CharType()
     assert lookup_func("__red_tint")(this) == 1
-    assert events.color_mode == 2
-    surf = pygame.Surface((2, 2))
-    surf.fill((200, 100, 30))
-    apply_color_mode(surf, events.color_mode)
-    assert surf.get_at((0, 0))[:3] == (136, 36, 30)
+    # Index 26 is the health red (255, 20, 20). 6-bit red and green collapse to 0.
+    assert pal.colors[26] == (0, 0, 20)
     lookup_func("__color_off")(this)
-    apply_color_mode(surf, events.color_mode)
-    assert surf.get_at((0, 0))[:3] == (0, 0, 0)
+    assert pal.colors[26] == (0, 0, 0)
     lookup_func("__color_on")(this)
-    assert events.color_mode == 0
+    assert pal.colors[26] == pal.master[26]
 
 
 def test_ferus_intro_completes():
@@ -129,4 +127,4 @@ def test_ferus_both_phases_finish():
     _kill(core)
     seq = _death_seq(objs, core, hero)
     assert seq is not None and _run(seq, demo, only, objs), "core death scene stalls"
-    assert events.color_mode == 2
+    assert events.palette.colors[26] == (0, 0, 20)

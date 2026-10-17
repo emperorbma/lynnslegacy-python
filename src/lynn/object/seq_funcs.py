@@ -5,6 +5,8 @@ from __future__ import annotations
 import lynn.events as events
 from lynn import clock
 from lynn.constants import (
+    LLFADE_GRAY,
+    LLFADE_WHITE,
     TRUE,
     u_bluechest,
     u_bluechestitem,
@@ -629,6 +631,76 @@ def __outfit_swap(this: CharType) -> int:
     return 1
 
 
+def __outfit_branch(this: CharType) -> int:
+    """FB object_etc.bas: the poor-man's line is sequence 1 when money < chap.
+
+    chap on the shop piece is the price (catsuit 10, lynnity 35, bikini 70,
+    red knight 50). A pass does not clear sel_seq, so paying later in the
+    same visit still gets the refusal until the piece respawns.
+    """
+    hero = events.hero
+    if hero is not None and hero.money < int(this.chap):
+        this.sel_seq = 1
+    return 1
+
+
+def __give_costume(this: CharType) -> int:
+    """FB object_etc.bas: hasCostume[chap] = TRUE. No gold is charged."""
+    only = events.hero_only
+    if only is None:
+        return 1
+    chap = int(this.chap)
+    if 0 <= chap < len(only.hasCostume):
+        only.hasCostume[chap] = TRUE
+    return 1
+
+
+def __full_heal(this: CharType) -> int:
+    """FB object_modification.bas: this actor's hp, not Lynn's."""
+    this.hp = this.maxhp
+    return 1
+
+
+def __melt(this: CharType) -> int:
+    """FB object_etc.bas: a thawed bush clears melt and stays on this func."""
+    this.melt = 0
+    return 0
+
+
+def __set_func(this: CharType) -> int:
+    """FB object_modification.bas: jump to function state chap.
+
+    FB also nulls funcs.func[active_state]. Leaving the list in place keeps a
+    later shift back onto that state from calling a null row.
+    """
+    from lynn.object.combat import LLObject_ShiftState
+
+    LLObject_ShiftState(this, int(this.chap))
+    return 1
+
+
+def __set_white_fade(this: CharType) -> int:
+    """FB object_modification.bas: the next room change fades through white."""
+    only = events.hero_only
+    if only is not None:
+        only.fadeStyle |= LLFADE_WHITE
+    return 1
+
+
+def __set_gray_fade(this: CharType) -> int:
+    """FB object_modification.bas: the next room change arrives in grayscale."""
+    only = events.hero_only
+    if only is not None:
+        only.fadeStyle |= LLFADE_GRAY
+    return 1
+
+
+def __set_camera(this: CharType) -> int:
+    """FB object_etc.bas: draw the room from this actor until another set_camera."""
+    events.current_cam = this
+    return 1
+
+
 def __give_outfit(this: CharType) -> int:
     only = events.hero_only
     hero = events.hero
@@ -638,10 +710,6 @@ def __give_outfit(this: CharType) -> int:
     if hero is not None:
         prices = {1: 10, 2: 35, 4: 70, 5: 50}
         hero.money -= prices.get(chap, 0)
-    return 1
-
-
-def __set_camera(this: CharType) -> int:
     return 1
 
 
@@ -674,6 +742,10 @@ def __set_font_bg(this) -> int:
 
 
 def __black_text_on(this: CharType) -> int:
+    """FB object--gfx_palette.bas: Palette 247 from the loaded display.pal."""
+    pal = events.palette
+    if pal is not None and hasattr(pal, "black_text_on"):
+        pal.black_text_on()
     return 1
 
 
@@ -721,20 +793,29 @@ def __chapter_1_off(this: CharType) -> int:
 
 
 def __color_on(this: CharType) -> int:
-    """FB object--gfx_palette.bas: restore the display palette."""
+    """FB object--gfx_palette.bas: Palette Using display.pal."""
     events.color_mode = 0
+    pal = events.palette
+    if pal is not None and hasattr(pal, "restore_master"):
+        pal.restore_master()
     return 1
 
 
 def __color_off(this: CharType) -> int:
-    """FB object--gfx_palette.bas: every palette entry to black."""
-    events.color_mode = 1
+    """FB object--gfx_palette.bas: Palette index, 0 for 0..255."""
+    events.color_mode = 0
+    pal = events.palette
+    if pal is not None and hasattr(pal, "color_off"):
+        pal.color_off()
     return 1
 
 
 def __red_tint(this: CharType) -> int:
-    """FB object--gfx_palette.bas: drop 64 from red and green on every colour."""
-    events.color_mode = 2
+    """FB object--gfx_palette.bas: 6-bit red and green minus 64, per entry."""
+    events.color_mode = 0
+    pal = events.palette
+    if pal is not None and hasattr(pal, "red_tint"):
+        pal.red_tint()
     return 1
 
 
@@ -791,13 +872,31 @@ def __flash(this: CharType) -> int:
 
 
 def __flash_down(this: CharType) -> int:
-    """FB object--gfx_palette.bas: restore palette after psycho flash."""
+    """FB object--gfx_palette.bas: sixteen steps from white, then shift_pal."""
+    from lynn.gfx.palette import step_flash_down
+
     events.fade_white = 0
-    return 1
+    this.fade_count, done = step_flash_down(events.palette, int(this.fade_count))
+    return done
+
+
+def __make_black_and_white(this: CharType) -> int:
+    """FB object--gfx_palette.bas: lock every entry to its 6-bit gray."""
+    from lynn.gfx.palette import make_black_and_white
+
+    return make_black_and_white(events.palette)
 
 
 def __flash_down_gray(this: CharType) -> int:
-    return 1
+    """FB object--gfx_palette.bas: white to gray, then __make_black_and_white.
+
+    Title lightning (gull state 7). The gray stays until a later palette write.
+    """
+    from lynn.gfx.palette import step_flash_down_gray
+
+    events.fade_white = 0
+    this.fade_count, done = step_flash_down_gray(events.palette, int(this.fade_count))
+    return done
 
 
 def __play_song(this: CharType) -> int:
@@ -887,14 +986,6 @@ def __do_vol_fade(this: CharType) -> int:
         this.vol_fade_trig = 0
         this.vol_fade = 0
         this.sample_vol_store = 0
-    return 1
-
-
-def __set_white_fade(this: CharType) -> int:
-    return 1
-
-
-def __set_gray_fade(this: CharType) -> int:
     return 1
 
 
@@ -1054,15 +1145,18 @@ def __after_moenia_townspeople(this: CharType) -> int:
 
 
 def __fade_up_to_color(this: CharType) -> int:
-    """FB palette restore after fade-to-black. Black overlay stands in for palette."""
+    """FB __fade_up_to_color: 64 palette slices from black, then shift_pal.
+
+    fade_to_black still washes an overlay. Each slice lifts that too, or the
+    picture would stay covered after the DAC came back.
+    """
+    slices = 64
     if this.fade_timer == 0:
-        if events.color_mode != 0:
-            # FB writes every palette entry from fade_count/64, so it overrides color_off/red_tint and ramps up from black.
-            events.color_mode = 0
-            events.fade_black = 255
-            this.fade_count = 0
-        events.fade_black = max(0, int(events.fade_black) - 4)
+        events.color_mode = 0
         events.fade_white = 0
+        pal = events.palette
+        if pal is not None and hasattr(pal, "write_fade_up"):
+            pal.write_fade_up(int(this.fade_count), int(events.dark or 0))
         this.fade_count += 1
         # FB slams GVOL to 100 while song_fade is set. That is silent if the
         # channel was stopped. Skip it once boss.it has been unloaded, or the
@@ -1072,14 +1166,18 @@ def __fade_up_to_color(this: CharType) -> int:
 
             if audio.last_song:
                 audio.LLMusic_SetVolume(100)
+        if events.fade_black:
+            events.fade_black = max(0, int(events.fade_black) - 4)
+        if this.fade_count >= slices:
+            if pal is not None and hasattr(pal, "restore_master"):
+                pal.restore_master()
+            events.fade_black = 0
+            this.fade_count = 0
+            this.fade_timer = 0
+            return 1
         this.fade_timer = clock.timer + (this.fade_time or 0.01)
     if clock.timer >= this.fade_timer:
         this.fade_timer = 0
-    if this.fade_count >= 64 or events.fade_black <= 0:
-        events.fade_black = 0
-        this.fade_count = 0
-        this.fade_timer = 0
-        return 1
     return 0
 
 
@@ -1105,18 +1203,18 @@ def __fade_to_white(this: CharType) -> int:
 
 
 def __fade_down_to_color(this: CharType) -> int:
-    """FB: 64 steps from white back to the room palette."""
+    """FB __fade_down_to_color: 64 steps from white, then the room palette."""
+    from lynn.gfx.palette import step_fade_down_to_color
+
     if this.fade_timer == 0:
-        events.fade_white = max(0, int(events.fade_white) - 4)
-        this.fade_count += 1
+        events.fade_white = 0
+        this.fade_count, done = step_fade_down_to_color(events.palette, int(this.fade_count))
+        if done:
+            this.fade_timer = 0
+            return 1
         this.fade_timer = clock.timer + (this.fade_time or 0.01)
     if clock.timer >= this.fade_timer:
         this.fade_timer = 0
-    if this.fade_count >= 64 or events.fade_white <= 0:
-        events.fade_white = 0
-        this.fade_count = 0
-        this.fade_timer = 0
-        return 1
     return 0
 
 
