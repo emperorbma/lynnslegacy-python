@@ -687,12 +687,14 @@ def _run_map(
             if menu_confirm and handleKeybSelected(demo.menu, demo.hero_only) != 0:
                 demo.menu_open = 0
                 demo.menu_backdrop = None
+                events.keys.enter_swallow = 1
+                events.keys.enter_pulse = 0
         keys = pygame.key.get_pressed()
         events.keys.up = scancode_held(keys, chart.ukey)
         events.keys.down = scancode_held(keys, chart.dkey)
         events.keys.left = scancode_held(keys, chart.lkey)
         events.keys.right = scancode_held(keys, chart.rkey)
-        events.keys.enter = scancode_held(keys, SC_ENTER)
+        events.keys.enter = events.sample_enter(scancode_held(keys, SC_ENTER))
         events.keys.escape = scancode_held(keys, chart.menu)
         if demo.hero_only is not None:
             if demo.hero_only.selected_item == 0 and demo.hero_only.hasItem[0]:

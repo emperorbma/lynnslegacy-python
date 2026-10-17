@@ -72,6 +72,31 @@ def test_do_menu_begin_sets_return_trig():
     assert hero.menu_sel == 0
 
 
+def test_back_to_title_does_not_confirm_begin():
+    """The Enter that leaves play is still down when __do_menu starts."""
+    reset_events()
+    hero = ctor_hero(load_images=False)
+    bind_hero(hero)
+    bind_hero_only(ctor_hero_only())
+    menu = _menu_obj()
+    clock.timer = 1.0
+    events.keys.enter_swallow = 1
+    events.keys.enter = events.sample_enter(TRUE)
+    lookup_func("__do_menu")(menu)
+    assert menu.menu_lock == 0
+    events.keys.enter = events.sample_enter(0)
+    lookup_func("__do_menu")(menu)
+    assert menu.return_trig == 0
+    assert hero.menu_sel == 1
+    events.keys.enter = events.sample_enter(TRUE)
+    lookup_func("__do_menu")(menu)
+    assert menu.menu_lock != 0
+    events.keys.enter = events.sample_enter(0)
+    lookup_func("__do_menu")(menu)
+    assert menu.return_trig != 0
+    assert hero.menu_sel == 0
+
+
 def test_do_menu_continue_shifts_to_file_slots():
     reset_events()
     hero = ctor_hero(load_images=False)

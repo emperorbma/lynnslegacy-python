@@ -51,9 +51,24 @@ class KeyState:
     enter: int = 0
     escape: int = 0
     enter_pulse: int = 0
+    # Pause-menu confirm is still down. Title Begin waits for a new press.
+    enter_swallow: int = 0
 
 
 keys = KeyState()
+
+
+def sample_enter(held: int) -> int:
+    """Enter as held, after the pause menu has let go of its confirm.
+
+    Title __do_menu locks on Enter-down and starts Begin on Enter-up.
+    Back to title is that same key, and the title menu is already running.
+    """
+    if keys.enter_swallow:
+        if held:
+            return 0
+        keys.enter_swallow = 0
+    return held
 
 
 def reset_events() -> None:
@@ -94,7 +109,7 @@ def reset_events() -> None:
     tiles_disabled = 0
     console = None
     keys.up = keys.down = keys.enter = keys.escape = keys.enter_pulse = 0
-    keys.left = keys.right = 0
+    keys.left = keys.right = keys.enter_swallow = 0
     from lynn.gfx.palette import reset_palette_ramps
 
     reset_palette_ramps()
