@@ -8,12 +8,15 @@ import pygame
 
 from lynn.constants import SCREEN_H, SCREEN_W, TRUE
 from lynn.controls import (
+    ITEM_SWITCH_FIXED,
+    ITEM_SWITCH_ORIGINAL,
     SC_ESCAPE,
     check_all_codes,
     load_controls,
     load_fullscreen,
+    load_item_switch,
     save_controls,
-    save_fullscreen,
+    save_ini,
     scancode_from_pygame,
     scancode_name,
 )
@@ -161,6 +164,7 @@ def run_config(canvas, present, frame_clock, scale_option: int = 0) -> int:
     col114 = palette.colors[114] if len(palette.colors) > 114 else _COL114
     bound = load_controls()
     fullscreen = load_fullscreen()
+    item_switch = load_item_switch()
     waiting = False
     wait_attr = ""
     pygame.mouse.set_visible(True)
@@ -197,6 +201,10 @@ def run_config(canvas, present, frame_clock, scale_option: int = 0) -> int:
                     fullscreen = TRUE
                 elif _hit(mx, my, 240, 30, 64, 16):
                     fullscreen = 0
+                elif _hit(mx, my, 240, 60, 72, 10):
+                    item_switch = ITEM_SWITCH_ORIGINAL
+                elif _hit(mx, my, 240, 70, 48, 10):
+                    item_switch = ITEM_SWITCH_FIXED
                 else:
                     for attr, x, y, _kind, _fi, w, h in _SLOTS:
                         if _hit(mx, my, x, y, w, h):
@@ -244,6 +252,16 @@ def run_config(canvas, present, frame_clock, scale_option: int = 0) -> int:
         if _hit(mx, my, 240, 30, 64, 16):
             pygame.draw.rect(canvas, col15, (240, 30, 64, 16), 1)
 
+        # Original is the default. Fixed is FreeBASIC comma/period order.
+        draw_string(canvas, "Items", 240, 50, col15)
+        original_on = item_switch != ITEM_SWITCH_FIXED
+        draw_string(canvas, "Original", 240, 60, col114 if original_on else col15)
+        draw_string(canvas, "Fixed", 240, 70, col15 if original_on else col114)
+        if _hit(mx, my, 240, 60, 72, 10):
+            pygame.draw.rect(canvas, col15, (240, 60, 72, 10), 1)
+        if _hit(mx, my, 240, 70, 48, 10):
+            pygame.draw.rect(canvas, col15, (240, 70, 48, 10), 1)
+
         hints = (
             "Click an action,",
             "then hit a button for that action.",
@@ -262,6 +280,6 @@ def run_config(canvas, present, frame_clock, scale_option: int = 0) -> int:
 
     if save_on_exit:
         save_controls(bound)
-        save_fullscreen(fullscreen)
+        save_ini(fullscreen, item_switch)
     pygame.mouse.set_visible(False)
     return 0

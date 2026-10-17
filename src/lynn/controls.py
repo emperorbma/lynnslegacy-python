@@ -405,21 +405,80 @@ def save_controls(bound: KeyChart, path: Path | None = None) -> None:
     dest.write_text("\n".join(lines), encoding="latin-1")
 
 
-def load_fullscreen(path: Path | None = None) -> int:
-    """FB isFullscreen: ll.ini contains FULLSCREEN and YES."""
+# ll.ini ItemSwitch. Original is the port's first key wiring and the default
+# when the line is missing. Fixed is FreeBASIC's comma/period order and applies
+# only when the line says Fixed.
+ITEM_SWITCH_ORIGINAL = "Original"
+ITEM_SWITCH_FIXED = "Fixed"
+
+
+def _read_ini(path: Path | None = None) -> str:
     dest = path or _ini_path()
     if not dest.is_file():
-        return 0
+        return ""
     try:
-        text = dest.read_text(encoding="latin-1")
+        return dest.read_text(encoding="latin-1")
     except OSError:
-        return 0
-    upper = text.upper()
+        return ""
+
+
+def load_fullscreen(path: Path | None = None) -> int:
+    """FB isFullscreen: ll.ini contains FULLSCREEN and YES."""
+    upper = _read_ini(path).upper()
     if "FULLSCREEN" in upper and "YES" in upper:
         return 1
     return 0
 
 
-def save_fullscreen(enabled: int, path: Path | None = None) -> None:
+def load_item_switch(path: Path | None = None) -> str:
+    """ll.ini ItemSwitch. Missing file or line stays Original.
+
+    Fixed is selected only by the word Fixed. That order matches FreeBASIC:
+    comma steps to the previous owned item and period steps to the next.
+    """
+    for line in _read_ini(path).splitlines():
+        key, sep, val = line.partition("=")
+        if sep and key.strip().upper() == "ITEMSWITCH":
+            if val.strip().upper() == "FIXED":
+                return ITEM_SWITCH_FIXED
+            return ITEM_SWITCH_ORIGINAL
+    return ITEM_SWITCH_ORIGINAL
+
+
+def save_ini(fullscreen: int, item_switch: str, path: Path | None = None) -> None:
     dest = path or _ini_path()
-    dest.write_text(f"Fullscreen = {'Yes' if enabled != 0 else 'No'}\n", encoding="latin-1")
+    mode = ITEM_SWITCH_FIXED if str(item_switch).strip().upper() == "FIXED" else ITEM_SWITCH_ORIGINAL
+    dest.write_text(
+        f"Fullscreen = {'Yes' if fullscreen != 0 else 'No'}\nItemSwitch = {mode}\n",
+        encoding="latin-1",
+    )
+
+
+def save_fullscreen(enabled: int, path: Path | None = None) -> None:
+    """Write Fullscreen and keep ItemSwitch (Original when the file is new)."""
+    dest = path or _ini_path()
+    save_ini(enabled, load_item_switch(dest), dest)
+
+
+def item_cycle_for_key(key: int, bound: KeyChart, item_switch: str) -> str | None:
+    """'l' steps to the previous owned item, 'r' to the next.
+
+    Original keeps the port's first binding. item_up defaults to period and
+    shares its branch with a hardcoded comma, so both shipped keys call
+    item_l_key and step backward. The item_down branch never sees them.
+
+    Fixed is the FreeBASIC order from readme.txt ('<' and '>'). Comma and
+    item_down call item_l_key. Period and item_up call item_r_key. It runs
+    only when ItemSwitch is Fixed.
+    """
+    if str(item_switch).strip().upper() == "FIXED":
+        if key in pygame_keys_for(bound.item_down) or key == pygame.K_COMMA:
+            return "l"
+        if key in pygame_keys_for(bound.item_up) or key == pygame.K_PERIOD:
+            return "r"
+        return None
+    if key in pygame_keys_for(bound.item_up) or key == pygame.K_COMMA:
+        return "l"
+    if key in pygame_keys_for(bound.item_down) or key == pygame.K_PERIOD:
+        return "r"
+    return None

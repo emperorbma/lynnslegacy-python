@@ -47,8 +47,10 @@ from lynn.hero import (
 from lynn.controls import (
     SC_ENTER,
     chart,
+    item_cycle_for_key,
     load_controls,
     load_fullscreen,
+    load_item_switch,
     pygame_keys_for,
     scancode_held,
 )
@@ -119,6 +121,7 @@ def main(argv: list[str] | None = None) -> int:
 
     chdir_project_root()
     load_controls()
+    item_switch = load_item_switch()
     save = None
     if save_spec:
         from lynn.object.save import LLSystem_ReadSaveFile, resolve_save_spec
@@ -640,10 +643,10 @@ def _run_map(
                 elif event.key in pygame_keys_for(chart.itmkey):
                     if demo.hero is not None and demo.hero_only is not None and not seq_busy:
                         start_item_use(demo.hero)
-                elif event.key in pygame_keys_for(chart.item_up) or event.key == pygame.K_COMMA:
+                elif item_cycle_for_key(event.key, chart, item_switch) == "l":
                     if demo.hero_only is not None and demo.menu_open == 0:
                         item_l_key(demo.hero_only)
-                elif event.key in pygame_keys_for(chart.item_down) or event.key == pygame.K_PERIOD:
+                elif item_cycle_for_key(event.key, chart, item_switch) == "r":
                     if demo.hero_only is not None and demo.menu_open == 0:
                         item_r_key(demo.hero_only)
                 elif not seq_busy and event.key in (pygame.K_LEFTBRACKET, pygame.K_PAGEUP):

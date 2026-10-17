@@ -1,8 +1,10 @@
-"""controls.xml scancodes and ll.ini fullscreen."""
+"""controls.xml scancodes and ll.ini fullscreen / item switch."""
 
 import pygame
 
 from lynn.controls import (
+    ITEM_SWITCH_FIXED,
+    ITEM_SWITCH_ORIGINAL,
     SC_ALT,
     SC_COMMA,
     SC_CONTROL,
@@ -17,11 +19,14 @@ from lynn.controls import (
     SC_W,
     KeyChart,
     check_all_codes,
+    item_cycle_for_key,
     load_controls,
     load_fullscreen,
+    load_item_switch,
     pygame_keys_for,
     save_controls,
     save_fullscreen,
+    save_ini,
     scancode_from_pygame,
     scancode_held,
     scancode_name,
@@ -123,6 +128,38 @@ def test_fullscreen_ini_roundtrip(tmp_path):
     save_fullscreen(-1, path)
     assert load_fullscreen(path) != 0
     assert "YES" in path.read_text(encoding="latin-1").upper()
+    assert load_item_switch(path) == ITEM_SWITCH_ORIGINAL
+
+
+def test_item_switch_defaults_to_original(tmp_path):
+    missing = tmp_path / "no-such.ini"
+    assert load_item_switch(missing) == ITEM_SWITCH_ORIGINAL
+    path = tmp_path / "ll.ini"
+    path.write_text("Fullscreen = Yes\n", encoding="latin-1")
+    assert load_item_switch(path) == ITEM_SWITCH_ORIGINAL
+    path.write_text("ItemSwitch = Yes\n", encoding="latin-1")
+    assert load_item_switch(path) == ITEM_SWITCH_ORIGINAL
+    path.write_text("ItemSwitch = fixed\n", encoding="latin-1")
+    assert load_item_switch(path) == ITEM_SWITCH_FIXED
+
+
+def test_save_fullscreen_keeps_fixed_item_switch(tmp_path):
+    path = tmp_path / "ll.ini"
+    save_ini(0, ITEM_SWITCH_FIXED, path)
+    save_fullscreen(-1, path)
+    text = path.read_text(encoding="latin-1")
+    assert "Fullscreen = Yes" in text
+    assert load_item_switch(path) == ITEM_SWITCH_FIXED
+
+
+def test_original_item_keys_both_step_back_and_fixed_splits_them():
+    bound = KeyChart()
+    assert item_cycle_for_key(pygame.K_COMMA, bound, ITEM_SWITCH_ORIGINAL) == "l"
+    assert item_cycle_for_key(pygame.K_PERIOD, bound, ITEM_SWITCH_ORIGINAL) == "l"
+    assert item_cycle_for_key(pygame.K_COMMA, bound, ITEM_SWITCH_FIXED) == "l"
+    assert item_cycle_for_key(pygame.K_PERIOD, bound, ITEM_SWITCH_FIXED) == "r"
+    assert item_cycle_for_key(pygame.K_COMMA, bound, "fixed") == "l"
+    assert item_cycle_for_key(pygame.K_PERIOD, bound, "fixed") == "r"
 
 
 def test_parse_cli_config_mode():

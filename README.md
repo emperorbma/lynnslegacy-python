@@ -63,6 +63,8 @@ Keys:
 - Enter — confirm pause slot or Yes/No
 - Left / Right — Yes/No
 - Ctrl — swing current weapon; rebound in config
+- Alt — use the selected item; rebound in config
+- Comma (`<`) and period (`>`) — quick-switch the selected item. `ll.ini` `ItemSwitch` chooses the order, and the config screen sets it. `Original` is the default when the line is missing: both keys step to the previous owned item. That is how this port first wired `item_up` (period) onto the same branch as comma. `Fixed` runs only when the line says `Fixed`. It matches FreeBASIC: comma steps to the previous owned item and period steps to the next.
 - Esc — pause (`objects`); quit (`map` / `palette` / `config` saves / `credits`)
 - `[` `]` or PageUp / PageDown — previous / next room
 - F11 / Alt+Enter — toggle fullscreen
