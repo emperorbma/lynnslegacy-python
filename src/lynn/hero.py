@@ -335,21 +335,12 @@ def hero_walk_step(
     return moved
 
 
-def try_same_map_room_teleport(
-    hero: CharType,
-    game_map: MapType,
-    room_i: int,
-    others=None,
-) -> int:
+def try_same_map_room_teleport(hero: CharType, game_map: MapType, room_i: int) -> int:
     """Instant same-map room tele (no fade, song, or map reload). FB change_room case 0, state 2.
 
     If standing on a tele with empty to_map, set coords to dx,dy and return to_room.
     Map teles are left for enter_map (to_map / to_entry already set by check_against_teles).
-
-    After the hop, nudge off overlapping teles/objects (see resolve_landing).
     """
-    from lynn.map.landing import resolve_landing
-
     if hero.switch_room != -1:
         return room_i
     if not (0 <= room_i < len(game_map.room)):
@@ -367,7 +358,6 @@ def try_same_map_room_teleport(
     hero.coords_x = tele.dx
     hero.coords_y = tele.dy
     hero.switch_room = -1
-    resolve_landing(hero, game_map.room[dest_room], others, clear_teles=True)
     return dest_room
 
 

@@ -1,19 +1,26 @@
-"""Nudge Lynn off bad tele/entry landings.
+"""Special-case nudge for one bad Ignia entry.
 
-Map data sometimes places dx/dy or an entry on top of another tele pad
-(Ignia growl-chest north → r17) or a visible object (maceget return sits
-inside a walk-through static rock). Without room-change fade, those reads
-as a bounce or as Lynn stuck overlapping scenery until the player spams
-out. Slide to the nearest clear pixel after a hop.
+FB places entry coords as stored. Ignia entry 8 (return from maceget.map)
+sits inside a walk-through static rock, so Lynn overlaps scenery until the
+player walks clear. That is tolerable in FB with a fade; with instant
+enter_map it reads as a stuck embed. Only that landing is adjusted.
 """
 
 from __future__ import annotations
 
-from lynn.map.collision import check_bounds, check_teleports
+from pathlib import Path
+
+from lynn.map.collision import check_bounds
 from lynn.object.char import CharType
 
+# ignia.map entry 8 → room 14 at (248, 416); static at (256, 416) overlaps.
+_IGNIA_MACE_ENTRY = 8
+_MAX_RADIUS = 16
 
-_MAX_RADIUS = 48
+
+def _is_ignia(game_map) -> bool:
+    name = str(getattr(game_map, "filename", "") or "").replace("\\", "/").lower()
+    return Path(name).stem == "ignia"
 
 
 def _object_overlap(hero: CharType, x: float, y: float, others) -> bool:
@@ -36,55 +43,34 @@ def _object_overlap(hero: CharType, x: float, y: float, others) -> bool:
     return False
 
 
-def _tele_overlap(hero: CharType, x: float, y: float, room) -> bool:
-    if room is None or not getattr(room, "teleport", None):
-        return False
-    ox, oy = hero.coords_x, hero.coords_y
-    hero.coords_x = x
-    hero.coords_y = y
-    hit = check_teleports(hero, room.teleport, room.teleports)
-    hero.coords_x = ox
-    hero.coords_y = oy
-    return hit != -1
-
-
-def _blocked(hero: CharType, x: float, y: float, room, others, clear_teles: bool) -> bool:
-    if x < 0 or y < 0:
-        return True
-    if _object_overlap(hero, x, y, others):
-        return True
-    if clear_teles and _tele_overlap(hero, x, y, room):
-        return True
-    return False
-
-
-def resolve_landing(
+def resolve_ignia_mace_return(
     hero: CharType | None,
-    room=None,
+    game_map,
+    entry_i: int,
     others=None,
-    *,
-    clear_teles: bool = True,
-    max_radius: int = _MAX_RADIUS,
 ) -> bool:
-    """Move hero to the nearest pixel that clears object (and tele) overlaps.
+    """If this is Ignia entry 8, nudge Lynn off overlapping room objects.
 
-    Returns True if the hero was nudged. No-op when already clear or when no
-    clear spot exists inside max_radius.
+    Cheap no-op for every other map/entry. Returns True when coords changed.
     """
-    if hero is None:
+    if hero is None or entry_i != _IGNIA_MACE_ENTRY or not _is_ignia(game_map):
+        return False
+    if not others:
         return False
     x0 = float(hero.coords_x)
     y0 = float(hero.coords_y)
-    if not _blocked(hero, x0, y0, room, others, clear_teles):
+    if not _object_overlap(hero, x0, y0, others):
         return False
-    for radius in range(1, max_radius + 1):
+    for radius in range(1, _MAX_RADIUS + 1):
         for dx in range(-radius, radius + 1):
             for dy in range(-radius, radius + 1):
                 if max(abs(dx), abs(dy)) != radius:
                     continue
                 x = x0 + dx
                 y = y0 + dy
-                if _blocked(hero, x, y, room, others, clear_teles):
+                if x < 0 or y < 0:
+                    continue
+                if _object_overlap(hero, x, y, others):
                     continue
                 hero.coords_x = x
                 hero.coords_y = y
