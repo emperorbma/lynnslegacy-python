@@ -35,7 +35,7 @@ from lynn.gfx.box import BoxControl, blit_box
 from lynn.hero import ctor_hero, ctor_hero_only, place_hero
 from lynn.map.collision import check_teleports
 from lynn.map.loader import load_mapV
-from lynn.map.minimap import attach_minimap, mark_visited
+from lynn.map.minimap import attach_minimap, mark_visited, visited_bytes
 from lynn.map.types import MapType
 from lynn.object.tick import LLObject_CheckSpawn, tick_objects
 from lynn.object.xml_load import spawn_from_stub
@@ -415,9 +415,17 @@ def enter_map(
     events.hero_room = demo.hero_room
     _maybe_start_entry_seq(demo, entry_i)
     _start_current_room_song(demo)
+    # FB enter_map restores hero_only.roomVisited onto the new .mni. That pointer
+    # is only filled on save-load; mid-game map hops (Gelidus → Ice Field for the
+    # engraved key) destroyed the old minimap with no stash. Keep visits across a
+    # hop that has no .mni, and re-apply when the matching dungeon is entered again.
     visited = events.pending_visited
     events.pending_visited = None
+    if visited is None and demo.minimap is not None:
+        visited = visited_bytes(demo.minimap)
     attach_minimap(demo, visited)
+    if demo.minimap is None and visited is not None:
+        events.pending_visited = visited
     if demo.palette is not None:
         demo.pal_epoch = demo.palette.epoch
 
@@ -444,6 +452,7 @@ def jump_to_title(demo: MapDemo) -> None:
     demo.do_hud = 0
     events.box_entity = None
     events.pending_load = None
+    events.pending_visited = None
     events.goto_title = 0
     demo.seq = None
     demo.menu_open = 0
