@@ -7,6 +7,7 @@ from lynn import audio, clock
 from lynn.audio import sound_explosion, sound_switch
 from lynn.constants import (
     TRUE,
+    u_beetle,
     u_bshape,
     u_charger,
     u_eguard,
@@ -404,6 +405,31 @@ def test_green_ghost_heals_and_both_colors_are_spent():
     assert red.dead != 0
     assert red.invisible != 0
     assert red.strength == 0
+
+
+def test_walking_onto_a_beetle_splats_it_without_hurting_lynn():
+    """FB DamageCalc: beetle contact zeros Lynn's hurt and kills the beetle."""
+    room = _open_room()
+    beetle = _obj("data/object/beetle.xml")
+    assert beetle.unique_id == u_beetle
+    assert beetle.strength == 1
+    beetle.coords_x = 40
+    beetle.coords_y = 40
+    death_state = beetle.death_state
+    hero = _bind(room, [beetle])
+    hero.coords_x = 40
+    hero.coords_y = 40
+    hero.hp = 6
+    LLObject_ObjectDamage([beetle], hero)
+    assert hero.hp == 6
+    assert hero.hurt == 0
+    assert hero.dmg_id == 0
+    assert beetle.hp == 0
+    assert beetle.dead != 0
+    assert beetle.funcs.active_state == death_state
+    assert beetle.fade_time == 0.07
+    LLObject_ObjectDamage([beetle], hero)
+    assert hero.hp == 6
 
 
 def test_bridge_menu_follows_the_weapon_then_the_two_spans():

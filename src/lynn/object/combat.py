@@ -9,6 +9,7 @@ from lynn.constants import (
     DF_ROOM_ENEMY,
     DF_TEMP_ENEMY,
     TRUE,
+    u_beetle,
     u_bombrock,
     u_battleseed,
     u_bush,
@@ -249,6 +250,10 @@ def _play_hurt_sound(h: CharType) -> None:
     import random
 
     if h.unique_id == u_lynn:
+        # FB: walking onto a beetle is a squash, not a yell.
+        enemy = _damager(h)
+        if enemy is not None and enemy.unique_id == u_beetle:
+            return
         play_sample(sound_lynn_hurt_1 + int(random.random() * 3), 50)
         return
     if h.hit_sound != 0:
@@ -334,6 +339,22 @@ def LLObject_DamageCalc(h: CharType) -> None:
 
                 __make_dead(enemy)
                 __cripple(enemy)
+            # FB: contact with a beetle kills the beetle and zeroes Lynn's hurt.
+            # dmg.index is restored so ProcessHurt can skip her yell.
+            if enemy is not None and enemy.unique_id == u_beetle:
+                from lynn.audio import play_sample
+
+                enemy.hp = 0
+                LLObject_ShiftState(enemy, enemy.death_state)
+                enemy.dead = 1
+                enemy.fade_time = 0.07
+                if enemy.dead_sound != 0:
+                    vol = enemy.dead_sound_vol if enemy.dead_sound_vol != 0 else 100
+                    play_sample(enemy.dead_sound, vol)
+                save_index = h.dmg_index
+                h.hurt = 0
+                LLObject_ClearDamage(h)
+                h.dmg_index = save_index
         LLObject_ProcessHurt(h)
     else:
         LLObject_ClearDamage(h)
