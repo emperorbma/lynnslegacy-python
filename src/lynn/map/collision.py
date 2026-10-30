@@ -5,6 +5,9 @@ from __future__ import annotations
 from lynn.constants import (
     FALSE,
     TRUE,
+    u_bluechest,
+    u_bluechestitem,
+    u_chest,
     u_dyssius,
     u_gbutton,
     u_godstat,
@@ -14,6 +17,9 @@ from lynn.constants import (
     u_sparkle,
     u_steelstrider,
 )
+
+# FB check_against: opened chests stay solid after make_dead/cripple.
+_OPEN_CHEST_IDS = frozenset({u_chest, u_bluechest, u_bluechestitem})
 from lynn.macros import LLObject_CalculateFrame, quad_calc, testbit
 from lynn.map.types import RoomType, TeleportType
 from lynn.object.char import CharType
@@ -339,6 +345,16 @@ def check_against(o: CharType, other: CharType, d: int) -> int:
     if o.unstoppable_by_object != 0 or other.unstoppable_by_object != 0:
         return 0
     if o.dead != 0 or other.dead != 0:
+        # FB: dead/opened chests still return block; other dead props do not.
+        if other.unique_id not in _OPEN_CHEST_IDS:
+            return 0
+        step = ((0, -1), (1, 0), (0, 1), (-1, 0))
+        dx, dy = step[d] if 0 <= d < 4 else (0, 0)
+        rest_n = _boxes(other, 0, 0)
+        for box_o in _boxes(o, dx, dy):
+            for box_n in rest_n:
+                if _overlap(box_o, box_n):
+                    return 1
         return 0
     if other.unique_id in (u_sparkle, u_gbutton, u_gold) or o.unique_id == u_godstat:
         return 0
