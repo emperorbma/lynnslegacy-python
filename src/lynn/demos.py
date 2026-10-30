@@ -403,6 +403,15 @@ def enter_map(
         _apply_enter_visibility(demo.hero, demo.hero_only)
         if 0 <= demo.hero_room < len(game_map.room):
             events.dark = game_map.room[demo.hero_room].dark
+            from lynn.map.landing import resolve_landing
+
+            # Ignia maceget return (entry 8) sits inside a walk-through static.
+            resolve_landing(
+                demo.hero,
+                game_map.room[demo.hero_room],
+                demo.objects_by_room[demo.hero_room],
+                clear_teles=True,
+            )
     events.load_images = TRUE if load_images else 0
     events.do_chap = 0
     events.fade_black = 0
@@ -530,7 +539,11 @@ def try_hero_teleport(demo: MapDemo) -> None:
     """FB check_against_teles then change_room type 0 (same map) or 1 (enter_map).
 
     Instant, no fade or song. Same-map dest rooms are deleted and respawned from stubs.
+    After the hop, resolve_landing clears tele/object overlaps (Ignia backrooms /
+    maceget return) so the player does not have to spam out of a bad pad.
     """
+    from lynn.map.landing import resolve_landing
+
     hero = demo.hero
     if hero is None:
         return
@@ -568,6 +581,12 @@ def try_hero_teleport(demo: MapDemo) -> None:
     hero.coords_x = tele.dx
     hero.coords_y = tele.dy
     hero.switch_room = -1
+    others = (
+        demo.objects_by_room[demo.hero_room]
+        if demo.hero_room < len(demo.objects_by_room)
+        else None
+    )
+    resolve_landing(hero, demo.game_map.room[demo.hero_room], others, clear_teles=True)
     _start_current_room_song(demo)
     mark_visited(demo.minimap, demo.hero_room)
 

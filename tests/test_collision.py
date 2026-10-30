@@ -390,6 +390,105 @@ def test_forest_fall_room1_north_returns_without_ping_pong():
     assert try_same_map_room_teleport(hero, m, 0) == 0
 
 
+def test_ignia_growl_chest_north_pad_does_not_bounce_out_of_backrooms():
+    """Ignia r12 north tele (by the growling chest) lands on r17's return strip.
+
+    resolve_landing nudges off that strip so the next frame does not bounce
+    Lynn back to r12. That pad is the secret path toward the mace portal.
+    """
+    path = resolve_map_path("ignia")
+    if path is None or not path.is_file():
+        import pytest
+
+        pytest.skip("ignia.map missing")
+    m = load_mapV(str(path), load_tileset=False)
+    hero = ctor_hero(load_images=False)
+    north = m.room[12].teleport[2]
+    assert north.to_map == ""
+    assert north.to_room == 17
+    ret = m.room[17].teleport[1]
+    assert ret.to_room == 12
+    hero.coords_x = north.x + 4
+    hero.coords_y = north.y
+    assert check_teleports(hero, m.room[12].teleport) == 2
+    assert try_same_map_room_teleport(hero, m, 12) == 17
+    assert (hero.coords_x, hero.coords_y) != (north.dx, north.dy)
+    assert check_teleports(hero, m.room[17].teleport) == -1
+    assert try_same_map_room_teleport(hero, m, 17) == 17
+    # Exit south still works from the return strip.
+    hero.coords_x = ret.x + 4
+    hero.coords_y = ret.y - 8
+    assert check_teleports(hero, m.room[17].teleport) == 1
+    assert try_same_map_room_teleport(hero, m, 17) == 12
+    assert check_teleports(hero, m.room[12].teleport) == -1
+
+
+def test_ignia_maceget_return_clears_static_overlap():
+    """Mace portal return (ignia entry 8) sits inside a walk-through static rock."""
+    from lynn.demos import MapDemo, enter_map, set_up_room_enemies, try_hero_teleport
+    from lynn.events import bind_hero, reset_events
+    from lynn.gfx.palette import load_pal
+    from lynn.map.collision import check_bounds
+    from lynn.map.landing import resolve_landing
+    from lynn.paths import data_file
+    import lynn.events as events
+
+    path = resolve_map_path("ignia")
+    if path is None or not path.is_file():
+        import pytest
+
+        pytest.skip("ignia.map missing")
+    reset_events()
+    try:
+        m = load_mapV(str(path), load_tileset=False)
+        demo = MapDemo(
+            palette=load_pal(data_file("palette", "ll.pal")),
+            game_map=m,
+            tile_surfs=[],
+            load_images=0,
+            load_tileset=0,
+        )
+        demo.objects_by_room = [[] for _ in m.room]
+        set_up_room_enemies(demo, 14, load_images=False)
+        demo.hero = ctor_hero(load_images=False)
+        bind_hero(demo.hero)
+        demo.hero_room = 14
+        events.hero_room = 14
+        events.map_filename = "ignia.map"
+        portal = m.room[14].teleport[3]
+        assert "maceget" in portal.to_map.replace("\\", "/").lower()
+        demo.hero.coords_x = portal.x
+        demo.hero.coords_y = portal.y
+        try_hero_teleport(demo)
+        assert "maceget" in demo.game_map.filename.replace("\\", "/").lower()
+        back = demo.game_map.room[0].teleport[0]
+        demo.hero.coords_x = back.x
+        demo.hero.coords_y = back.y
+        try_hero_teleport(demo)
+        assert "ignia" in demo.game_map.filename.replace("\\", "/").lower()
+        assert demo.hero_room == 14
+        entry = m.entry[8]
+        assert (entry.x, entry.y) == (248, 416)
+        # Raw entry overlaps a static; resolve_landing must have nudged off it.
+        assert (demo.hero.coords_x, demo.hero.coords_y) != (entry.x, entry.y)
+        hb = (demo.hero.coords_x, demo.hero.coords_y, 16, 16)
+        for obj in demo.objects_by_room[14]:
+            ob = (obj.coords_x, obj.coords_y, obj.perimeter_x or 16, obj.perimeter_y or 16)
+            assert check_bounds(hb, ob) != 0, obj.id
+        assert check_teleports(demo.hero, demo.game_map.room[14].teleport) == -1
+
+        # Unit: resolve_landing alone clears the known static at (256,416).
+        demo.hero.coords_x = 248
+        demo.hero.coords_y = 416
+        assert resolve_landing(demo.hero, m.room[14], demo.objects_by_room[14])
+        hb = (demo.hero.coords_x, demo.hero.coords_y, 16, 16)
+        static = next(o for o in demo.objects_by_room[14] if o.coords_x == 256 and o.coords_y == 416)
+        ob = (static.coords_x, static.coords_y, static.perimeter_x, static.perimeter_y)
+        assert check_bounds(hb, ob) != 0
+    finally:
+        reset_events()
+
+
 def test_forest_fall_map_tele_sets_to_map_and_entry():
     m, hero = _forest_fall()
     nerme = m.room[0].teleport[1]
