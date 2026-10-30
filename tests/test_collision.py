@@ -390,6 +390,71 @@ def test_forest_fall_room1_north_returns_without_ping_pong():
     assert try_same_map_room_teleport(hero, m, 0) == 0
 
 
+def test_ignia_maceget_return_clears_static_overlap():
+    """Mace portal return (ignia entry 8) sits inside a walk-through static rock."""
+    from lynn.demos import MapDemo, set_up_room_enemies, try_hero_teleport
+    from lynn.events import bind_hero, reset_events
+    from lynn.gfx.palette import load_pal
+    from lynn.map.collision import check_bounds
+    from lynn.map.landing import resolve_ignia_mace_return
+    from lynn.paths import data_file
+    import lynn.events as events
+
+    path = resolve_map_path("ignia")
+    if path is None or not path.is_file():
+        import pytest
+
+        pytest.skip("ignia.map missing")
+    reset_events()
+    try:
+        m = load_mapV(str(path), load_tileset=False)
+        demo = MapDemo(
+            palette=load_pal(data_file("palette", "ll.pal")),
+            game_map=m,
+            tile_surfs=[],
+            load_images=0,
+            load_tileset=0,
+        )
+        demo.objects_by_room = [[] for _ in m.room]
+        set_up_room_enemies(demo, 14, load_images=False)
+        demo.hero = ctor_hero(load_images=False)
+        bind_hero(demo.hero)
+        demo.hero_room = 14
+        events.hero_room = 14
+        events.map_filename = "ignia.map"
+        portal = m.room[14].teleport[3]
+        assert "maceget" in portal.to_map.replace("\\", "/").lower()
+        demo.hero.coords_x = portal.x
+        demo.hero.coords_y = portal.y
+        try_hero_teleport(demo)
+        assert "maceget" in demo.game_map.filename.replace("\\", "/").lower()
+        back = demo.game_map.room[0].teleport[0]
+        demo.hero.coords_x = back.x
+        demo.hero.coords_y = back.y
+        try_hero_teleport(demo)
+        assert "ignia" in demo.game_map.filename.replace("\\", "/").lower()
+        assert demo.hero_room == 14
+        entry = m.entry[8]
+        assert (entry.x, entry.y) == (248, 416)
+        assert (demo.hero.coords_x, demo.hero.coords_y) != (entry.x, entry.y)
+        hb = (demo.hero.coords_x, demo.hero.coords_y, 16, 16)
+        for obj in demo.objects_by_room[14]:
+            ob = (obj.coords_x, obj.coords_y, obj.perimeter_x or 16, obj.perimeter_y or 16)
+            assert check_bounds(hb, ob) != 0, obj.id
+
+        # Other Ignia entries are left alone (FB place).
+        demo.hero.coords_x = m.entry[0].x
+        demo.hero.coords_y = m.entry[0].y
+        assert not resolve_ignia_mace_return(
+            demo.hero, m, 0, demo.objects_by_room[14]
+        )
+        demo.hero.coords_x = 248
+        demo.hero.coords_y = 416
+        assert resolve_ignia_mace_return(demo.hero, m, 8, demo.objects_by_room[14])
+    finally:
+        reset_events()
+
+
 def test_forest_fall_map_tele_sets_to_map_and_entry():
     m, hero = _forest_fall()
     nerme = m.room[0].teleport[1]

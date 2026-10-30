@@ -403,6 +403,14 @@ def enter_map(
         _apply_enter_visibility(demo.hero, demo.hero_only)
         if 0 <= demo.hero_room < len(game_map.room):
             events.dark = game_map.room[demo.hero_room].dark
+            from lynn.map.landing import resolve_ignia_mace_return
+
+            resolve_ignia_mace_return(
+                demo.hero,
+                game_map,
+                entry_i,
+                demo.objects_by_room[demo.hero_room],
+            )
     events.load_images = TRUE if load_images else 0
     events.do_chap = 0
     events.fade_black = 0
