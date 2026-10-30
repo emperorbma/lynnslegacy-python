@@ -155,6 +155,54 @@ def test_load_stashes_visits_for_the_next_map():
         reset_events()
 
 
+def test_gelidus_visits_survive_icefield_engraved_key_trip():
+    """Ice Field holds the engraved key and has no .mni; returning must keep Gelidus visits."""
+    from lynn.demos import MapDemo, enter_map
+    from lynn.hero import ctor_hero
+    from lynn.paths import data_file
+
+    reset_events()
+    try:
+        game = _map("gelidus")
+        demo = MapDemo(
+            palette=load_pal(data_file("palette", "ll.pal")),
+            game_map=game,
+            tile_surfs=[],
+            load_images=0,
+            load_tileset=0,
+        )
+        demo.objects_by_room = [[] for _ in game.room]
+        demo.hero = ctor_hero(load_images=False)
+        demo.hero_room = 15
+        events.map_filename = "gelidus.map"
+        events.hero_room = 15
+        mm = attach_minimap(demo, None)
+        assert mm is not None
+        explored = (1, 4, 7, 15)
+        for room_i in explored:
+            mark_visited(mm, room_i)
+        before = visited_bytes(mm)
+        assert before[1] == 255
+        assert before[0] == 0
+
+        enter_map(demo, "icefield.map", 0, load_images=False, load_tileset=False)
+        assert "icefield" in events.map_filename.lower()
+        assert demo.minimap is None
+        assert events.pending_visited == before
+
+        enter_map(demo, "gelidus.map", 15, load_images=False, load_tileset=False)
+        assert "gelidus" in events.map_filename.lower()
+        back = demo.minimap
+        assert back is not None
+        assert events.pending_visited is None
+        for room_i in explored:
+            assert back.rooms[room_i].has_visited
+        assert not back.rooms[0].has_visited
+        assert back.rooms[demo.hero_room].has_visited
+    finally:
+        reset_events()
+
+
 def test_door_color_follows_happen_flags():
     reset_events()
     try:
