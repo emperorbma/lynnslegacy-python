@@ -177,6 +177,7 @@ class CharType:
     expl_y_size: int = 0
     fireworks: int = 0
     isBoss: int = 0
+    heal_me: int = 0
     explosion: list = field(default_factory=list)
     dmg_id: int = 0
     dmg_index: int = 0

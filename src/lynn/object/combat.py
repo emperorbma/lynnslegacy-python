@@ -23,6 +23,7 @@ from lynn.constants import (
     u_grult,
     u_gshape,
     u_boss5_crystal,
+    u_divine,
     u_pmouth,
     u_steelstrider,
     u_sterach,
@@ -297,7 +298,8 @@ def LLObject_ProcessHurt(h: CharType) -> None:
                 h.hit = -1
             else:
                 LLObject_ShiftState(h, h.hit_state)
-                if h.unique_id in (u_dyssius, u_steelstrider, u_grult):
+                # FB: restart knockback for bosses whose hit_state drives fly_count.
+                if h.unique_id in (u_dyssius, u_steelstrider, u_grult, u_divine):
                     h.fly_count = 0
                 if h.unique_id == u_dyssius:
                     h.shifty_state = 0
@@ -368,56 +370,59 @@ def LLObject_MAINAttack(enemies: list[CharType], hr: CharType) -> None:
     if hero_faces <= 0:
         return
     for enemy in enemies:
-        if enemy is hr or enemy.dead != 0 or enemy.dmg_id != 0:
-            continue
-        enemy.frame_check = LLObject_CalculateFrame(enemy)
-        enemy_faces = _faces(enemy)
-        hit = False
-        for face_i in range(hero_faces):
-            origin = LLObject_VectorPairEx(hr, face_i)
-            if enemy_faces <= 0:
-                target = LLObject_VectorPair(enemy)
-                if check_bounds(origin, target) != 0:
-                    continue
-                # A closed plant mouth opens and stays undamaged.
-                # Logosta's crystal wakes the same way and stays impassable.
-                if enemy.unique_id == u_pmouth:
-                    if enemy.funcs.active_state == 0:
-                        enemy.impassable = 0
-                        LLObject_ShiftState(enemy, 1)
-                    continue
-                if enemy.unique_id == u_boss5_crystal:
-                    if enemy.funcs.active_state == 0:
-                        LLObject_ShiftState(enemy, 1)
-                    continue
-                enemy.dmg_id = DF_MAIN_CHAR
-                enemy.dmg_index = 0
-                enemy.dmg_specific = 0
-                LLObject_DamageCalc(enemy)
-                hit = True
-            else:
-                for check_fields in range(enemy_faces):
-                    target = LLObject_VectorPairEx(enemy, check_fields)
+        if enemy is not hr and enemy.dead == 0 and enemy.dmg_id == 0:
+            enemy.frame_check = LLObject_CalculateFrame(enemy)
+            enemy_faces = _faces(enemy)
+            hit = False
+            for face_i in range(hero_faces):
+                origin = LLObject_VectorPairEx(hr, face_i)
+                if enemy_faces <= 0:
+                    target = LLObject_VectorPair(enemy)
                     if check_bounds(origin, target) != 0:
                         continue
-                    if _face_invincible(enemy, check_fields) != 0:
+                    # A closed plant mouth opens and stays undamaged.
+                    # Logosta's crystal wakes the same way and stays impassable.
+                    if enemy.unique_id == u_pmouth:
+                        if enemy.funcs.active_state == 0:
+                            enemy.impassable = 0
+                            LLObject_ShiftState(enemy, 1)
+                        continue
+                    if enemy.unique_id == u_boss5_crystal:
+                        if enemy.funcs.active_state == 0:
+                            LLObject_ShiftState(enemy, 1)
                         continue
                     enemy.dmg_id = DF_MAIN_CHAR
                     enemy.dmg_index = 0
-                    enemy.dmg_specific = check_fields
+                    enemy.dmg_specific = 0
                     LLObject_DamageCalc(enemy)
                     hit = True
-                    if enemy.dmg_id != 0:
-                        break
-            if enemy.hp > 0 and enemy.unique_id not in (u_grult, u_anger) and hit:
-                dx = enemy.coords_x - hr.coords_x
-                dy = enemy.coords_y - hr.coords_y
-                enemy.fly_x = 1 if dx > 0 else (-1 if dx < 0 else 0)
-                enemy.fly_y = 1 if dy > 0 else (-1 if dy < 0 else 0)
-            if enemy.dmg_id != 0:
-                break
-            if hit:
-                break
+                else:
+                    for check_fields in range(enemy_faces):
+                        target = LLObject_VectorPairEx(enemy, check_fields)
+                        if check_bounds(origin, target) != 0:
+                            continue
+                        if _face_invincible(enemy, check_fields) != 0:
+                            continue
+                        enemy.dmg_id = DF_MAIN_CHAR
+                        enemy.dmg_index = 0
+                        enemy.dmg_specific = check_fields
+                        LLObject_DamageCalc(enemy)
+                        hit = True
+                        if enemy.dmg_id != 0:
+                            break
+                if enemy.hp > 0 and enemy.unique_id not in (u_grult, u_anger) and hit:
+                    dx = enemy.coords_x - hr.coords_x
+                    dy = enemy.coords_y - hr.coords_y
+                    enemy.fly_x = 1 if dx > 0 else (-1 if dx < 0 else 0)
+                    enemy.fly_y = 1 if dy > 0 else (-1 if dy < 0 else 0)
+                if enemy.dmg_id != 0:
+                    break
+                if hit:
+                    break
+        # FB: Richard / Frederic snap back after the hit pass (heal_me).
+        # Only those NPCs set the flag; bosses never do, so fights stay fair.
+        if enemy is not hr and getattr(enemy, "heal_me", 0) != 0:
+            enemy.hp = enemy.maxhp
 
 
 def start_hero_attack(hr: CharType) -> None:

@@ -127,6 +127,53 @@ def test_passable_object_does_not_block():
     assert check_against(hero, moth, 0) == 0
 
 
+def test_opened_chest_stays_solid():
+    """FB check_against: dead chest/bluechest still blocks; other dead props do not."""
+    from lynn.constants import u_bluechest, u_chest
+    from lynn.object.seq_funcs import __cripple, __make_dead
+    from lynn.object.xml_load import LLSystem_ObjectFromXML
+
+    m, hero, room = _hero_at_entry()
+    chest = CharType()
+    chest.id = "data/object/chest.xml"
+    chest = LLSystem_ObjectFromXML(chest, load_images=False)
+    assert chest.unique_id == u_chest
+    chest.num = 3
+    chest.coords_x = hero.coords_x
+    chest.coords_y = hero.coords_y - 16
+    hero.direction = 0
+    assert check_against(hero, chest, 0) == 1
+    __make_dead(chest)
+    __cripple(chest)
+    assert chest.dead != 0
+    assert chest.impassable == 0
+    assert check_against(hero, chest, 0) == 1
+    x0, y0 = hero.coords_x, hero.coords_y
+    assert move_object(hero, room, moment=1, others=[chest]) == 0
+    assert (hero.coords_x, hero.coords_y) == (x0, y0)
+
+    blue = CharType()
+    blue.id = "data/object/bluechest.xml"
+    blue = LLSystem_ObjectFromXML(blue, load_images=False)
+    assert blue.unique_id == u_bluechest
+    blue.num = 4
+    blue.coords_x = hero.coords_x
+    blue.coords_y = hero.coords_y - 16
+    __make_dead(blue)
+    __cripple(blue)
+    assert check_against(hero, blue, 0) == 1
+
+    corpse = CharType()
+    corpse.num = 5
+    corpse.dead = 1
+    corpse.impassable = 0
+    corpse.perimeter_x = 16
+    corpse.perimeter_y = 16
+    corpse.coords_x = hero.coords_x
+    corpse.coords_y = hero.coords_y - 16
+    assert check_against(hero, corpse, 0) == 0
+
+
 def test_npc_cannot_walk_onto_hero():
     from lynn.events import bind_hero, bind_hero_only, reset_events
     from lynn.hero import ctor_hero_only

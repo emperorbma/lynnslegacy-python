@@ -10,6 +10,7 @@ from lynn.constants import (
     DF_MAIN_CHAR,
     TRUE,
     u_charger,
+    u_divine,
     u_divine_bug,
     u_fbug,
     u_goldblock,
@@ -23,7 +24,7 @@ from lynn.gfx.menu import MainMenu, menu_bridge_select, scraps_menu_name
 from lynn.hero import ctor_hero, ctor_hero_only
 from lynn.map.types import RoomType
 from lynn.object.char import CharType
-from lynn.object.combat import LLObject_DeriveHurt
+from lynn.object.combat import LLObject_DamageCalc, LLObject_DeriveHurt, LLObject_MAINAttack
 from lynn.object.combat_funcs import __flashy
 from lynn.object.dispatch import lookup_func
 from lynn.object.move_ai import __chase
@@ -245,6 +246,67 @@ def test_divine_ball_returns_home_and_unlocks_the_statue():
     __do_proj(ball)
     assert ball.projectile.active == 0
     assert face.invincible == 0
+
+
+def test_divine_hit_resets_fly_count_like_other_flyback_bosses():
+    """FB ProcessHurt zeroes fly_count for Divine so a re-hit restarts knockback."""
+    _hero_at(0, 0)
+    events.hero_only.weapon = 0
+    statue = _load("divine.xml")
+    assert statue.unique_id == u_divine
+    statue.fly_count = 25
+    statue.dmg_id = DF_MAIN_CHAR
+    statue.dmg_specific = 0
+    LLObject_DamageCalc(statue)
+    assert statue.hp == 29
+    assert statue.funcs.active_state == statue.hit_state
+    assert statue.fly_count == 0
+    # A second hit mid-knockback must still land and restart fly_count.
+    statue.fly_count = 18
+    statue.dmg_id = DF_MAIN_CHAR
+    statue.dmg_specific = 0
+    LLObject_DamageCalc(statue)
+    assert statue.hp == 28
+    assert statue.fly_count == 0
+
+
+def test_heal_me_npc_snaps_back_but_divine_does_not():
+    """FB MAINAttack heal_me is only on Richard/Frederic — never on bosses."""
+    import os
+
+    os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
+    os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
+    import pygame
+
+    pygame.init()
+    pygame.display.set_mode((320, 200))
+    reset_events()
+    hero = ctor_hero(load_images=True)
+    only = ctor_hero_only()
+    only.weapon = 0
+    bind_hero(hero)
+    bind_hero_only(only)
+    # Need a swing face so MAINAttack does not return before heal_me.
+    hero.current_anim = 6
+    hero.frame = 1
+    hero.frame_check = 1
+    richard = _load("richard.xml")
+    assert richard.heal_me == 1
+    richard.hp = 2
+    divine = _load("divine.xml")
+    assert divine.heal_me == 0
+    divine.hp = 20
+    bind_room(RoomType(), [richard, divine])
+    # heal_me restores even without a connecting swing this pass.
+    LLObject_MAINAttack([richard, divine], hero)
+    assert richard.hp == richard.maxhp
+    assert divine.hp == 20
+    # A real hit still damages Divine; heal_me must not make the statue immortal.
+    divine.dmg_id = DF_MAIN_CHAR
+    divine.dmg_specific = 0
+    LLObject_DamageCalc(divine)
+    assert divine.hp == 19
+    pygame.quit()
 
 
 def test_divine_death_wakes_the_bug_and_the_bug_drops_the_shells():
