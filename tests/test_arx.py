@@ -48,9 +48,10 @@ from lynn.object.combat import LLObject_ObjectDamage
 from lynn.object.dispatch import lookup_func
 from lynn.object.move_ai import __charger_charge
 from lynn.object.seq_funcs import __cool_down, __make_dead
-from lynn.object.tick import LLObject_TorchModify, tick_objects
+from lynn.object.tick import LLObject_CheckSpawn, LLObject_TorchModify, tick_objects
 from lynn.object.xml_load import LLSystem_ObjectFromXML, spawn_from_stub
 from lynn.paths import resolve_map_path
+from lynn.sequence import play_sequence, try_action_sequence, try_touch_sequence
 
 
 def _obj(path: str) -> CharType:
@@ -573,3 +574,87 @@ def test_charger_keeps_dashing_after_lynn_leaves():
     assert charger.funcs.active_state == charger.jump_state
     assert charger.coords_x >= started + 20
     assert charger.internalState == 0
+
+
+def _arx_room(room_i: int):
+    from lynn.demos import MapDemo, set_up_room_enemies
+    from lynn.hero import DIR_UP
+
+    reset_events()
+    game_map = load_mapV(str(resolve_map_path("arx")), load_tileset=False)
+    demo = MapDemo.__new__(MapDemo)
+    demo.load_images = 0
+    demo.obj_anim_surfs = {}
+    demo._obj_anim_epochs = {}
+    demo.palette = None
+    demo.game_map = game_map
+    demo.objects_by_room = [[] for _ in game_map.room]
+    demo.hero = ctor_hero(load_images=False)
+    demo.hero.perimeter_x = 16
+    demo.hero.perimeter_y = 16
+    demo.hero.direction = DIR_UP
+    demo.hero_only = ctor_hero_only()
+    demo.hero_room = room_i
+    set_up_room_enemies(demo, room_i, load_images=False)
+    bind_hero(demo.hero)
+    bind_hero_only(demo.hero_only)
+    bind_room(game_map.room[room_i], demo.objects_by_room[room_i])
+    return demo
+
+
+def test_arx_carved_key_chest_waits_on_room19_button():
+    """Room 14 bluechest waits on happen 480; room 19 button sets it."""
+    from lynn.constants import u_bluechest, u_button
+    from lynn.demos import set_up_room_enemies
+    from lynn.gfx.box import BoxControl
+
+    demo = _arx_room(19)
+    objs = demo.objects_by_room[19]
+    button = next(o for o in objs if o.unique_id == u_button)
+    demo.hero.coords_x = button.coords_x
+    demo.hero.coords_y = button.coords_y
+    seq = try_touch_sequence(demo.hero, objs)
+    assert seq is not None
+    box = BoxControl()
+    for i in range(40):
+        clock.timer = i * 0.05
+        seq = play_sequence(seq, box, demo.hero_only)
+        for obj in objs:
+            LLObject_CheckSpawn(obj)
+        tick_objects(objs)
+        if seq is None:
+            break
+    assert seq is None
+    assert events.now[480] != 0
+
+    set_up_room_enemies(demo, 14, load_images=False)
+    demo.hero_room = 14
+    chest = demo.objects_by_room[14][2]
+    assert chest.unique_id == u_bluechest
+    assert chest.spawn_wait_trig != 0
+    assert "carved key" in chest.seq[0].Command[1].ent[0].text.lower()
+
+
+def test_arx_carved_key_placeholder_is_not_actionable():
+    """Wait-null keeps the map seq; acting it ran __home and softlocked the HUD."""
+    from lynn.constants import u_bluechest
+    from lynn.demos import set_up_room_enemies
+
+    demo = _arx_room(14)
+    chest = demo.objects_by_room[14][2]
+    assert chest.unique_id == 0
+    assert chest.spawn_wait_trig == 0
+    demo.hero.coords_x = chest.coords_x
+    demo.hero.coords_y = chest.coords_y + 15
+    demo.hero_only.action = TRUE
+    assert try_action_sequence(demo.hero, demo.hero_only, demo.objects_by_room[14]) is None
+
+    events.now[480] = TRUE
+    set_up_room_enemies(demo, 14, load_images=False)
+    chest = demo.objects_by_room[14][2]
+    assert chest.unique_id == u_bluechest
+    demo.hero.coords_x = chest.coords_x
+    demo.hero.coords_y = chest.coords_y + 15
+    demo.hero_only.action = TRUE
+    bind_room(demo.game_map.room[14], demo.objects_by_room[14])
+    assert try_action_sequence(demo.hero, demo.hero_only, demo.objects_by_room[14]) is not None

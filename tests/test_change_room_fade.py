@@ -106,3 +106,24 @@ def test_map_change_preserves_title_unconscious_anim():
     )
     assert hero.current_anim == 1
     assert hero.frame == 3
+
+
+def test_map_hop_enter_map_keeps_hud_on():
+    """FB enter_map does not clear do_hud; Arx entry 0 has no seq to restore it."""
+    from lynn.constants import TRUE
+    from lynn.map.enter_map import enter_map
+
+    demo = _demo(0)
+    events.do_hud = TRUE
+    demo.do_hud = TRUE
+    enter_map(
+        demo,
+        "arx.map",
+        0,
+        load_images=False,
+        load_tileset=False,
+        from_change_room=True,
+    )
+    assert events.do_hud != 0
+    assert demo.do_hud != 0
+    assert demo.seq is None
