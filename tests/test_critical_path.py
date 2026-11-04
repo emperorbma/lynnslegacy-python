@@ -35,6 +35,7 @@ from lynn.constants import (
 from lynn.demos import MapDemo, consume_title_events, try_hero_teleport
 from lynn.events import bind_hero, bind_hero_only, bind_room, now, reset_events
 import lynn.events as events
+from lynn.map.change_room import finish_change_room
 from lynn.gfx.box import BoxControl
 from lynn.gfx.menu import bridge_menu_icons, menu_bridge2, menu_bridge2_select
 from lynn.gfx.palette import load_pal
@@ -97,7 +98,7 @@ def _take_tele(demo: MapDemo, tele_i: int) -> None:
     room = demo.game_map.room[demo.hero_room]
     tele = room.teleport[tele_i]
     _stand_on_tele(demo.hero, tele)
-    try_hero_teleport(demo)
+    try_hero_teleport(demo, complete=True)
     demo.hero_room = events.hero_room if demo.hero is not None else demo.hero_room
 
 
@@ -238,7 +239,7 @@ def _seed_portal_home(demo: MapDemo) -> None:
     seq = try_touch_sequence(hero, _objs(demo))
     assert seq is not None, "seed touch sequence did not start"
     _play_until_done(demo, seq)
-    consume_title_events(demo)
+    finish_change_room(demo)
     demo.hero_room = events.hero_room
     assert _map_stem(demo) == "forest_fall"
     assert demo.hero_room == 4
@@ -393,7 +394,7 @@ def _dyssius_seed_home(demo: MapDemo) -> None:
     seq = try_touch_sequence(hero, _objs(demo))
     assert seq is not None, "Dyssius seed touch sequence did not start"
     _play_until_done(demo, seq)
-    consume_title_events(demo)
+    finish_change_room(demo)
     demo.hero_room = events.hero_room
     assert _map_stem(demo) == "forest_fall"
     assert demo.hero_room == 12
@@ -545,7 +546,7 @@ def _logosta_seed_home(demo: MapDemo) -> None:
     seq = try_touch_sequence(hero, _objs(demo))
     assert seq is not None, "Logosta seed touch sequence did not start"
     _play_until_done(demo, seq, limit=4000)
-    consume_title_events(demo)
+    finish_change_room(demo)
     demo.hero_room = events.hero_room
     assert _map_stem(demo) == "ruins"
     _drain_entry_seq(demo)
@@ -664,7 +665,7 @@ def _defeat_sterach(demo: MapDemo) -> None:
     _play_until_done(demo, demo.seq, limit=4000)
     assert now[1202] != 0
     assert sword.hp == 0
-    consume_title_events(demo)
+    finish_change_room(demo)
     demo.hero_room = events.hero_room
     assert _map_stem(demo) == "island"
     assert demo.hero_room == 0

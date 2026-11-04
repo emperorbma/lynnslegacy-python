@@ -332,6 +332,9 @@ def test_consume_pending_load_enters_saved_map(tmp_path, monkeypatch):
     only.invisibleEntry = TRUE
     events.pending_load = save
     assert consume_title_events(demo) is False
+    from lynn.map.change_room import finish_change_room
+
+    finish_change_room(demo)
     assert Path_name(events.map_filename) == "forest_fall.map"
     assert demo.hero_room == 1
     assert demo.hero.menu_sel == 0

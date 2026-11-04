@@ -87,8 +87,8 @@ The game is playable from the title screen to the end credits. The critical path
 
 Implemented: walking, collisions, camera, HUD, pause menu and items (including Adrenaline Booster and Healing Symbol), weapons and outfits, shops, signs and NPC talk, save points, loot, room warps and map-change doors, enemies and bosses, scripted sequences and cutscenes, text boxes (with FreeBASIC options for no background, colour, position, auto-dismiss and Yes/No), music and sound, and the credit roll.
 
-Fidelity: all 219 FreeBASIC object functions are registered. Known stub bodies still referenced by shipped XML: `__change_room`, `__outfit_branch`, `__black_text_on`, `__flash_down_gray`. Not started: room-change fade. Ongoing work is auditing behaviour against the FreeBASIC source; no content beyond the original is being added.
+Fidelity: all 219 FreeBASIC object functions are registered, including `__change_room`. Room and map hops run the FreeBASIC `change_room` fade FSM (invincible → fade out → swap → fade in → vulnerable), including `fadeStyle` white/gray arrivals, `tele.to_song` / house-town song hacks, and deferred room/entry sequences. Ongoing work is auditing behaviour against the FreeBASIC source; no content beyond the original is being added.
 
-Port-only additions (not in the original): godmode (`--godmode`; F8 toggles no damage, F9 opens cheat commands), the pytest suite, and the debug tools (`--save`, `[` `]` room stepping).
+Port-only additions (not in the original): godmode (`--godmode`; F8 toggles no damage, F9 opens cheat commands), the pytest suite, the debug tools (`--save`, `[` `]` room stepping), `ItemSwitch=Original` as the default comma/period wiring, Gelidus minimap visit stash across maps with no `.mni`, and the Ignia maceget-return landing nudge.
 
 Room `.it` music plays through pygame-ce `mixer.music` (no extra library). Title boot starts `title.it`; map changes start the dest room song.

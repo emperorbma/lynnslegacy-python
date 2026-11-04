@@ -58,7 +58,11 @@ def _pump(demo: MapDemo, frames: int, until=None, need_seq: bool = False):
             demo.hero_only.action = 0
             for o in objs:
                 LLObject_CheckSpawn(o)
-        if consume_title_events(demo) or events.xxyxx:
+        if demo.hero is not None and demo.hero.switch_room != -1:
+            from lynn.map.change_room import finish_change_room
+
+            finish_change_room(demo)
+        elif consume_title_events(demo) or events.xxyxx:
             return "end"
         demo.hero_room = events.hero_room
         room_i = demo.hero_room
@@ -73,7 +77,12 @@ def _pump(demo: MapDemo, frames: int, until=None, need_seq: bool = False):
 
 
 def _idle(demo: MapDemo) -> bool:
-    return demo.seq is None and events.pending_seq is None and not demo.hero.to_map
+    return (
+        demo.seq is None
+        and events.pending_seq is None
+        and not demo.hero.to_map
+        and demo.hero.switch_room == -1
+    )
 
 
 def _settle(demo: MapDemo, frames: int = 6000) -> None:

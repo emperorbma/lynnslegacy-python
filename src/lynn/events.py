@@ -11,6 +11,7 @@ hero_only = None
 hero = None
 current_room = None
 current_others = None
+current_demo = None
 do_hud = TRUE
 box_entity = None
 map_filename = ""
@@ -72,13 +73,14 @@ def sample_enter(held: int) -> int:
 
 
 def reset_events() -> None:
-    global hero_only, hero, current_room, current_others, do_hud, box_entity, map_filename, hero_room, fade_white, fade_black, fade_red, color_mode, current_cam, palette, debug_god, debug_fixture, do_chap, pending_seq, current_seq, seq_box, pending_load, request_quit, goto_title, song, song_fade, song_wait, dark, load_images, minimap, pending_visited, xxyxx, tiles_disabled, console
+    global hero_only, hero, current_room, current_others, current_demo, do_hud, box_entity, map_filename, hero_room, fade_white, fade_black, fade_red, color_mode, current_cam, palette, debug_god, debug_fixture, do_chap, pending_seq, current_seq, seq_box, pending_load, request_quit, goto_title, song, song_fade, song_wait, dark, load_images, minimap, pending_visited, xxyxx, tiles_disabled, console
     for i in range(len(now)):
         now[i] = 0
     hero_only = None
     hero = None
     current_room = None
     current_others = None
+    current_demo = None
     do_hud = TRUE
     box_entity = None
     map_filename = ""
@@ -111,8 +113,10 @@ def reset_events() -> None:
     keys.up = keys.down = keys.enter = keys.escape = keys.enter_pulse = 0
     keys.left = keys.right = keys.enter_swallow = 0
     from lynn.gfx.palette import reset_palette_ramps
+    from lynn.map.change_room import reset_change_room
 
     reset_palette_ramps()
+    reset_change_room()
 
 
 def bind_hero_only(only) -> None:
@@ -129,3 +133,8 @@ def bind_room(room, others=None) -> None:
     global current_room, current_others
     current_room = room
     current_others = others
+
+
+def bind_demo(demo) -> None:
+    global current_demo
+    current_demo = demo

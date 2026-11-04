@@ -558,11 +558,13 @@ def test_seed_change_map_returns_to_forest_town():
     bind_hero(demo.hero)
     bind_hero_only(demo.hero_only)
     bind_room(game_map.room[22], demo.objects_by_room[22])
+    from lynn.map.change_room import finish_change_room
+
     demo.hero.chap = 1
     assert lookup_func("__change_map")(demo.hero) == 1
     assert "forest_fall" in (demo.hero.to_map or "").replace("\\", "/").lower()
     demo.seq = None
-    consume_title_events(demo)
+    finish_change_room(demo)
     assert "forest_fall" in (events.map_filename or "").replace("\\", "/").lower()
     assert events.fade_white == 0
     assert events.fade_black == 0

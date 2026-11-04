@@ -457,7 +457,12 @@ def test_divine_victory_chapter_card_transfers_to_logosta():
 
         if demo.seq is None:
             old_map = demo.game_map.filename
-            consume_title_events(demo)
+            from lynn.map.change_room import finish_change_room
+
+            if demo.hero is not None and demo.hero.switch_room != -1:
+                finish_change_room(demo)
+            else:
+                consume_title_events(demo)
             if demo.game_map.filename != old_map:
                 seen_maps.append(
                     demo.game_map.filename.replace("\\", "/").rsplit("/", 1)[-1]

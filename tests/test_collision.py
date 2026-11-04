@@ -426,12 +426,12 @@ def test_ignia_maceget_return_clears_static_overlap():
         assert "maceget" in portal.to_map.replace("\\", "/").lower()
         demo.hero.coords_x = portal.x
         demo.hero.coords_y = portal.y
-        try_hero_teleport(demo)
+        try_hero_teleport(demo, complete=True)
         assert "maceget" in demo.game_map.filename.replace("\\", "/").lower()
         back = demo.game_map.room[0].teleport[0]
         demo.hero.coords_x = back.x
         demo.hero.coords_y = back.y
-        try_hero_teleport(demo)
+        try_hero_teleport(demo, complete=True)
         assert "ignia" in demo.game_map.filename.replace("\\", "/").lower()
         assert demo.hero_room == 14
         entry = m.entry[8]
