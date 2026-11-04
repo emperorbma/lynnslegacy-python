@@ -188,9 +188,16 @@ def health_formula(maxhp: int) -> int:
 
 
 def __healthguy_branch(this: CharType) -> int:
+    """Pick the healthguy talk line from current money / maxhp.
+
+    FB only raises sel_seq when poor or maxed and never clears it, so a
+    later gold pickup in the same room still got the refuse line. Re-evaluate
+    from 0 each call so new money (loot or godmode) is recognized.
+    """
     hero = events.hero
     if hero is None:
         return 1
+    this.sel_seq = 0
     if hero.money < health_formula(hero.maxhp):
         this.sel_seq = 2
     if hero.maxhp == 30:

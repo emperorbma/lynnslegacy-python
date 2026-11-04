@@ -743,10 +743,9 @@ def _run_map(
                 pygame.display.set_caption(title)
                 shown = title
         if god_menu.open:
-            if demo.menu_backdrop is None:
-                draw_map_demo(canvas, demo, room_i, cam_x, cam_y)
-                demo.menu_backdrop = canvas.copy()
-            canvas.blit(demo.menu_backdrop, (0, 0))
+            # Live redraw so Heal/Money update hearts and cash under the console.
+            draw_map_demo(canvas, demo, room_i, cam_x, cam_y)
+            demo.menu_backdrop = None
             from lynn.godmode import blit_god_menu
 
             blit_god_menu(canvas, demo.menu, god_menu, demo.palette, demo.hud)

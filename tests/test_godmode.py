@@ -145,6 +145,25 @@ def test_money_adds_ten_and_stops_at_the_hud_cap():
     apply_money(None)
 
 
+def test_money_clears_healthguy_refuse_sel_seq():
+    from lynn.constants import u_healthguy
+    from lynn.object.char import CharType
+
+    reset_events()
+    class Hero:
+        money = 0
+
+    hero = Hero()
+    guy = CharType()
+    guy.unique_id = u_healthguy
+    guy.sel_seq = 2
+    events.current_others = [guy]
+    apply_money(hero)
+    assert hero.money == 10
+    assert guy.sel_seq == 0
+    reset_events()
+
+
 def test_heal_refills_and_clears_death():
     class Hero:
         hp = 1

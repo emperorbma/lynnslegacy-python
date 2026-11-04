@@ -176,11 +176,41 @@ def write_god_slot(slot: int, entry: int):
     return LLSystem_ReadSaveFile(f"ll_save{slot}.sav")
 
 
+def _refresh_money_gates() -> None:
+    """Clear sticky poor-refusal sel_seq so shops re-check after godmode gold.
+
+    FB healthguy/outfit branches only raise sel_seq when short on gold; they
+    never clear it until the actor respawns. Godmode money mid-room would
+    otherwise leave the healthguy stuck on the "come back later" line.
+    """
+    import lynn.events as events
+    from lynn.constants import u_healthguy
+
+    for obj in events.current_others or []:
+        if obj is None:
+            continue
+        if int(getattr(obj, "unique_id", 0) or 0) == u_healthguy:
+            obj.sel_seq = 0
+            continue
+        # Outfit shop pieces use chap as the price and sel_seq 1 as the refuse.
+        if int(getattr(obj, "sel_seq", 0) or 0) == 1 and int(getattr(obj, "chap", 0) or 0) > 0:
+            funcs = getattr(obj, "funcs", None)
+            if funcs is None:
+                continue
+            for state in getattr(funcs, "func", ()) or ():
+                for fn in state or ():
+                    name = getattr(fn, "__name__", "")
+                    if name == "__outfit_branch":
+                        obj.sel_seq = 0
+                        break
+
+
 def apply_money(hero) -> None:
     """Add 10 gold. The HUD draws at most 999."""
     if hero is None:
         return
     hero.money = min(999, int(getattr(hero, "money", 0) or 0) + 10)
+    _refresh_money_gates()
 
 
 def apply_heal(hero) -> None:
