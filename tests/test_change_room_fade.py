@@ -87,7 +87,7 @@ def test_map_change_preserves_title_unconscious_anim():
     Resetting to walk anim 0 flashed standing Lynn for a frame after the
     forest_fall fade-up, before the entry seq re-applied anim 1.
     """
-    from lynn.demos import enter_map
+    from lynn.map.enter_map import enter_map
 
     demo = _demo(0)
     hero = demo.hero

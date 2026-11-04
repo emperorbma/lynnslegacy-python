@@ -3,7 +3,7 @@
 FB places entry coords as stored. Ignia entry 8 (return from maceget.map)
 sits inside a walk-through static rock, so Lynn overlaps scenery until the
 player walks clear. That is tolerable in FB with a fade; with instant
-enter_map it reads as a stuck embed. Only that landing is adjusted.
+enter_map (lynn.map.enter_map) it reads as a stuck embed. Only that landing is adjusted.
 """
 
 from __future__ import annotations
