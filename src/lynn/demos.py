@@ -403,8 +403,9 @@ def enter_map(
         if not from_change_room:
             demo.hero.switch_room = -1
             demo.hero.to_map = ""
-        demo.hero.current_anim = 0
-        demo.hero.frame = 0
+        # FB enter_map only seats coords/direction/room/entry seq. It does not
+        # reset current_anim — title Begin sets active_anim_1 (unconscious)
+        # before change_map, and that pose must survive the fade FSM swap.
         bind_hero(demo.hero)
         if not from_change_room:
             _apply_enter_visibility(demo.hero, demo.hero_only)
