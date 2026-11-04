@@ -550,7 +550,9 @@ def _run_map(
             elif event.type == pygame.KEYDOWN and events.console is not None:
                 from lynn.console import feed_key
 
-                feed_key(events.console, event.key if event.key in (8, 13) else 0, event.unicode)
+                # 8 backspace, 13 enter, 27 esc (godmode amount cancel).
+                code = event.key if event.key in (8, 13, 27) else 0
+                feed_key(events.console, code, event.unicode)
             elif event.type == pygame.KEYDOWN:
                 mm = demo.minimap
                 if mm is not None and mm.open:
@@ -608,8 +610,9 @@ def _run_map(
                         demo.menu_open = 0
                         demo.menu_backdrop = None
                 elif god_menu.open:
-                    from lynn.godmode import apply_heal, apply_money, god_menu_back, god_menu_confirm, god_menu_move
+                    from lynn.godmode import god_menu_back, god_menu_confirm, god_menu_move
 
+                    # Amount prompts own the keyboard via events.console (above).
                     if event.key == pygame.K_ESCAPE:
                         god_menu_back(god_menu)
                     elif event.key == pygame.K_UP:
@@ -619,12 +622,8 @@ def _run_map(
                     elif event.key in (pygame.K_RETURN, pygame.K_SPACE) and not (
                         event.mod & pygame.KMOD_ALT
                     ):
-                        picked = god_menu_confirm(god_menu)
-                        if picked is not None and picked.kind == "heal":
-                            apply_heal(demo.hero)
-                        elif picked is not None and picked.kind == "money":
-                            apply_money(demo.hero)
-                        elif picked is not None and picked.kind == "load" and picked.save is not None:
+                        picked = god_menu_confirm(god_menu, demo.hero)
+                        if picked is not None and picked.kind == "load" and picked.save is not None:
                             _queue_fixture(demo, picked.label, picked.save)
                             god_menu.open = False
                             frame_hold = True
@@ -743,10 +742,9 @@ def _run_map(
                 pygame.display.set_caption(title)
                 shown = title
         if god_menu.open:
-            if demo.menu_backdrop is None:
-                draw_map_demo(canvas, demo, room_i, cam_x, cam_y)
-                demo.menu_backdrop = canvas.copy()
-            canvas.blit(demo.menu_backdrop, (0, 0))
+            # Live redraw so Heal/Money update hearts and cash under the console.
+            draw_map_demo(canvas, demo, room_i, cam_x, cam_y)
+            demo.menu_backdrop = None
             from lynn.godmode import blit_god_menu
 
             blit_god_menu(canvas, demo.menu, god_menu, demo.palette, demo.hud)

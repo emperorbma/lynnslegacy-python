@@ -535,9 +535,10 @@ def test_drop_b_key_is_implemented():
 
 
 def test_seed_change_map_returns_to_forest_town():
-    from lynn.demos import MapDemo, consume_title_events, set_up_room_enemies
+    from lynn.demos import MapDemo, set_up_room_enemies
     from lynn.gfx.palette import load_pal
     from lynn.hero import ctor_hero, ctor_hero_only
+    from lynn.map.change_room import finish_change_room
     from lynn.map.loader import load_mapV
     from lynn.paths import data_file, resolve_map_path
 
@@ -558,8 +559,6 @@ def test_seed_change_map_returns_to_forest_town():
     bind_hero(demo.hero)
     bind_hero_only(demo.hero_only)
     bind_room(game_map.room[22], demo.objects_by_room[22])
-    from lynn.map.change_room import finish_change_room
-
     demo.hero.chap = 1
     assert lookup_func("__change_map")(demo.hero) == 1
     assert "forest_fall" in (demo.hero.to_map or "").replace("\\", "/").lower()

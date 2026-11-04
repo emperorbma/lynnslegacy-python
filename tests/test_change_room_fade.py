@@ -1,7 +1,7 @@
 """FB change_room fade FSM: invincible → fade → swap → fade up → vulnerable."""
 
 from lynn import clock
-from lynn.constants import LLFADE_WHITE, TRUE
+from lynn.constants import LLFADE_WHITE
 from lynn.demos import MapDemo, set_up_room_enemies, try_hero_teleport
 from lynn.events import reset_events
 import lynn.events as events

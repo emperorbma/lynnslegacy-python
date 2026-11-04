@@ -188,9 +188,16 @@ def health_formula(maxhp: int) -> int:
 
 
 def __healthguy_branch(this: CharType) -> int:
+    """Pick the healthguy talk line from current money / maxhp.
+
+    FB only raises sel_seq when poor or maxed and never clears it, so a
+    later gold pickup in the same room still got the refuse line. Re-evaluate
+    from 0 each call so new money (loot or godmode) is recognized.
+    """
     hero = events.hero
     if hero is None:
         return 1
+    this.sel_seq = 0
     if hero.money < health_formula(hero.maxhp):
         this.sel_seq = 2
     if hero.maxhp == 30:
@@ -1000,16 +1007,16 @@ def __logosta_console(this: CharType) -> int:
     FB blocks in a private input loop. Here the sequence keeps ticking this
     func (returning 0) while main.py feeds keys, then it drops out as FB does.
     """
-    from lynn.console import PASSWORD, ConsoleState
+    from lynn.console import PASSWORD, close_console, open_console
     from lynn.sequence import sequence_FullReset
 
     con = events.console
-    if con is None:
-        events.console = ConsoleState(this)
+    if con is None or con.obj is not this:
+        open_console(obj=this)
         return 0
     if not con.done:
         return 0
-    events.console = None
+    close_console()
     seq = events.current_seq
     only = events.hero_only
     if seq is not None and only is not None:

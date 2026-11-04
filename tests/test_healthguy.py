@@ -41,8 +41,10 @@ def test_healthguy_branch_poor_and_maxed():
     hero.money = 0
     __healthguy_branch(guy)
     assert guy.sel_seq == 2
-    guy.sel_seq = 0
+    # New money in the same room clears the sticky refuse line.
     hero.money = 200
+    __healthguy_branch(guy)
+    assert guy.sel_seq == 0
     hero.maxhp = 30
     __healthguy_branch(guy)
     assert guy.sel_seq == 1
