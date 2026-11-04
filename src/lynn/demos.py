@@ -488,6 +488,10 @@ def load_game_into_demo(demo: MapDemo, save, *, complete: bool = True) -> None:
 
     ``complete=True`` (tests / sync helpers) drives the fade FSM to the end.
     Title Continue uses ``complete=False`` so the main loop shows the fade.
+
+    Lynn stays invisible through the title fade-out. change_room case 2 reveals
+    her (and the HUD) only after the saved map is seated — matching FB, where
+    she never paints on the title stage mid-load.
     """
     from lynn.map.change_room import finish_change_room, init_change_room
     from lynn.object.save import sequence_LoadGame
@@ -497,11 +501,16 @@ def load_game_into_demo(demo: MapDemo, save, *, complete: bool = True) -> None:
     if hero is not None:
         hero.menu_sel = 0
         hero.fade_time = 0.003
-        hero.invisible = 0
+        # Keep title-map invisibility until the FSM swap applies visibility.
+        hero.invisible = 1
     if demo.hero_only is not None:
         demo.hero_only.action_lock = 0
-        # Save load always shows Lynn; ignore any leftover invisibleEntry.
+        # Clear leftover invisibleEntry so case 2 shows Lynn on the stage.
         demo.hero_only.invisibleEntry = 0
+        # Ensure the HUD path in change_room case 2 fires even when callers
+        # arm a load without going through __do_menu_continue.
+        if demo.hero_only.isLoading == 0:
+            demo.hero_only.isLoading = TRUE
     if hero is not None and hero.to_map:
         init_change_room(1)
         if complete:

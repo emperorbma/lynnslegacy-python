@@ -176,7 +176,8 @@ def test_play_sequence_isloading_sets_pending_load(tmp_path, monkeypatch):
     assert result is None
     assert events.pending_load is not None
     assert events.pending_load.entry == 3
-    assert only.isLoading == 0
+    # isLoading stays set until change_room seats the saved map.
+    assert only.isLoading != 0
 
 
 def test_sequence_load_game_copies_slot(tmp_path, monkeypatch):
@@ -330,8 +331,15 @@ def test_consume_pending_load_enters_saved_map(tmp_path, monkeypatch):
     set_up_room_enemies(demo, 0, load_images=False)
     hero.invisible = 1
     only.invisibleEntry = TRUE
+    events.do_hud = 0
+    demo.do_hud = 0
     events.pending_load = save
     assert consume_title_events(demo) is False
+    # Mid-fade: still on the title map, Lynn and HUD stay off (FB).
+    assert Path_name(events.map_filename) == START_MAP
+    assert demo.hero.invisible != 0
+    assert only.isLoading != 0
+    assert events.do_hud == 0
     from lynn.map.change_room import finish_change_room
 
     finish_change_room(demo)
@@ -340,6 +348,8 @@ def test_consume_pending_load_enters_saved_map(tmp_path, monkeypatch):
     assert demo.hero.menu_sel == 0
     assert demo.hero.invisible == 0
     assert only.invisibleEntry == 0
+    assert only.isLoading == 0
+    assert events.do_hud != 0
     assert events.pending_load is None
 
 

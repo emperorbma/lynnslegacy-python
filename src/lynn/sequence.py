@@ -252,13 +252,14 @@ def play_sequence(seq: SequenceType | None, box: BoxControl, hero_only, palette=
                     ent.ent_func = 0
                     actor.state_shift = 0
                 if hero_only is not None and hero_only.isLoading != 0:
-                    hero_only.isLoading = 0
+                    # Keep isLoading set until change_room case 2 (after the
+                    # saved map seats). Clearing it here would flash Lynn/HUD
+                    # on the title stage during fade-out.
                     slot = actor.menu_sel
                     link = actor.save[slot] if 0 <= slot < len(actor.save) else None
                     if link is not None:
                         events.pending_load = link
                     sequence_FullReset(seq, hero_only)
-                    events.do_hud = TRUE
                     events.current_seq = None
                     events.seq_box = None
                     return None

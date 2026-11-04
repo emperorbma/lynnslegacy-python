@@ -127,7 +127,12 @@ def apply_save_hero(hero, only, data: SaveData) -> None:
 
 
 def sequence_LoadGame(saved_info: SaveData | None) -> None:
-    """FB sequence_LoadGame: copy the slot onto the live hero, then change_room type 1."""
+    """FB sequence_LoadGame: copy the slot onto the live hero, then arm change_room type 1.
+
+    Leaves ``isLoading`` set. FB clears it (and enables the HUD) in change_room
+    case 2 after the map swap — not here — so Lynn and the HUD stay off during
+    the title fade-out.
+    """
     if saved_info is None:
         return
     apply_save_happen(saved_info)
@@ -146,8 +151,6 @@ def sequence_LoadGame(saved_info: SaveData | None) -> None:
         hero.menu_sel = 0
     if only is not None:
         only.action_lock = 0
-        only.isLoading = 0
-    events.do_hud = TRUE
     events.box_entity = None
     events.pending_visited = list(saved_info.hasVisited) if int(saved_info.rooms) else None
 
