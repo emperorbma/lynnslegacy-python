@@ -53,6 +53,21 @@ def LLObject_SpawnWait(obj: CharType) -> int:
     return spawn_pairs_met(obj.spawn_info.wait_spawn)
 
 
+def LLObject_WaitingToSpawn(obj: CharType) -> bool:
+    """Null wait-placeholder: wait_n set and CopyNewObject has not fired yet.
+
+    Hidden from blit and from action/touch. Acting the Arx carved-key chest
+    while it was still null.xml ran __home toward dest (0,0) and softlocked
+    the sequence with the HUD off.
+    """
+    if getattr(obj, "spawn_cond", 0) == 0:
+        return False
+    if getattr(obj, "spawn_wait_trig", 0) != 0:
+        return False
+    info = getattr(obj, "spawn_info", None)
+    return info is not None and getattr(info, "wait_n", 0) > 0
+
+
 def LLObject_CheckSpawn(obj: CharType) -> None:
     from lynn.constants import TRUE
     from lynn.object.dispatch import lookup_func

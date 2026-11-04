@@ -62,12 +62,16 @@ def bind_sequence_ents(seq: SequenceType, hero: CharType, room_objs: list[CharTy
 
 def try_action_sequence(hero: CharType, hero_only, room_objs: list[CharType]) -> SequenceType | None:
     """FB act_enemies action_sequence branch. Returns the seq to play, or None."""
+    from lynn.object.tick import LLObject_WaitingToSpawn
+
     if hero_only.action == 0:
         return None
     for obj in room_objs:
         if getattr(obj, "action_sequence", 0) == 0:
             continue
         if obj.dead != 0 or obj.seq_release != 0:
+            continue
+        if LLObject_WaitingToSpawn(obj):
             continue
         if is_facing(hero, obj) != 0:
             continue
@@ -100,6 +104,8 @@ def _start_obj_seq(obj: CharType, hero: CharType, room_objs: list[CharType]) -> 
 
 def try_touch_sequence(hero: CharType, room_objs: list[CharType]) -> SequenceType | None:
     """FB LLObject_TouchSequence: fire on overlap, no action key."""
+    from lynn.object.tick import LLObject_WaitingToSpawn, spawn_pairs_met
+
     if hero.switch_room != -1:
         return None
     for obj in room_objs:
@@ -107,11 +113,11 @@ def try_touch_sequence(hero: CharType, room_objs: list[CharType]) -> SequenceTyp
             continue
         if obj.dead != 0 or obj.seq_release != 0:
             continue
+        if LLObject_WaitingToSpawn(obj):
+            continue
         if LLObject_isTouching(hero, obj) != 0:
             continue
         if obj.spawn_cond != 0 and obj.spawn_info is not None and obj.spawn_info.active_n:
-            from lynn.object.tick import spawn_pairs_met
-
             if spawn_pairs_met(obj.spawn_info.active_spawn) == 0:
                 continue
         if obj.unique_id == u_keydoor and getattr(hero, "key", 0) == 0:

@@ -111,9 +111,10 @@ def enter_map(
     events.map_filename = Path(path).name
     events.hero_room = demo.hero_room
     if from_change_room:
+        # FB enter_map does not touch do_hud. change_room case 2 only forces
+        # HUD on for isLoading; entry/room seqs clear it when they promote.
+        # Clearing here left Arx (entry 0, no seq) HUD-dark after the hop.
         demo.seq = None
-        events.do_hud = 0
-        demo.do_hud = 0
     else:
         _maybe_start_entry_seq(demo, entry_i)
         _start_current_room_song(demo)

@@ -698,16 +698,12 @@ def _sort_y(obj) -> tuple:
 
 def _blit_y_sorted(canvas, demo: MapDemo, room_i: int, cam_x: int, cam_y: int, save_open: bool) -> None:
     """FB blit_y_sorted plus corpse drops, by placed then y-mid. Layer 2 still covers all."""
+    from lynn.object.tick import LLObject_WaitingToSpawn
+
     sprites = []
     if 0 <= room_i < len(demo.objects_by_room):
         for obj in demo.objects_by_room[room_i]:
-            info = getattr(obj, "spawn_info", None)
-            if (
-                getattr(obj, "spawn_cond", 0) != 0
-                and getattr(obj, "spawn_wait_trig", 0) == 0
-                and info is not None
-                and getattr(info, "wait_n", 0) > 0
-            ):
+            if LLObject_WaitingToSpawn(obj):
                 continue
             if obj.unique_id == u_menu:
                 if save_open:
