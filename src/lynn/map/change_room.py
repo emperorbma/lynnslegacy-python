@@ -5,7 +5,7 @@ one state: invincible → fade out → swap room/map → fade in → vulnerable 
 start pending room/entry seq and clear switch_room.
 
 Port-only preserve: Ignia mace landing nudge and pending_visited still run
-inside enter_map. ItemSwitch defaults stay Original.
+inside enter_map (lynn.map.enter_map). ItemSwitch defaults stay Original.
 """
 
 from __future__ import annotations
@@ -13,6 +13,7 @@ from __future__ import annotations
 import lynn.events as events
 from lynn import clock
 from lynn.constants import LLFADE_GRAY, LLFADE_NORMAL, LLFADE_WHITE, TRUE
+from lynn.map.enter_map import apply_enter_visibility, enter_map
 from lynn.object.char import CharType
 from lynn.object.seq_funcs import (
     __fade_down_to_color,
@@ -119,8 +120,6 @@ def _do_same_map_swap(demo, hero: CharType) -> None:
 
 
 def _do_map_swap(demo, hero: CharType) -> None:
-    from lynn.demos import enter_map
-
     dest = hero.to_map
     entry_i = int(hero.to_entry)
     enter_map(
@@ -161,10 +160,8 @@ def _start_song_after_swap(demo) -> None:
 
 
 def _apply_visibility(demo) -> None:
-    from lynn.demos import _apply_enter_visibility
-
     only = getattr(demo, "hero_only", None)
-    _apply_enter_visibility(demo.hero, only)
+    apply_enter_visibility(demo.hero, only)
 
 
 def _promote_pending_seq(demo) -> None:

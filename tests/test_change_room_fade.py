@@ -79,3 +79,30 @@ def test_room_seq_starts_after_fade():
     try_hero_teleport(demo, complete=True)
     assert demo.hero_room == 2
     assert demo.seq is not None
+
+
+def test_map_change_preserves_title_unconscious_anim():
+    """Title Begin sets active_anim_1 before change_map; FB enter_map keeps it.
+
+    Resetting to walk anim 0 flashed standing Lynn for a frame after the
+    forest_fall fade-up, before the entry seq re-applied anim 1.
+    """
+    from lynn.map.enter_map import enter_map
+
+    demo = _demo(0)
+    hero = demo.hero
+    hero.current_anim = 1
+    hero.frame = 3
+    hero.to_map = "forest_fall.map"
+    hero.to_entry = 0
+    hero.switch_room = -2
+    enter_map(
+        demo,
+        "forest_fall.map",
+        0,
+        load_images=False,
+        load_tileset=False,
+        from_change_room=True,
+    )
+    assert hero.current_anim == 1
+    assert hero.frame == 3

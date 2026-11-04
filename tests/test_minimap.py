@@ -157,7 +157,8 @@ def test_load_stashes_visits_for_the_next_map():
 
 def test_gelidus_visits_survive_icefield_engraved_key_trip():
     """Ice Field holds the engraved key and has no .mni; returning must keep Gelidus visits."""
-    from lynn.demos import MapDemo, enter_map
+    from lynn.demos import MapDemo
+    from lynn.map.enter_map import enter_map
     from lynn.hero import ctor_hero
     from lynn.paths import data_file
 

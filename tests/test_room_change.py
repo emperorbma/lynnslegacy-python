@@ -4,10 +4,10 @@ from lynn.constants import TRUE
 from lynn.demos import (
     MapDemo,
     del_room_enemies,
-    enter_map,
     set_up_room_enemies,
     try_hero_teleport,
 )
+from lynn.map.enter_map import enter_map
 from lynn.events import now, reset_events
 from lynn.gfx.palette import load_pal
 from lynn.hero import ctor_hero
