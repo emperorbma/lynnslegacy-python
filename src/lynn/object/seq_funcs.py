@@ -1035,8 +1035,47 @@ def __set_anim(this: CharType) -> int:
     return 1
 
 
+def __change_room(this: CharType) -> int:
+    """FB object_etc.bas: same-map room swap mid-sequence (caller owns the fade)."""
+    from lynn.demos import del_room_enemies, set_up_room_enemies
+
+    hero = events.hero
+    demo = events.current_demo
+    if hero is None or demo is None:
+        return 1
+    room_i = int(demo.hero_room)
+    if not (0 <= room_i < len(demo.game_map.room)):
+        return 1
+    room = demo.game_map.room[room_i]
+    tele_i = int(this.switch_room)
+    if not (0 <= tele_i < len(room.teleport)):
+        return 1
+    tele = room.teleport[tele_i]
+    hero.coords_x = tele.dx
+    hero.coords_y = tele.dy
+    dest = int(tele.to_room)
+    events.current_seq = None
+    if dest == room_i or not (0 <= dest < demo.game_map.rooms):
+        return 1
+    load_images = demo.load_images != 0
+    del_room_enemies(demo, room_i)
+    demo.hero_room = dest
+    events.hero_room = dest
+    events.dark = demo.game_map.room[dest].dark
+    set_up_room_enemies(demo, dest, load_images=load_images)
+    events.current_others = demo.objects_by_room[dest]
+    events.current_room = demo.game_map.room[dest]
+    if demo.game_map.room[dest].seq:
+        # FB assigns now_room().seq onto the actor for case-5 style promote;
+        # mid-sequence callers continue their own fade_up after this returns.
+        pass
+    return 1
+
+
 def __change_map(this: CharType) -> int:
     """FB object_etc.bas: start a map-change tele from this.chap, drop the seq."""
+    from lynn.map.change_room import init_change_room
+
     only = events.hero_only
     hero = events.hero
     if only is not None:
@@ -1049,8 +1088,9 @@ def __change_map(this: CharType) -> int:
             tele = room.teleport[hero.switch_room]
             hero.to_map = tele.to_map
             hero.to_entry = tele.to_room
-        events.fade_white = 0
-        events.fade_black = 0
+        init_change_room(1)
+        # FB clears the actor seq pointer; do not clear the screen fade — the
+        # engine change_room FSM owns fade-out/in from here.
     return 1
 
 
@@ -1258,6 +1298,25 @@ def __fade_to_black(this: CharType) -> int:
 
             LLMusic_Stop()
         return 1
+    return 0
+
+
+def __fade_down_to_gray(this: CharType) -> int:
+    """FB __fade_down_to_gray: 64 steps from white toward gray, then B&W lock."""
+    from lynn.gfx.palette import make_black_and_white, step_fade_down_to_color
+
+    if this.fade_timer == 0:
+        events.fade_white = 0
+        this.fade_count, done = step_fade_down_to_color(
+            events.palette, int(this.fade_count)
+        )
+        if done:
+            make_black_and_white(events.palette)
+            this.fade_timer = 0
+            return 1
+        this.fade_timer = clock.timer + (this.fade_time or 0.01)
+    if clock.timer >= this.fade_timer:
+        this.fade_timer = 0
     return 0
 
 

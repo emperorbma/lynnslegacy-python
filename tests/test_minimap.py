@@ -321,7 +321,8 @@ def test_same_map_teleport_marks_the_dest_room():
         demo.load_tileset = 0
         demo.objects_by_room = [[], []]
         demo.minimap = mm
-        try_hero_teleport(demo)
+        game.isDungeon = -1
+        try_hero_teleport(demo, complete=True)
         assert demo.hero_room == 1
         assert hero.coords_x == 8
         assert hero.coords_y == 9

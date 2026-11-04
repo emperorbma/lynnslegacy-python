@@ -33,9 +33,8 @@ from lynn.events import bind_hero, bind_hero_only, reset_events
 import lynn.events as events
 from lynn.gfx.box import BoxControl, blit_box
 from lynn.hero import ctor_hero, ctor_hero_only, place_hero
-from lynn.map.collision import check_teleports
 from lynn.map.loader import load_mapV
-from lynn.map.minimap import attach_minimap, mark_visited, visited_bytes
+from lynn.map.minimap import attach_minimap, visited_bytes
 from lynn.map.types import MapType
 from lynn.object.tick import LLObject_CheckSpawn, tick_objects
 from lynn.object.xml_load import spawn_from_stub
@@ -362,8 +361,14 @@ def enter_map(
     entry_i: int,
     load_images: bool | None = None,
     load_tileset: bool = True,
+    from_change_room: bool = False,
 ) -> None:
-    """FB enter_map + set_up_room_enemies. Keep the hero; swap the map."""
+    """FB enter_map + set_up_room_enemies. Keep the hero; swap the map.
+
+    When ``from_change_room`` is set (FSM case 2), fades and song stay under
+    change_room control, entry seq is deferred to case 5, and switch_room is
+    left armed until the fade-in finishes.
+    """
     from lynn.audio import stop_looping_samples
 
     # Title gulls leave looping sea on mixer channels; drop those, keep Lynn's cricket.
@@ -376,7 +381,7 @@ def enter_map(
     if load_tileset and (game_map.tileset is None or game_map.rooms == 0):
         raise FileNotFoundError(path)
     demo.game_map = game_map
-    if demo.palette is not None:
+    if demo.palette is not None and not from_change_room:
         from lynn.gfx.palette import reset_palette_ramps
 
         demo.palette.restore_master()
@@ -395,12 +400,14 @@ def enter_map(
         set_up_room_enemies(demo, i, load_images=load_images)
     if demo.hero is not None:
         demo.hero_room = place_hero(demo.hero, game_map, entry_i)
-        demo.hero.switch_room = -1
-        demo.hero.to_map = ""
+        if not from_change_room:
+            demo.hero.switch_room = -1
+            demo.hero.to_map = ""
         demo.hero.current_anim = 0
         demo.hero.frame = 0
         bind_hero(demo.hero)
-        _apply_enter_visibility(demo.hero, demo.hero_only)
+        if not from_change_room:
+            _apply_enter_visibility(demo.hero, demo.hero_only)
         if 0 <= demo.hero_room < len(game_map.room):
             events.dark = game_map.room[demo.hero_room].dark
             from lynn.map.landing import resolve_ignia_mace_return
@@ -413,16 +420,22 @@ def enter_map(
             )
     events.load_images = TRUE if load_images else 0
     events.do_chap = 0
-    events.fade_black = 0
-    events.fade_white = 0
-    events.fade_red = 0
-    events.color_mode = 0
+    if not from_change_room:
+        events.fade_black = 0
+        events.fade_white = 0
+        events.fade_red = 0
+        events.color_mode = 0
     events.palette = demo.palette
     events.current_cam = None
     events.map_filename = Path(path).name
     events.hero_room = demo.hero_room
-    _maybe_start_entry_seq(demo, entry_i)
-    _start_current_room_song(demo)
+    if from_change_room:
+        demo.seq = None
+        events.do_hud = 0
+        demo.do_hud = 0
+    else:
+        _maybe_start_entry_seq(demo, entry_i)
+        _start_current_room_song(demo)
     # FB enter_map restores hero_only.roomVisited onto the new .mni. That pointer
     # is only filled on save-load; mid-game map hops (Gelidus → Ice Field for the
     # engraved key) destroyed the old minimap with no stash. Keep visits across a
@@ -470,31 +483,32 @@ def jump_to_title(demo: MapDemo) -> None:
     enter_map(demo, START_MAP, 0, load_images=load_images, load_tileset=demo.load_tileset != 0)
 
 
-def load_game_into_demo(demo: MapDemo, save) -> None:
-    """FB sequence_LoadGame + change_room type 1."""
+def load_game_into_demo(demo: MapDemo, save, *, complete: bool = True) -> None:
+    """FB sequence_LoadGame + change_room type 1.
+
+    ``complete=True`` (tests / sync helpers) drives the fade FSM to the end.
+    Title Continue uses ``complete=False`` so the main loop shows the fade.
+    """
+    from lynn.map.change_room import finish_change_room, init_change_room
     from lynn.object.save import sequence_LoadGame
 
     sequence_LoadGame(save)
-    dest = save.map if save is not None else ""
-    entry_i = int(save.entry) if save is not None else 0
-    if dest:
-        enter_map(
-            demo,
-            dest,
-            entry_i,
-            load_images=demo.load_images != 0,
-            load_tileset=demo.load_tileset != 0,
-        )
-    if demo.hero is not None:
-        demo.hero.menu_sel = 0
-        demo.hero.switch_room = -1
-        demo.hero.invisible = 0
+    hero = demo.hero
+    if hero is not None:
+        hero.menu_sel = 0
+        hero.fade_time = 0.003
+        hero.invisible = 0
     if demo.hero_only is not None:
-        demo.hero_only.invisibleEntry = 0
         demo.hero_only.action_lock = 0
-    if demo.seq is None:
-        events.do_hud = TRUE
-        demo.do_hud = TRUE
+        # Save load always shows Lynn; ignore any leftover invisibleEntry.
+        demo.hero_only.invisibleEntry = 0
+    if hero is not None and hero.to_map:
+        init_change_room(1)
+        if complete:
+            finish_change_room(demo)
+            if demo.seq is None:
+                events.do_hud = TRUE
+                demo.do_hud = TRUE
 
 
 def consume_title_events(demo: MapDemo) -> bool:
@@ -506,14 +520,16 @@ def consume_title_events(demo: MapDemo) -> bool:
     if events.pending_load is not None:
         save = events.pending_load
         events.pending_load = None
-        load_game_into_demo(demo, save)
+        load_game_into_demo(demo, save, complete=False)
         return False
     if events.goto_title != 0:
         events.goto_title = 0
         jump_to_title(demo)
         return False
+    # Walk-on and __change_map map hops are owned by change_room. Do not
+    # enter_map from leftover to_map while the FSM is armed.
     hero = demo.hero
-    if hero is not None and hero.to_map:
+    if hero is not None and hero.to_map and hero.switch_room == -1:
         dest = hero.to_map
         entry_i = int(hero.to_entry)
         hero.to_map = ""
@@ -534,58 +550,33 @@ def consume_title_events(demo: MapDemo) -> bool:
     return False
 
 
-def try_hero_teleport(demo: MapDemo) -> None:
-    """FB check_against_teles then change_room type 0 (same map) or 1 (enter_map).
+def try_hero_teleport(demo: MapDemo, *, complete: bool = False) -> None:
+    """FB check_against_teles then change_room type 0/1 (fade FSM).
 
-    Instant, no fade or song. Same-map dest rooms are deleted and respawned from stubs.
+    Arms the room-change machine when Lynn is on a tele. Each call ticks one
+    FSM step while ``switch_room != -1``. Pass ``complete=True`` in tests to
+    drive the fade through in one call.
     """
+    from lynn.map.change_room import arm_walk_teleport, finish_change_room, tick_change_room
+
     hero = demo.hero
     if hero is None:
         return
-    if hero.switch_room != -1:
-        return
-    room_i = demo.hero_room
-    if not (0 <= room_i < len(demo.game_map.room)):
-        return
-    room = demo.game_map.room[room_i]
-    tele_i = check_teleports(hero, room.teleport, room.teleports)
-    if tele_i == -1:
-        return
-    tele = room.teleport[tele_i]
-    load_images = demo.load_images != 0
-    if tele.to_map != "":
-        hero.to_map = tele.to_map
-        hero.to_entry = tele.to_room
-        enter_map(
-            demo,
-            tele.to_map,
-            tele.to_room,
-            load_images=load_images,
-            load_tileset=demo.load_tileset != 0,
-        )
-        return
-    dest_room = tele.to_room
-    if dest_room < 0 or dest_room >= demo.game_map.rooms:
-        return
-    if dest_room != room_i:
-        del_room_enemies(demo, room_i)
-        demo.hero_room = dest_room
-        events.hero_room = dest_room
-        set_up_room_enemies(demo, dest_room, load_images=load_images)
-        events.dark = demo.game_map.room[dest_room].dark
-    hero.coords_x = tele.dx
-    hero.coords_y = tele.dy
-    hero.switch_room = -1
-    _start_current_room_song(demo)
-    mark_visited(demo.minimap, demo.hero_room)
+    if hero.switch_room == -1:
+        if not arm_walk_teleport(demo):
+            return
+    tick_change_room(demo)
+    if complete and hero.switch_room != -1:
+        finish_change_room(demo)
 
 
 def tick_map_demo(demo: MapDemo, room_i: int) -> None:
     if 0 <= room_i < len(demo.objects_by_room):
-        from lynn.events import bind_room
+        from lynn.events import bind_demo, bind_room
 
         room = demo.game_map.room[room_i] if room_i < len(demo.game_map.room) else None
         objs = demo.objects_by_room[room_i]
+        bind_demo(demo)
         bind_room(room, objs)
         bind_hero(demo.hero)
         events.hero_room = room_i

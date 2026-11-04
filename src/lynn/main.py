@@ -338,6 +338,9 @@ def _simulate_play_step(demo, room_i, cam_x, cam_y, god_menu, frame_hold, keys):
     """
     if not (0 <= room_i < demo.game_map.rooms):
         room_i = 0
+    from lynn.events import bind_demo
+
+    bind_demo(demo)
     room = demo.game_map.room[room_i]
     others = demo.objects_by_room[room_i] if room_i < len(demo.objects_by_room) else []
     locked = (
@@ -374,7 +377,20 @@ def _simulate_play_step(demo, room_i, cam_x, cam_y, god_menu, frame_hold, keys):
 
         tick_item_effects(demo.hero, demo.hero_only)
     attacking = demo.hero_only is not None and demo.hero_only.attacking != 0
-    if demo.menu_open == 0 and not god_menu.open and not frame_hold and demo.seq is None and not locked:
+    switching = demo.hero is not None and demo.hero.switch_room != -1
+    if switching:
+        # FB: no dir keys while switch_room is armed; change_room ticks each pass.
+        try_hero_teleport(demo)
+        room_i = demo.hero_room
+        if 0 <= room_i < demo.game_map.rooms:
+            room = demo.game_map.room[room_i]
+            others = (
+                demo.objects_by_room[room_i]
+                if room_i < len(demo.objects_by_room)
+                else []
+            )
+            cam_x, cam_y = update_cam(camera_target(demo.hero, others), room)
+    elif demo.menu_open == 0 and not god_menu.open and not frame_hold and demo.seq is None and not locked:
         if demo.hero is not None:
             held: list[int] = []
             if not attacking:

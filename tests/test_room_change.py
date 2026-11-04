@@ -85,13 +85,13 @@ def test_roamers_respawn_after_leaving_the_room():
     assert south.to_room == 2
     _stand_on_tele(hero, south)
     assert check_teleports(hero, demo.game_map.room[1].teleport) == 1
-    try_hero_teleport(demo)
+    try_hero_teleport(demo, complete=True)
     assert demo.hero_room == 2
     assert demo.objects_by_room[1] == []
     north = demo.game_map.room[2].teleport[0]
     assert north.to_room == 1
     _stand_on_tele(hero, north)
-    try_hero_teleport(demo)
+    try_hero_teleport(demo, complete=True)
     assert demo.hero_room == 1
     again = _roamers(demo.objects_by_room[1])
     assert len(again) == len(origins)
@@ -126,7 +126,7 @@ def test_enter_house_from_town_door():
     door = demo.game_map.room[4].teleport[3]
     _stand_on_tele(hero, door)
     assert check_teleports(hero, demo.game_map.room[4].teleport) == 3
-    try_hero_teleport(demo)
+    try_hero_teleport(demo, complete=True)
     assert "inhouse" in demo.game_map.filename.replace("\\", "/").lower()
     house = load_mapV(str(resolve_map_path("inhouse")), load_tileset=False)
     entry = house.entry[0]
@@ -143,7 +143,7 @@ def test_leave_house_returns_to_town():
     door = demo.game_map.room[demo.hero_room].teleport[0]
     assert "forest_fall" in door.to_map.replace("\\", "/").lower()
     _stand_on_tele(hero, door)
-    try_hero_teleport(demo)
+    try_hero_teleport(demo, complete=True)
     assert "forest_fall" in demo.game_map.filename.replace("\\", "/").lower()
     entry = load_mapV(str(resolve_map_path("forest_fall")), load_tileset=False).entry[door.to_room]
     assert demo.hero_room == entry.room
@@ -271,8 +271,10 @@ def test_spinner_room_exit_shows_the_chapter_card_then_the_desert():
     assert hero.to_entry == 4
     demo.seq = None
     from lynn.demos import consume_title_events
+    from lynn.map.change_room import finish_change_room
 
-    consume_title_events(demo)
+    # __change_map armed the fade FSM; drive it through like the play loop.
+    finish_change_room(demo)
     assert "between" in demo.game_map.filename.replace("\\", "/").lower()
     assert demo.seq is not None
     room_i = demo.hero_room
@@ -286,7 +288,7 @@ def test_spinner_room_exit_shows_the_chapter_card_then_the_desert():
     assert "desert" in hero.to_map.replace("\\", "/").lower()
     assert hero.to_entry == 15
     demo.seq = None
-    consume_title_events(demo)
+    finish_change_room(demo)
     assert "desert" in demo.game_map.filename.replace("\\", "/").lower()
     assert (hero.coords_x, hero.coords_y) == (16, 1584)
 
