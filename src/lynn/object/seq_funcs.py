@@ -1255,8 +1255,13 @@ def __fade_down_to_color(this: CharType) -> int:
 
     if this.fade_timer == 0:
         events.fade_white = 0
+        # Overlay stand-ins for palette fades must lift with the ramp, or a
+        # prior fade_to_black wash would keep the picture covered.
+        if events.fade_black:
+            events.fade_black = max(0, int(events.fade_black) - 4)
         this.fade_count, done = step_fade_down_to_color(events.palette, int(this.fade_count))
         if done:
+            events.fade_black = 0
             this.fade_timer = 0
             return 1
         this.fade_timer = clock.timer + (this.fade_time or 0.01)
@@ -1309,16 +1314,25 @@ def __fade_to_black(this: CharType) -> int:
 
 
 def __fade_down_to_gray(this: CharType) -> int:
-    """FB __fade_down_to_gray: 64 steps from white toward gray, then B&W lock."""
+    """FB __fade_down_to_gray: 64 steps from white toward gray, then B&W lock.
+
+    change_room case 1 still fades out through ``__fade_to_black`` when only
+    LLFADE_GRAY is set (island3 → forest_flashback stick pickup). The port's
+    black overlay must drop with this ramp the way ``__fade_up_to_color`` does,
+    or the flashback stays covered after the palette comes back.
+    """
     from lynn.gfx.palette import make_black_and_white, step_fade_down_to_color
 
     if this.fade_timer == 0:
         events.fade_white = 0
+        if events.fade_black:
+            events.fade_black = max(0, int(events.fade_black) - 4)
         this.fade_count, done = step_fade_down_to_color(
             events.palette, int(this.fade_count)
         )
         if done:
             make_black_and_white(events.palette)
+            events.fade_black = 0
             this.fade_timer = 0
             return 1
         this.fade_timer = clock.timer + (this.fade_time or 0.01)

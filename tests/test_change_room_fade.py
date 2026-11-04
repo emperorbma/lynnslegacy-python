@@ -127,3 +127,55 @@ def test_map_hop_enter_map_keeps_hud_on():
     assert events.do_hud != 0
     assert demo.do_hud != 0
     assert demo.seq is None
+
+
+def test_gray_fade_map_hop_clears_black_overlay():
+    """island3 → forest_flashback stick pickup: set_gray_fade then change_map.
+
+    Case 1 still fades out through fade_to_black. Case 3 uses fade_down_to_gray,
+    which must lift the port's black overlay or the flashback stays covered.
+    """
+    from lynn.constants import LLFADE_GRAY
+    from lynn.events import bind_hero, bind_hero_only
+    from lynn.map.change_room import init_change_room, finish_change_room
+    from lynn.object.seq_funcs import __set_gray_fade
+
+    reset_events()
+    path = resolve_map_path("island3")
+    game_map = load_mapV(str(path), load_tileset=False)
+    demo = MapDemo(
+        palette=load_pal(data_file("palette", "ll.pal")),
+        game_map=game_map,
+        tile_surfs=[],
+        load_images=0,
+        load_tileset=0,
+    )
+    demo.objects_by_room = [[] for _ in game_map.room]
+    demo.hero = ctor_hero(load_images=False)
+    demo.hero_only = ctor_hero_only()
+    demo.hero_room = 0
+    set_up_room_enemies(demo, 0, load_images=False)
+    hero = demo.hero
+    only = demo.hero_only
+    bind_hero(hero)
+    bind_hero_only(only)
+    only.fadeStyle = 0
+    __set_gray_fade(hero)
+    assert only.fadeStyle & LLFADE_GRAY
+    tele = game_map.room[0].teleport[0]
+    assert "forest_flashback" in (tele.to_map or "").replace("\\", "/").lower()
+    assert tele.to_room == 24
+    hero.to_map = tele.to_map
+    hero.to_entry = tele.to_room
+    hero.switch_room = 0
+    hero.fade_time = 0.01
+    init_change_room(1)
+    clock.timer = 1.0
+    finish_change_room(demo)
+    assert hero.switch_room == -1
+    assert events.fade_black == 0
+    assert events.fade_white == 0
+    assert only.fadeStyle == 0
+    stem = (demo.game_map.filename or "").replace("\\", "/").lower()
+    assert "forest_flashback" in stem
+    assert demo.hero_room == demo.game_map.entry[24].room
