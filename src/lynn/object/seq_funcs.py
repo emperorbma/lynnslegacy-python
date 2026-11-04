@@ -1007,16 +1007,16 @@ def __logosta_console(this: CharType) -> int:
     FB blocks in a private input loop. Here the sequence keeps ticking this
     func (returning 0) while main.py feeds keys, then it drops out as FB does.
     """
-    from lynn.console import PASSWORD, ConsoleState
+    from lynn.console import PASSWORD, close_console, open_console
     from lynn.sequence import sequence_FullReset
 
     con = events.console
-    if con is None:
-        events.console = ConsoleState(this)
+    if con is None or con.obj is not this:
+        open_console(obj=this)
         return 0
     if not con.done:
         return 0
-    events.console = None
+    close_console()
     seq = events.current_seq
     only = events.hero_only
     if seq is not None and only is not None:

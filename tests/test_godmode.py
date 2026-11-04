@@ -1,13 +1,16 @@
-"""Godmode console: Load and Save open a scrolling file list. Heal stays on it."""
+"""Godmode console: Load/Save lists; Heal/Money/MaxHP use the FerUs line prompt."""
 
 from lynn.events import reset_events
 import lynn.events as events
 from lynn.godmode import (
     GodEntry,
     GodMenu,
+    ROOT_COMMANDS,
     apply_heal,
+    apply_maxhp,
     apply_money,
     god_menu_back,
+    god_menu_begin_prompt,
     god_menu_confirm,
     god_menu_move,
     god_menu_open,
@@ -24,6 +27,7 @@ def _fixture(tmp_path, name, **kwargs):
 
 
 def test_console_opens_load_then_esc_returns(tmp_path, monkeypatch):
+    reset_events()
     monkeypatch.setattr("lynn.object.save.example_save_dir", lambda: tmp_path)
     monkeypatch.setattr("lynn.object.save.project_root", lambda: tmp_path)
     _fixture(tmp_path, "forest", map="forest_fall.map", entry=21, hp=6, gold=1)
@@ -42,9 +46,11 @@ def test_console_opens_load_then_esc_returns(tmp_path, monkeypatch):
     assert menu.index == 0
     assert menu.open is True
     assert (tmp_path / "test_example_postgelidus.sav").read_bytes() == before
+    reset_events()
 
 
 def test_save_list_is_four_slots_and_esc_returns_there():
+    reset_events()
     menu = GodMenu()
     god_menu_open(menu)
     god_menu_move(menu, 1)
@@ -57,21 +63,97 @@ def test_save_list_is_four_slots_and_esc_returns_there():
     assert menu.index == 1
     god_menu_back(menu)
     assert menu.open is False
+    reset_events()
 
 
-def test_heal_and_money_stay_on_the_console():
+def test_root_lists_heal_money_and_maxhp():
+    assert ROOT_COMMANDS == ("Load", "Save", "Heal", "Money", "MaxHP")
+
+
+def test_heal_money_maxhp_open_ferus_line_prompt():
+    from lynn.console import feed_key
+
+    reset_events()
+
+    class Hero:
+        hp = 3
+        maxhp = 8
+        money = 0
+        dead = 0
+        hurt = 0
+        dmg_id = 0
+
+    hero = Hero()
     menu = GodMenu()
     god_menu_open(menu)
-    god_menu_move(menu, 2)
-    picked = god_menu_confirm(menu)
-    assert picked is not None
-    assert picked.kind == "heal"
-    assert menu.page == "root"
-    god_menu_move(menu, 1)
-    picked = god_menu_confirm(menu)
-    assert picked.kind == "money"
-    assert menu.page == "root"
+
+    god_menu_move(menu, 2)  # Heal
+    assert god_menu_confirm(menu, hero) is None
+    assert events.console is not None
+    assert events.console.prompt.startswith("Heal")
+    assert events.console.text == ""
+    feed_key(events.console, 13, "")
+    assert hero.hp == 8
+    assert events.console is None
+
+    god_menu_move(menu, 1)  # Money
+    assert god_menu_confirm(menu, hero) is None
+    assert events.console.prompt.startswith("Gold")
+    assert events.console.text == "10"
+    feed_key(events.console, 13, "")
+    assert hero.money == 10
+
+    god_menu_move(menu, 1)  # MaxHP
+    assert god_menu_confirm(menu, hero) is None
+    assert events.console.prompt.startswith("MaxHP")
+    assert events.console.text == "1"
+    feed_key(events.console, 13, "")
+    assert hero.maxhp == 9
+    assert hero.hp == 9
     assert menu.open is True
+    reset_events()
+
+
+def test_prompt_esc_cancels_without_applying():
+    from lynn.console import feed_key
+
+    reset_events()
+
+    class Hero:
+        money = 5
+
+    hero = Hero()
+    menu = GodMenu()
+    god_menu_open(menu)
+    god_menu_begin_prompt(menu, "money", hero)
+    assert events.console is not None
+    feed_key(events.console, 27, "")
+    assert hero.money == 5
+    assert events.console is None
+    assert menu.page == "root"
+    assert menu.index == 3
+    reset_events()
+
+
+def test_money_prompt_accepts_typed_amount():
+    from lynn.console import feed_key
+
+    reset_events()
+
+    class Hero:
+        money = 0
+
+    hero = Hero()
+    menu = GodMenu()
+    god_menu_open(menu)
+    god_menu_begin_prompt(menu, "money", hero)
+    con = events.console
+    con.text = ""
+    feed_key(con, 0, "2")
+    feed_key(con, 0, "5")
+    feed_key(con, 13, "")
+    assert hero.money == 25
+    reset_events()
 
 
 def test_visible_rows_follow_a_long_load_list():
@@ -132,13 +214,15 @@ def test_write_god_slot_stores_the_live_hero(tmp_path, monkeypatch):
     reset_events()
 
 
-def test_money_adds_ten_and_stops_at_the_hud_cap():
+def test_money_adds_amount_and_stops_at_the_hud_cap():
     class Hero:
         money = 12
 
     hero = Hero()
     apply_money(hero)
     assert hero.money == 22
+    apply_money(hero, 5)
+    assert hero.money == 27
     hero.money = 995
     apply_money(hero)
     assert hero.money == 999
@@ -150,6 +234,7 @@ def test_money_clears_healthguy_refuse_sel_seq():
     from lynn.object.char import CharType
 
     reset_events()
+
     class Hero:
         money = 0
 
@@ -164,7 +249,7 @@ def test_money_clears_healthguy_refuse_sel_seq():
     reset_events()
 
 
-def test_heal_refills_and_clears_death():
+def test_heal_refills_or_adds_partial():
     class Hero:
         hp = 1
         maxhp = 8
@@ -176,8 +261,21 @@ def test_heal_refills_and_clears_death():
     apply_heal(hero)
     assert hero.hp == 8
     assert hero.dead == 0
-    assert hero.hurt == 0
-    assert hero.dmg_id == 0
+    hero.hp = 1
+    apply_heal(hero, 3)
+    assert hero.hp == 4
+
+
+def test_maxhp_raises_cap_and_current():
+    class Hero:
+        hp = 6
+        maxhp = 6
+        dead = 0
+
+    hero = Hero()
+    apply_maxhp(hero, 2)
+    assert hero.maxhp == 8
+    assert hero.hp == 8
 
 
 def test_caption_names_the_loaded_fixture():
