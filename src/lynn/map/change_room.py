@@ -264,6 +264,11 @@ def tick_change_room(demo) -> None:
             mark_visited(demo.minimap, demo.hero_room)
         if only is not None:
             only.fadeStyle = LLFADE_NORMAL
+        # Safety net: fade-ins clear overlays themselves. Snap any leftover
+        # wash so a missed lift cannot leave the next room black/white/red.
+        from lynn.object.seq_funcs import _clear_fade_overlays
+
+        _clear_fade_overlays()
         _switch_state = -1
         _switch_type = -1
 
