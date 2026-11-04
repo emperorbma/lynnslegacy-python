@@ -1191,6 +1191,25 @@ def __after_moenia_townspeople(this: CharType) -> int:
     return 0
 
 
+def _lift_fade_overlays(*, step: int = 4) -> None:
+    """Port-only: FB fades are Palette writes; we wash with overlays.
+
+    Every fade-in must drop black/white/red washes or the picture stays
+    covered after the DAC comes back (stick flashback, chapter cards, etc.).
+    """
+    events.fade_white = 0
+    events.fade_red = 0
+    if events.fade_black:
+        events.fade_black = max(0, int(events.fade_black) - step)
+
+
+def _clear_fade_overlays() -> None:
+    """Snap all port fade washes off (fade-in complete / change_room case 5)."""
+    events.fade_black = 0
+    events.fade_white = 0
+    events.fade_red = 0
+
+
 def __fade_up_to_color(this: CharType) -> int:
     """FB __fade_up_to_color: 64 palette slices from black, then shift_pal.
 
@@ -1200,7 +1219,7 @@ def __fade_up_to_color(this: CharType) -> int:
     slices = 64
     if this.fade_timer == 0:
         events.color_mode = 0
-        events.fade_white = 0
+        _lift_fade_overlays()
         pal = events.palette
         if pal is not None and hasattr(pal, "write_fade_up"):
             pal.write_fade_up(int(this.fade_count), int(events.dark or 0))
@@ -1213,12 +1232,10 @@ def __fade_up_to_color(this: CharType) -> int:
 
             if audio.last_song:
                 audio.LLMusic_SetVolume(100)
-        if events.fade_black:
-            events.fade_black = max(0, int(events.fade_black) - 4)
         if this.fade_count >= slices:
             if pal is not None and hasattr(pal, "restore_master"):
                 pal.restore_master()
-            events.fade_black = 0
+            _clear_fade_overlays()
             this.fade_count = 0
             this.fade_timer = 0
             return 1
@@ -1254,9 +1271,10 @@ def __fade_down_to_color(this: CharType) -> int:
     from lynn.gfx.palette import step_fade_down_to_color
 
     if this.fade_timer == 0:
-        events.fade_white = 0
+        _lift_fade_overlays()
         this.fade_count, done = step_fade_down_to_color(events.palette, int(this.fade_count))
         if done:
+            _clear_fade_overlays()
             this.fade_timer = 0
             return 1
         this.fade_timer = clock.timer + (this.fade_time or 0.01)
@@ -1309,16 +1327,23 @@ def __fade_to_black(this: CharType) -> int:
 
 
 def __fade_down_to_gray(this: CharType) -> int:
-    """FB __fade_down_to_gray: 64 steps from white toward gray, then B&W lock."""
-    from lynn.gfx.palette import make_black_and_white, step_fade_down_to_color
+    """FB __fade_down_to_gray: 64 steps from white toward gray, then B&W lock.
+
+    change_room case 1 still fades out through ``__fade_to_black`` when only
+    LLFADE_GRAY is set (island3 → forest_flashback stick pickup). Overlay lift
+    is shared with the other fade-ins; the ramp itself must be gray (not the
+    color ``shift_pal`` path).
+    """
+    from lynn.gfx.palette import make_black_and_white, step_fade_down_to_gray
 
     if this.fade_timer == 0:
-        events.fade_white = 0
-        this.fade_count, done = step_fade_down_to_color(
+        _lift_fade_overlays()
+        this.fade_count, done = step_fade_down_to_gray(
             events.palette, int(this.fade_count)
         )
         if done:
             make_black_and_white(events.palette)
+            _clear_fade_overlays()
             this.fade_timer = 0
             return 1
         this.fade_timer = clock.timer + (this.fade_time or 0.01)

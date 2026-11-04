@@ -167,12 +167,14 @@ class _ChanRamp:
 _flash_gray = _ChanRamp()
 _flash_down = _ChanRamp()
 _fade_down = _ChanRamp()
+_fade_down_gray = _ChanRamp()
 
 
 def reset_palette_ramps() -> None:
     _flash_gray.reset()
     _flash_down.reset()
     _fade_down.reset()
+    _fade_down_gray.reset()
 
 
 def make_black_and_white(pal: LLPalette | None) -> int:
@@ -235,6 +237,22 @@ def step_fade_down_to_color(pal: LLPalette | None, fade_count: int) -> tuple[int
         _fade_down.reset()
         if pal is not None:
             pal.restore_master()
+        return 0, 1
+    return fade_count, 0
+
+
+def step_fade_down_to_gray(pal: LLPalette | None, fade_count: int) -> tuple[int, int]:
+    """FB __fade_down_to_gray: 64 steps from white toward avg gray.
+
+    Own ramp (not ``_fade_down``). FB does not ``shift_pal`` / restore here;
+    ``__make_black_and_white`` locks the result on the next call.
+    """
+    if pal is not None:
+        _fade_down_gray.ensure(pal, 64, gray=True)
+        _fade_down_gray.write(pal)
+    fade_count += 1
+    if fade_count == 64:
+        _fade_down_gray.reset()
         return 0, 1
     return fade_count, 0
 
