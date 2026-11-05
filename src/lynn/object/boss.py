@@ -26,6 +26,7 @@ _anger_trigger_ball = 0
 _anger_new_ball = 0
 _anger_lock_x = 0
 _anger_lock_y = 0
+_anger_fireball_lock_h = 0.0
 
 
 def _v2_calc_flyback(mx: float, my: float, nx: float, ny: float) -> tuple[float, float]:
@@ -496,6 +497,17 @@ def __anger_flyback(this: CharType) -> int:
     return 0
 
 
+def __anger_fireball_lock(this: CharType) -> int:
+    """FB object_boss.bas: stagger degree across copied anger fireballs."""
+    global _anger_fireball_lock_h
+
+    this.degree = _anger_fireball_lock_h
+    _anger_fireball_lock_h += 360.0 / 8.0
+    if abs(_anger_fireball_lock_h - 360.0) < 1.0:
+        _anger_fireball_lock_h = 0.0
+    return 0
+
+
 def __anger_fireball_circle(this: CharType) -> int:
     """FB object_boss.bas: one orbital step, then let return_idle rewind.
 
@@ -944,6 +956,7 @@ register_func("__dyssius_eye_explode", __dyssius_eye_explode)
 register_func("__dyssius_full_explode", __dyssius_full_explode)
 register_func("__push_lynn_back", __push_lynn_back)
 register_func("__anger_flyback", __anger_flyback)
+register_func("__anger_fireball_lock", __anger_fireball_lock)
 register_func("__anger_fireball_circle", __anger_fireball_circle)
 register_func("__anger_kill_fireball", __anger_kill_fireball)
 register_func("__anger_new_fireball", __anger_new_fireball)

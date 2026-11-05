@@ -386,25 +386,47 @@ def __tile_up(this: CharType) -> int:
     return 1
 
 
-def __move_up(this: CharType) -> int:
-    """FB object_move.bas: one pixel up, then callback."""
+def _move_cardinal(this: CharType, direction: int, dx: int, dy: int) -> int:
+    """Shared body for FB __move_up / __move_down / __move_left / __move_right."""
     room = events.current_room
     others = events.current_others
     if this.walk_hold == 0:
-        this.direction = 0
+        this.direction = direction
         if room is not None:
             move_object(this, room, only_looking=0, moment=1, others=others)
         else:
-            this.coords_y -= 1
-        if LLObject_IncrementFrame(this) != 0:
-            this.frame = 0
-            rate = this.animControl[this.current_anim].rate if this.animControl else 0.08
-            this.frame_hold = clock.timer + rate
+            this.coords_x += dx
+            this.coords_y += dy
+        if this.animControl and 0 <= this.current_anim < len(this.animControl):
+            if LLObject_IncrementFrame(this) != 0:
+                this.frame = 0
+                rate = this.animControl[this.current_anim].rate or 0.08
+                this.frame_hold = clock.timer + rate
         this.walk_hold = clock.timer + (this.walk_speed or 0.03)
         return 1
     if clock.timer >= this.walk_hold:
         this.walk_hold = 0
     return 0
+
+
+def __move_up(this: CharType) -> int:
+    """FB object_move.bas: one pixel up, then callback."""
+    return _move_cardinal(this, 0, 0, -1)
+
+
+def __move_down(this: CharType) -> int:
+    """FB object_move.bas: one pixel down, then callback."""
+    return _move_cardinal(this, 2, 0, 1)
+
+
+def __move_left(this: CharType) -> int:
+    """FB object_move.bas: one pixel left, then callback."""
+    return _move_cardinal(this, 3, -1, 0)
+
+
+def __move_right(this: CharType) -> int:
+    """FB object_move.bas: one pixel right, then callback."""
+    return _move_cardinal(this, 1, 1, 0)
 
 
 def __move_upright(this: CharType) -> int:
@@ -511,6 +533,119 @@ def __cell_bounce(this: CharType) -> int:
     return 1
 
 
+def __lunge(this: CharType) -> int:
+    """FB object_states.bas: step toward Lynn for walk_length ticks."""
+    hero = events.hero
+    room = events.current_room
+    others = events.current_others
+    if this.walk_hold == 0:
+        if hero is not None:
+            hy = hero.coords_y + (int(hero.perimeter_y) // 2)
+            oy = this.coords_y + (int(this.perimeter_y) // 2)
+            y_move = 1 if hy > oy else (-1 if hy < oy else 0)
+            if y_move == -1:
+                this.direction = 0
+            elif y_move == 1:
+                this.direction = 2
+            if y_move != 0 and room is not None:
+                move_object(this, room, only_looking=0, moment=1, others=others)
+            hx = hero.coords_x + (int(hero.perimeter_x) // 2)
+            ox = this.coords_x + (int(this.perimeter_x) // 2)
+            x_move = 1 if hx > ox else (-1 if hx < ox else 0)
+            if x_move == -1:
+                this.direction = 3
+            elif x_move == 1:
+                this.direction = 1
+            if x_move != 0 and room is not None:
+                move_object(this, room, only_looking=0, moment=1, others=others)
+        this.walk_steps += 1
+        if this.walk_steps == this.walk_length:
+            this.walk_hold = 0
+            this.walk_steps = 0
+            return 1
+        this.walk_hold = clock.timer + (this.mad_walk_speed or this.walk_speed or 0.03)
+    elif clock.timer >= this.walk_hold:
+        this.walk_hold = 0
+    return 0
+
+
+def __lunge_return(this: CharType) -> int:
+    """FB object_states.bas: step back to x_origin/y_origin."""
+    room = events.current_room
+    others = events.current_others
+    if this.walk_hold == 0:
+        y_move = 1 if this.y_origin > this.coords_y else (
+            -1 if this.y_origin < this.coords_y else 0
+        )
+        if y_move == -1:
+            this.direction = 0
+        elif y_move == 1:
+            this.direction = 2
+        if y_move != 0 and room is not None:
+            move_object(this, room, only_looking=0, moment=1, others=others)
+        x_move = 1 if this.x_origin > this.coords_x else (
+            -1 if this.x_origin < this.coords_x else 0
+        )
+        if x_move == -1:
+            this.direction = 3
+        elif x_move == 1:
+            this.direction = 1
+        if x_move != 0 and room is not None:
+            move_object(this, room, only_looking=0, moment=1, others=others)
+        if int(this.coords_x) == int(this.x_origin) and int(this.coords_y) == int(
+            this.y_origin
+        ):
+            this.walk_hold = 0
+            this.mad = 0
+            return 1
+        this.walk_hold = clock.timer + (this.walk_speed or 0.03)
+    elif clock.timer >= this.walk_hold:
+        this.walk_hold = 0
+    return 0
+
+
+def __calc_slide(this: CharType) -> int:
+    """FB object_move.bas XML entry: one friction tick, never advances the block."""
+    from lynn.hero import SLIDE_FRICTION, SLIDE_PERIOD, _ensure_momentum
+
+    _ensure_momentum(this)
+    if this.slide_hold == 0:
+        for i in range(8):
+            v = this.momentum[i] - SLIDE_FRICTION
+            this.momentum[i] = 0.0 if v < 0.0 else v
+        this.slide_hold = clock.timer + SLIDE_PERIOD
+    if clock.timer >= this.slide_hold:
+        this.slide_hold = 0
+    return 0
+
+
+def __go_grip(this: CharType) -> int:
+    """FB object_move.bas: snap live momentum axes to 1."""
+    from lynn.hero import _ensure_momentum
+
+    _ensure_momentum(this)
+    for i in range(8):
+        if this.momentum[i] != 0.0:
+            this.momentum[i] = 1.0
+    return 1
+
+
+def __stop_grip(this: CharType) -> int:
+    """FB object_move.bas: stash momentum into history and clear it."""
+    from lynn.hero import _stop_grip
+
+    _stop_grip(this)
+    return 1
+
+
+def __momentum_move(this: CharType) -> int:
+    """FB object_move.bas XML entry: coast on leftover momentum."""
+    from lynn.object.boss import _boss_momentum_move
+
+    _boss_momentum_move(this)
+    return 1
+
+
 register_func("__push", __push)
 register_func("__cell_bounce", __cell_bounce)
 register_func("__randomize_path", __randomize_path)
@@ -523,7 +658,16 @@ register_func("__chase", __chase)
 register_func("__home", __home)
 register_func("__tile_up", __tile_up)
 register_func("__move_up", __move_up)
+register_func("__move_down", __move_down)
+register_func("__move_left", __move_left)
+register_func("__move_right", __move_right)
 register_func("__move_upright", __move_upright)
 register_func("__move_backwards", __move_backwards)
 register_func("__move_normal", __move_normal)
 register_func("__charger_charge", __charger_charge)
+register_func("__lunge", __lunge)
+register_func("__lunge_return", __lunge_return)
+register_func("__calc_slide", __calc_slide)
+register_func("__go_grip", __go_grip)
+register_func("__stop_grip", __stop_grip)
+register_func("__momentum_move", __momentum_move)
