@@ -433,6 +433,42 @@ def test_walking_onto_a_beetle_splats_it_without_hurting_lynn():
     assert hero.hp == 6
 
 
+def test_godmode_still_splats_beetles_when_walking_on_them():
+    """Port godmode sets invincible, which FB MAINDamage would skip entirely.
+
+    Squashing a beetle is not damage to Lynn — contact must still kill it.
+    """
+    from lynn.object.combat import LLObject_MAINDamage
+
+    room = _open_room()
+    beetle = _obj("data/object/beetle.xml")
+    beetle.coords_x = 40
+    beetle.coords_y = 40
+    death_state = beetle.death_state
+    hero = _bind(room, [beetle])
+    hero.coords_x = 40
+    hero.coords_y = 40
+    hero.hp = 6
+    hero.invincible = -1
+    events.debug_god = TRUE
+    LLObject_MAINDamage(hero, [beetle])
+    assert hero.hp == 6
+    assert hero.hurt == 0
+    assert beetle.hp == 0
+    assert beetle.dead != 0
+    assert beetle.funcs.active_state == death_state
+    # Without godmode, invincible still blocks contact (FB behavior).
+    beetle2 = _obj("data/object/beetle.xml")
+    beetle2.coords_x = 40
+    beetle2.coords_y = 40
+    bind_room(room, [beetle2])
+    events.debug_god = 0
+    hero.invincible = -1
+    LLObject_MAINDamage(hero, [beetle2])
+    assert beetle2.dead == 0
+    assert beetle2.hp > 0
+
+
 def test_bridge_menu_follows_the_weapon_then_the_two_spans():
     menu, only = _menu()
     assert bridge_menu_icons(only) == (menu_bridge, menu_bridge_select)

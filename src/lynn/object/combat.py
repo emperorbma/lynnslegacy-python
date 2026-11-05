@@ -344,15 +344,7 @@ def LLObject_DamageCalc(h: CharType) -> None:
             # FB: contact with a beetle kills the beetle and zeroes Lynn's hurt.
             # dmg.index is restored so ProcessHurt can skip her yell.
             if enemy is not None and enemy.unique_id == u_beetle:
-                from lynn.audio import play_sample
-
-                enemy.hp = 0
-                LLObject_ShiftState(enemy, enemy.death_state)
-                enemy.dead = 1
-                enemy.fade_time = 0.07
-                if enemy.dead_sound != 0:
-                    vol = enemy.dead_sound_vol if enemy.dead_sound_vol != 0 else 100
-                    play_sample(enemy.dead_sound, vol)
+                _splat_beetle(enemy)
                 save_index = h.dmg_index
                 h.hurt = 0
                 LLObject_ClearDamage(h)
@@ -473,6 +465,46 @@ def start_item_use(hr: CharType) -> None:
         hr.funcs.current_func[hr.attack_state] = 0
 
 
+def _splat_beetle(enemy: CharType) -> None:
+    """FB DamageCalc beetle branch: kill the beetle and play its dead sound."""
+    from lynn.audio import play_sample
+
+    enemy.hp = 0
+    LLObject_ShiftState(enemy, enemy.death_state)
+    enemy.dead = 1
+    enemy.fade_time = 0.07
+    if enemy.dead_sound != 0:
+        vol = enemy.dead_sound_vol if enemy.dead_sound_vol != 0 else 100
+        play_sample(enemy.dead_sound, vol)
+
+
+def _enemy_touches_hero(enemy: CharType, hr: CharType) -> bool:
+    """Same contact test ObjectDamage uses before DamageCalc."""
+    enemy.frame_check = LLObject_CalculateFrame(enemy)
+    faces = _faces(enemy)
+    target = LLObject_VectorPair(hr)
+    if faces <= 0:
+        return check_bounds(LLObject_VectorPair(enemy), target) == 0
+    for face_i in range(faces):
+        if check_bounds(LLObject_VectorPairEx(enemy, face_i), target) == 0:
+            return True
+    return False
+
+
+def _godmode_squash_beetles(hr: CharType, enemies: list[CharType]) -> None:
+    """Port godmode sets invincible, which FB MAINDamage would skip entirely.
+
+    Squashing a beetle is not damage to Lynn — still resolve u_beetle contact.
+    """
+    for enemy in enemies:
+        if enemy is hr or enemy.dead != 0 or int(enemy.strength) == 0:
+            continue
+        if enemy.unique_id != u_beetle:
+            continue
+        if _enemy_touches_hero(enemy, hr):
+            _splat_beetle(enemy)
+
+
 def LLObject_ObjectDamage(enemies: list[CharType], hr: CharType, e_type: int = DF_ROOM_ENEMY) -> None:
     """FB ObjectDamage: living enemies with strength vs hero AABB."""
     if hr.invincible != 0:
@@ -506,11 +538,16 @@ def LLObject_ObjectDamage(enemies: list[CharType], hr: CharType, e_type: int = D
 
 def LLObject_MAINDamage(hr: CharType, enemies: list[CharType] | None = None) -> None:
     """FB MAINDamage: contact (projectiles later). i-frames are dmg_id != 0."""
-    if hr.invincible != 0 or hr.dead != 0:
+    if hr.dead != 0:
+        return
+    room_enemies = enemies if enemies is not None else (events.current_others or [])
+    if hr.invincible != 0:
+        # Port-only: godmode reuses invincible. Beetle splat still runs.
+        if events.debug_god:
+            _godmode_squash_beetles(hr, room_enemies)
         return
     if hr.dmg_id != 0:
         return
-    room_enemies = enemies if enemies is not None else (events.current_others or [])
     LLObject_ObjectDamage(room_enemies, hr, DF_ROOM_ENEMY)
     if hr.dmg_id == 0:
         from lynn.object.projectile import LLObject_ProjectileDamage
