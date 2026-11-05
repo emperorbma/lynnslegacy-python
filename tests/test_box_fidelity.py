@@ -56,3 +56,25 @@ def test_auto_dismiss():
     clock.timer += 2.0
     tick_box(b, 0)
     assert not b.activated
+
+
+def test_confirmation_blinks_arrow_on_last_page():
+    """FB flashes textdown.spr on kill_switch waits too (intro one-pagers)."""
+    b = BoxControl()
+    make_box(b, "Lynn: ..!")
+    b.surf = pygame.Surface((8, 8))
+    b.next_surf = object()
+    b.state = boxmod.TEXTBOX_CONFIRMATION
+    b.jump_switch = boxmod.box_kill_switch
+    b.flashhook = 0.0
+    b.flashbox = 0
+    clock.timer = 1.0
+    c = _Surf()
+    blit_box(c, b)
+    assert b.flashbox != 0
+    assert (304, 64) in c.blits
+    c.blits.clear()
+    clock.timer = 1.20
+    blit_box(c, b)
+    assert b.flashbox == 0
+    assert (304, 64) not in c.blits

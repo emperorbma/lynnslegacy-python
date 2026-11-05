@@ -297,6 +297,15 @@ def blit_box(canvas, box: BoxControl) -> None:
     ox, oy = box.x_loc, box.y_loc
     if box.surf is not None and box.invis == 0:
         canvas.blit(box.surf, (ox, oy))
+    if box.state == TEXTBOX_CONFIRMATION and box.confBox == 0:
+        # FB blit_box: flash textdown.spr on every confirmation wait (last page
+        # and mid-page alike). Gating on jump_switch hid the blink on intro
+        # lines that fit in one page (box_kill_switch).
+        if clock.timer >= box.flashhook:
+            box.flashhook = clock.timer + 0.18
+            box.flashbox = 0 if box.flashbox != 0 else TRUE
+        if box.flashbox != 0 and box.next_surf is not None and box.invis == 0:
+            canvas.blit(box.next_surf, (ox + 304, oy + 64))
     if box.font_menu is None or not box.rows:
         return
     page_base = box.current_line & ~3
@@ -317,9 +326,3 @@ def blit_box(canvas, box: BoxControl) -> None:
                 font_state["fg"] = 92
             graphicalString(canvas, box.font_menu, label, ox + 9 + (col << 3), oy + 8 + (3 << 4))
             font_state["fg"] = fg
-    elif box.state == TEXTBOX_CONFIRMATION and box.jump_switch != box_kill_switch:
-        if clock.timer >= box.flashhook:
-            box.flashhook = clock.timer + 0.18
-            box.flashbox = 0 if box.flashbox != 0 else TRUE
-        if box.flashbox != 0 and box.next_surf is not None and box.invis == 0:
-            canvas.blit(box.next_surf, (ox + 304, oy + 64))
