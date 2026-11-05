@@ -24,3 +24,5 @@ ll_save*.sav
 # Local debug saves and expected-state metadata; not published.
 tests/fixtures/*
 !tests/fixtures/.gitkeep
+# Official 1.1 reference game (fetched by tools/ref_game/fetch.sh).
+ref/
