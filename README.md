@@ -92,15 +92,3 @@ Fidelity: all 219 FreeBASIC object functions are registered, including `__change
 Port-only additions (not in the original): godmode (`--godmode`; F8 toggles no damage, F9 opens cheat commands), the pytest suite, the debug tools (`--save`, `[` `]` room stepping), `ItemSwitch=Original` as the default comma/period wiring, Gelidus minimap visit stash across maps with no `.mni`, and the Ignia maceget-return landing nudge.
 
 Room `.it` music plays through pygame-ce `mixer.music` (no extra library). Title boot starts `title.it`; map changes start the dest room song.
-
-### Reference game (1.1)
-
-For side-by-side gameplay and asset checks against the SourceForge Linux Full build:
-
-```text
-tools/ref_game/fetch.sh
-tools/ref_game/run.sh                 # real X display; see tools/ref_game/README.md
-python tools/ref_game/compare_assets.py
-```
-
-The fetched tree lives under `ref/` (gitignored). Distributed maps are ZLIB-wrapped; this port’s `data/map` files are the uncompressed payloads.
