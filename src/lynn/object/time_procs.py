@@ -149,6 +149,19 @@ def __q_second_pause(this: CharType) -> int:
     return 0
 
 
+def __random_pause(this: CharType) -> int:
+    """vguard.xml patrol lead-in. FB has no __random_pause; hold 0..1s."""
+    import random
+
+    if this.pause == 0:
+        this.pause = clock.timer + random.random()
+        return 0
+    if clock.timer >= this.pause:
+        this.pause = 0
+        return 1
+    return 0
+
+
 def __counted_jump(this: CharType) -> int:
     """FB object_time.bas: loop the previous func jump_count times."""
     if this.jump_count == this.jump_counter:
@@ -224,6 +237,7 @@ register_func("__if_all_dead", __if_all_dead)
 register_func("__second_pause", __second_pause)
 register_func("__half_second_pause", __half_second_pause)
 register_func("__q_second_pause", __q_second_pause)
+register_func("__random_pause", __random_pause)
 register_func("__counted_jump", __counted_jump)
 register_func("__counted_jump_2", __counted_jump_2)
 register_func("__back_3", __back_3)

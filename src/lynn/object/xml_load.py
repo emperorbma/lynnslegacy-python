@@ -394,7 +394,19 @@ def LLSystem_CopyNewObject(obj: CharType, load_images: bool = True) -> CharType:
     obj.__dict__.update(fresh.__dict__)
     for name, value in kept.items():
         setattr(obj, name, value)
-    return LLSystem_ObjectFromXML(obj, load_images=load_images)
+    result = LLSystem_ObjectFromXML(obj, load_images=load_images)
+    # FB engine--object.bas DeepCopy post-hooks.
+    from lynn.constants import u_angerfireball, u_cell
+
+    if obj.unique_id == u_angerfireball:
+        from lynn.object.boss import __anger_fireball_lock
+
+        __anger_fireball_lock(obj)
+    elif obj.unique_id == u_cell:
+        import random
+
+        obj.direction = int(random.random() * 4) + 4
+    return result
 
 
 def spawn_from_stub(stub, load_images: bool = True) -> CharType:

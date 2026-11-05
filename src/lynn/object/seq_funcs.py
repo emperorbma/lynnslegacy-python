@@ -346,6 +346,27 @@ def __give_weapon(this: CharType) -> int:
     return 1
 
 
+def __give_weapon2(this: CharType) -> int:
+    """FB object_etc.bas: same grant as __give_weapon."""
+    return __give_weapon(this)
+
+
+def __destroy(this: CharType) -> int:
+    """squirrel.xml despawn after home. FB has no __destroy.
+
+    Hide and mark total_dead in one step so return_trig can finish the state.
+    """
+    from lynn.constants import TRUE
+
+    __make_dead(this)
+    this.invisible = TRUE
+    this.total_dead = TRUE
+    this.strength = 0
+    this.impassable = 0
+    this.animating = 0
+    return 1
+
+
 def __give_item(this: CharType) -> int:
     """FB object_etc.bas: hasItem[chap] = TRUE."""
     only = events.hero_only

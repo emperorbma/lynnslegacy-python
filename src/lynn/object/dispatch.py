@@ -56,3 +56,7 @@ def lookup_func(name: str) -> Func:
 
 def register_func(name: str, func: Func) -> None:
     FUNC_REGISTRY[name] = func
+
+
+# Placeholder slots and unknown-name fallback both use this.
+register_func("__noop", __noop)
