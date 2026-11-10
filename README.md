@@ -105,6 +105,16 @@ gmap.bat / ./gmap.sh limbo1
 run.bat gmap / ./run.sh gmap valley
 ```
 
-Current coverage: load/save uncompressed `.map` files (same payload `load_mapV` reads), room switching, layer paint with tileset picker, zoom/grid/walk overlay, enemy select/move/facing. Sequence, teleport, macro, and room-redimension tooling still lives in the FB sources and is not fully ported yet.
+Coverage:
+
+- Load/save uncompressed `.map` files (same payload `load_mapV` reads)
+- Rooms, layers, tileset picker, paint, flood fill, layer fill, zoom/grid/walk/solo
+- Enemies: select, move, facing
+- Teleports: add/remove, place/size, `to_room` / `to_map`, dest `dx/dy/dd`, song
+- Sequences (room / enemy / entry): add/remove seqs, commands, blocks; edit block fields
+- Session tile macros (6×6 capture/stamp; not stored in the map file)
+- Room redimension (resize + fill + copy overlap)
+
+FB still has a denser control-panel UI for every sequence flag; the Python editor exposes the fields used most when wiring maps.
 
 Room `.it` music plays through pygame-ce `mixer.music` (no extra library). Title boot starts `title.it`; map changes start the dest room song.
