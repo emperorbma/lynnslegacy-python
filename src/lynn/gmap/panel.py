@@ -71,8 +71,11 @@ def _regular_box_rows(st: Any, actions: dict[str, ActionFn]) -> list[PanelRow]:
         PanelRow(f"├ Changes song: {room.song_changes}", actions.get("room_song_changes")),
         PanelRow(f"├ Changes to: {room.changes_to}", actions.get("room_changes_to")),
         PanelRow(
-            f"├ Parallax: {'yes' if room.parallax else 'no'}"
-            + (f" ({_stem(room.para_filename)})" if room.para_filename else ""),
+            f"├ Parallax?: {'yes' if room.parallax else 'no'}",
+            actions.get("parallax_toggle"),
+        ),
+        PanelRow(
+            f"├ Para image: {_stem(room.para_filename) if room.para_filename else '—'}",
             actions.get("room_parallax"),
         ),
         PanelRow(f"├ Layer: {st.layer}  (click cycle)", actions.get("layer_cycle")),
@@ -311,6 +314,11 @@ def build_rows(st: Any, actions: dict[str, ActionFn]) -> list[PanelRow]:
                 PanelRow("├ Delete macro", actions.get("macro_del")),
                 PanelRow("├ Clear macro", actions.get("macro_clear")),
                 PanelRow("├ Wall macro (layer 1 border)", actions.get("macro_wall")),
+                PanelRow(
+                    f"├ Walk edit: {'ON' if st.macro_walk_edit else 'OFF'} (K)",
+                    actions.get("macro_walk_toggle"),
+                ),
+                PanelRow("├ Edit cells in bottom-left 6×6", muted=True),
                 PanelRow("├ Capture 6×6 (Ctrl+click map)", muted=True),
                 PanelRow("├ Stamp (click map)", muted=True),
             ]
@@ -326,7 +334,9 @@ def build_rows(st: Any, actions: dict[str, ActionFn]) -> list[PanelRow]:
         [
             PanelRow("", muted=True),
             PanelRow("├ Save map", actions.get("save")),
+            PanelRow("├ Save map as…", actions.get("save_as")),
             PanelRow("├ Load map…", actions.get("load")),
+            PanelRow("├ New blank map", actions.get("new_map")),
             PanelRow("├ Add room", actions.get("room_add")),
             PanelRow("├ Delete room", actions.get("room_del")),
         ]

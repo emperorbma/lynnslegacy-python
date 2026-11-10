@@ -60,6 +60,44 @@ def test_macro_stamp_and_capture():
     assert captured == cells
 
 
+def test_macro_stamp_skips_zero_and_keeps_walk_bits():
+    room = _room(8, 8, fill=9)
+    cells = [0] * 36
+    cells[0] = 5 | ops.UPPER_LEFT
+    ops.stamp_macro(room, 0, 0, 0, cells)
+    assert room.layout[0][0] == (5 | ops.UPPER_LEFT)
+    # Neighbor stays fill — zero cells are skipped.
+    assert room.layout[0][1] == 9
+
+
+def test_macro_quad_toggle_and_block_stamp():
+    cells = [3] * 36
+    ops.toggle_macro_quad(cells, 0, 0)  # UL
+    assert cells[0] & ops.UPPER_LEFT
+    ops.toggle_macro_quad(cells, 1, 0)  # UR of same tile
+    assert cells[0] & ops.UPPER_RIGHT
+    block = [[10, 11], [12, 13]]
+    ops.stamp_macro_block(cells, 2, 2, block)
+    assert cells[2 * 6 + 2] & 0xFF == 10
+    assert cells[3 * 6 + 3] & 0xFF == 13
+
+
+def test_stamp_tile_block():
+    room = _room(8, 8, fill=0)
+    block = [[4, 5, 6], [7, 8, 9]]
+    n = ops.stamp_tile_block(room, 0, 1, 1, block)
+    assert n == 6
+    assert room.layout[0][1 * 8 + 1] & 0xFF == 4
+    assert room.layout[0][2 * 8 + 3] & 0xFF == 9
+
+
+def test_make_null_map():
+    m = ops.make_null_map()
+    assert m.rooms == 1
+    assert m.room[0].x == 20 and m.room[0].y == 15
+    assert m.tileset_filename.endswith("ruins.spr")
+
+
 def test_teleport_add_delete():
     room = _room()
     room.teleport = []

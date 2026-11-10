@@ -138,23 +138,26 @@ def redimension_room(room: RoomType, new_x: int, new_y: int, fill_tile: int = 0)
 
 
 def stamp_macro(room: RoomType, layer: int, tx: int, ty: int, cells: list[int]) -> None:
-    """Stamp a 6×6 macro (36 cells, row-major) at tile tx,ty on layer."""
+    """Stamp a 6×6 macro at tile tx,ty (FB: full cell value; skip zeros)."""
     if len(cells) < 36 or layer < 0 or layer >= len(room.layout):
         return
     layout = room.layout[layer]
     for row in range(6):
         for col in range(6):
+            cell = cells[row * 6 + col]
+            if cell == 0:
+                continue
             x, y = tx + col, ty + row
             if x < 0 or y < 0 or x >= room.x or y >= room.y:
                 continue
             idx = y * room.x + x
             if idx >= len(layout):
                 continue
-            tile = cells[row * 6 + col] & 0xFF
-            layout[idx] = (layout[idx] & 0xFF00) | tile
+            layout[idx] = cell & 0xFFFF
 
 
 def capture_macro(room: RoomType, layer: int, tx: int, ty: int) -> list[int]:
+    """Capture 6×6 including walk/ice high bits (for macro walk editing)."""
     cells = [0] * 36
     if layer < 0 or layer >= len(room.layout):
         return cells
@@ -165,8 +168,80 @@ def capture_macro(room: RoomType, layer: int, tx: int, ty: int) -> list[int]:
             if 0 <= x < room.x and 0 <= y < room.y:
                 idx = y * room.x + x
                 if idx < len(layout):
-                    cells[row * 6 + col] = layout[idx] & 0xFF
+                    cells[row * 6 + col] = layout[idx] & 0xFFFF
     return cells
+
+
+def set_macro_cell(cells: list[int], col: int, row: int, tile: int) -> None:
+    """Set one macro cell's low tile byte; preserve walk bits."""
+    if not (0 <= col < 6 and 0 <= row < 6) or len(cells) < 36:
+        return
+    i = row * 6 + col
+    cells[i] = (cells[i] & 0xFF00) | (tile & 0xFF)
+
+
+def stamp_macro_block(
+    cells: list[int],
+    dest_col: int,
+    dest_row: int,
+    block: list[list[int]],
+) -> None:
+    """Stamp a 2D tileset block into the 6×6 macro grid (FB blockshift→macro)."""
+    if len(cells) < 36 or not block:
+        return
+    for dy, row_tiles in enumerate(block):
+        for dx, tile in enumerate(row_tiles):
+            c, r = dest_col + dx, dest_row + dy
+            if 0 <= c < 6 and 0 <= r < 6:
+                set_macro_cell(cells, c, r, tile)
+
+
+def toggle_macro_quad(cells: list[int], half_x: int, half_y: int) -> None:
+    """FB macro walk edit: half-tile coords (0..11) xor one walk corner bit."""
+    if len(cells) < 36:
+        return
+    if not (0 <= half_x < 12 and 0 <= half_y < 12):
+        return
+    col, row = half_x // 2, half_y // 2
+    qx, qy = half_x & 1, half_y & 1
+    bit = 1 << (15 - (qx + qy * 2))
+    cells[row * 6 + col] ^= bit
+
+
+def stamp_tile_block(
+    room: RoomType,
+    layer: int,
+    tx: int,
+    ty: int,
+    block: list[list[int]],
+) -> int:
+    """Stamp a rectangular tileset selection onto the map. Returns cells written."""
+    if layer < 0 or layer >= len(room.layout) or not block:
+        return 0
+    layout = room.layout[layer]
+    n = 0
+    for dy, row_tiles in enumerate(block):
+        for dx, tile in enumerate(row_tiles):
+            x, y = tx + dx, ty + dy
+            if x < 0 or y < 0 or x >= room.x or y >= room.y:
+                continue
+            idx = y * room.x + x
+            if idx >= len(layout):
+                continue
+            layout[idx] = (layout[idx] & 0xFF00) | (tile & 0xFF)
+            n += 1
+    return n
+
+
+def make_null_map(
+    tileset_filename: str = "data/pictures/tiles/ruins.spr",
+    room_x: int = 20,
+    room_y: int = 15,
+) -> MapType:
+    """FB make_null_map: empty map with one blank room and default tileset."""
+    m = MapType(filename="", tileset_filename=tileset_filename)
+    add_room(m, room_x, room_y, fill_tile=0)
+    return m
 
 
 def clear_macro(cells: list[int]) -> None:
