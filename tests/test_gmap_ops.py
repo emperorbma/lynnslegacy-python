@@ -133,3 +133,40 @@ def test_add_enemy_and_room():
     assert m.room[1].x == 10 and m.room[1].y == 8
     ops.delete_room(m, 1)
     assert m.rooms == 1
+
+
+def test_walkable_line_and_eyedrop():
+    room = _room(8, 8, fill=0)
+    n = ops.toggle_walkable_line(room, 0, 0, 0, 3, 0)
+    assert n == 4
+    # Horizontal half-tiles 0..3 cover tile (0,0) UL+UR and tile (1,0) UL+UR.
+    assert room.layout[0][0] & ops.UPPER_LEFT
+    assert room.layout[0][0] & ops.UPPER_RIGHT
+    assert room.layout[0][1] & ops.UPPER_LEFT
+    room.layout[0][2 * 8 + 3] = 0x1207
+    assert ops.eyedrop_tile(room, 0, 3, 2) == 7
+    assert ops.eyedrop_tile(room, 0, 99, 0) is None
+
+
+def test_spawn_cond_and_delete_room_drops_entries():
+    from lynn.map.types import MapType
+
+    room = _room()
+    enemy = ops.add_enemy(room, "roamer")
+    info = ops.ensure_spawn_info(enemy)
+    assert enemy.spawn_cond != 0
+    info.wait_spawn = ops.resize_spawn_list([], 2)
+    info.wait_n = 2
+    assert len(info.wait_spawn) == 2
+    ops.clear_spawn_info(enemy)
+    assert enemy.spawn_cond == 0 and enemy.spawn_info is None
+
+    m = MapType(rooms=1, room=[room], entries=0, entry=[])
+    ops.add_room(m, x=5, y=5)
+    ops.add_entry(m, room_i=1)
+    ops.add_entry(m, room_i=0)
+    assert m.entries == 2
+    ops.delete_room(m, 1)
+    assert m.rooms == 1
+    assert m.entries == 1
+    assert m.entry[0].room == 0
