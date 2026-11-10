@@ -116,7 +116,8 @@ Coverage:
 - Entries (`N`): add/remove, place, direction, Enter sets `entry.room`
 - Teleports: add/remove, place/size, `to_room` / `to_map`, dest `dx/dy/dd`, song
 - Sequences (room / enemy / entry): seqs, commands, blocks; edit every `command_data` field
-- Parallax image (`Y`); session 6×6 tile macros (`M`); room redimension (`D`)
+- Parallax image (`Y`); session 6×6 tile macros (`M`, clear + wall macro); room redimension (`D`)
+- Clickable side panel (FB `box_handling` / `set_gmap_controls`): mode strip, room fields, per-mode property rows, save/load/add-delete; scroll with mouse wheel over the panel or Ctrl+PgUp/PgDn. Keyboard shortcuts still work.
 
 
 Room `.it` music plays through pygame-ce `mixer.music` (no extra library). Title boot starts `title.it`; map changes start the dest room song.

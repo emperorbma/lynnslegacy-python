@@ -169,6 +169,66 @@ def capture_macro(room: RoomType, layer: int, tx: int, ty: int) -> list[int]:
     return cells
 
 
+def clear_macro(cells: list[int]) -> None:
+    """FB Clear Macro — zero all 36 cells of the selected macro."""
+    for i in range(min(36, len(cells))):
+        cells[i] = 0
+
+
+def _set_cell(layout: list[int], room: RoomType, x: int, y: int, tile: int, bits: int = 0) -> None:
+    if x < 0 or y < 0 or x >= room.x or y >= room.y:
+        return
+    idx = y * room.x + x
+    if idx >= len(layout):
+        return
+    layout[idx] = (tile & 0xFF) | bits
+
+
+def wall_macro(room: RoomType, cells: list[int]) -> None:
+    """FB macro_wall: stamp selected 6×6 as a room border on layer 1 with walk bits."""
+    if len(cells) < 36 or room.x < 2 or room.y < 2 or len(room.layout) < 2:
+        return
+    layout = room.layout[1]
+    # Ensure layer length covers the room.
+    need = room.x * room.y
+    if len(layout) < need:
+        layout.extend([0] * (need - len(layout)))
+
+    for top in range(room.x):
+        _set_cell(layout, room, top, 0, cells[2])
+        _set_cell(layout, room, top, 1, cells[8], LOWER_LEFT | LOWER_RIGHT)
+    for right in range(room.y):
+        _set_cell(layout, room, room.x - 2, right, cells[15], UPPER_LEFT | LOWER_LEFT)
+        _set_cell(layout, room, room.x - 1, right, cells[16])
+    for bottom in range(room.x):
+        _set_cell(layout, room, bottom, room.y - 2, cells[20], UPPER_LEFT | UPPER_RIGHT)
+        _set_cell(layout, room, bottom, room.y - 1, cells[26])
+    for left in range(room.y):
+        _set_cell(layout, room, 0, left, cells[12])
+        _set_cell(layout, room, 1, left, cells[13], UPPER_RIGHT | LOWER_RIGHT)
+
+    # Corners (FB overwrites after edges).
+    _set_cell(layout, room, 0, 0, cells[0])
+    _set_cell(layout, room, 1, 0, cells[1])
+    _set_cell(layout, room, 0, 1, cells[6])
+    _set_cell(layout, room, 1, 1, cells[7], LOWER_RIGHT)
+
+    _set_cell(layout, room, room.x - 2, 0, cells[3])
+    _set_cell(layout, room, room.x - 1, 0, cells[4])
+    _set_cell(layout, room, room.x - 2, 1, cells[9], LOWER_LEFT)
+    _set_cell(layout, room, room.x - 1, 1, cells[10])
+
+    _set_cell(layout, room, 0, room.y - 2, cells[18])
+    _set_cell(layout, room, 1, room.y - 2, cells[19], UPPER_RIGHT)
+    _set_cell(layout, room, 0, room.y - 1, cells[24])
+    _set_cell(layout, room, 1, room.y - 1, cells[25])
+
+    _set_cell(layout, room, room.x - 2, room.y - 2, cells[21], UPPER_LEFT)
+    _set_cell(layout, room, room.x - 1, room.y - 2, cells[22])
+    _set_cell(layout, room, room.x - 2, room.y - 1, cells[27])
+    _set_cell(layout, room, room.x - 1, room.y - 1, cells[28])
+
+
 def add_teleport(room: RoomType) -> TeleportType:
     tp = TeleportType(x=0, y=0, w=16, h=16, reserved=[0] * 20)
     room.teleport.append(tp)
