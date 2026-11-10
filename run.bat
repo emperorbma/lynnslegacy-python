@@ -21,13 +21,14 @@ if errorlevel 1 pause
 exit /b %ERRORLEVEL%
 
 :usage
-echo Usage: run.bat [objects^|map^|palette^|audio^|config^|credits^|test^|help] [map] [--save spec]
+echo Usage: run.bat [objects^|map^|palette^|audio^|config^|credits^|gmap^|test^|help] [map] [--save spec]
 echo   objects [map]  walk Lynn (default: splash + title.map)
 echo   map [map]      tiles only (default: forest_fall)
 echo   palette        256-color ramp + lynn24.spr
 echo   config         key setup (data/controls.xml + ll.ini)
 echo   audio          live sound check (title.it); Esc quits
 echo   credits        ending roll, then exit; Esc quits
+echo   gmap [map]     Python map editor (default: forest_fall)
 echo   test           pytest (silent audio; e.g. run.bat test --map valley)
 echo   --save spec    load a save (path, N for ll_saveN.sav, or example name)
 exit /b 0

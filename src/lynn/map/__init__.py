@@ -1,5 +1,6 @@
 from lynn.map.enter_map import apply_enter_visibility, enter_map
 from lynn.map.loader import LLSystem_LoadMap, load_mapV
+from lynn.map.saver import save_mapV
 from lynn.map.types import MapType, RoomType
 
 __all__ = [
@@ -7,6 +8,7 @@ __all__ = [
     "apply_enter_visibility",
     "enter_map",
     "load_mapV",
+    "save_mapV",
     "MapType",
     "RoomType",
 ]
