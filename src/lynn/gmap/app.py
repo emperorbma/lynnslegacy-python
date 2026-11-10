@@ -15,7 +15,7 @@ from lynn.gfx.blit import blit_room_tiles
 from lynn.gfx.image import LLSystem_ImageLoad, frame_surfaces
 from lynn.gfx.palette import load_pal
 from lynn.gmap import ops
-from lynn.gmap.prompt import prompt_int, prompt_text
+from lynn.gmap.prompt import pick_list, prompt_int, prompt_text
 from lynn.map.loader import load_mapV
 from lynn.map.saver import save_mapV
 from lynn.map.types import MapType, RoomType
@@ -32,8 +32,10 @@ VIEW_W = 512
 VIEW_H = 384
 TILE_PANEL = (520, 8, 272, 272)
 DIR_NAMES = ("up", "right", "down", "left")
-MODES = ("paint", "flood", "enemy", "tele", "seq", "macro")
+MODES = ("paint", "flood", "walk", "ice", "enemy", "entry", "tele", "seq", "macro")
 SEQ_SOURCES = ("room", "enemy", "entry")
+FLOAT_FIELDS = frozenset({"walk_speed", "fadeTime"})
+STRING_FIELDS = frozenset({"text", "to_map"})
 
 
 @dataclass
@@ -214,53 +216,79 @@ def _edit_block_field(st: GmapState) -> None:
     if block is None:
         _flash(st, "No command block")
         return
-    field = prompt_text(
-        "Field: text|to_map|to_entry|dest_x|dest_y|walk_speed|ent_state|active_ent|fadeTime|chap",
-        "text",
-    )
-    if field is None:
+    labels = []
+    for name in ops.COMMAND_DATA_FIELDS:
+        cur = getattr(block, name)
+        preview = repr(cur) if isinstance(cur, str) else str(cur)
+        if len(preview) > 40:
+            preview = preview[:37] + "..."
+        labels.append(f"{name} = {preview}")
+    picked = pick_list("Edit command block field", labels)
+    if picked is None:
         return
-    field = field.strip().lower()
-    if field == "text":
-        val = prompt_text("text", block.text, allow_empty=True)
-        if val is not None:
-            block.text = val
-            st.dirty = True
-    elif field == "to_map":
-        val = prompt_text("to_map", block.to_map, allow_empty=True)
-        if val is not None:
-            block.to_map = val
-            st.dirty = True
-    elif field in (
-        "to_entry",
-        "dest_x",
-        "dest_y",
-        "ent_state",
-        "active_ent",
-        "chap",
-        "jump_count",
-        "nocam",
-        "carries_all",
-    ):
-        cur = int(getattr(block, field))
-        val = prompt_int(field, cur)
+    field = ops.COMMAND_DATA_FIELDS[picked]
+    cur = getattr(block, field)
+    if field in STRING_FIELDS:
+        val = prompt_text(field, str(cur), allow_empty=True)
         if val is not None:
             setattr(block, field, val)
             st.dirty = True
-    elif field in ("walk_speed", "fadetime", "fade_time", "fadeTime"):
-        raw = prompt_text("fadeTime/walk_speed", str(block.fadeTime if "fade" in field else block.walk_speed))
+    elif field in FLOAT_FIELDS:
+        raw = prompt_text(field, str(cur), numeric=True, allow_empty=False)
         if raw is not None:
             try:
-                num = float(raw)
+                setattr(block, field, float(raw))
+                st.dirty = True
             except ValueError:
-                return
-            if "fade" in field:
-                block.fadeTime = num
-            else:
-                block.walk_speed = num
-            st.dirty = True
+                _flash(st, f"Bad float for {field}")
     else:
-        _flash(st, f"Unknown field {field}")
+        val = prompt_int(field, int(cur))
+        if val is not None:
+            setattr(block, field, val)
+            st.dirty = True
+
+
+def _pick_object_xml() -> str | None:
+    root = data_root() / "object"
+    files = sorted(p.stem for p in root.glob("*.xml"))
+    idx = pick_list("Add enemy object", files)
+    if idx is None:
+        return None
+    return f"data/object/{files[idx]}.xml"
+
+
+def _pick_tileset(st: GmapState) -> None:
+    root = data_root() / "pictures" / "tiles"
+    files = sorted(p.name for p in root.glob("*.spr"))
+    idx = pick_list("Load tileset", files)
+    if idx is None:
+        return
+    rel = f"data/pictures/tiles/{files[idx]}"
+    st.game_map.tileset_filename = rel
+    st.game_map.tileset = None
+    st.tile_surfs = _load_tiles(st.game_map)
+    st.dirty = True
+    _flash(st, f"Tileset {files[idx]}")
+
+
+def _pick_parallax(st: GmapState) -> None:
+    root = data_root() / "pictures"
+    files = sorted(p.name for p in root.glob("*.spr"))
+    idx = pick_list("Parallax image (Esc clears)", files)
+    room = st.room
+    if idx is None:
+        room.parallax = 0
+        room.para_filename = ""
+        room.para_img = None
+        st.dirty = True
+        _flash(st, "Parallax cleared")
+        return
+    rel = f"data/pictures/{files[idx]}"
+    room.para_filename = rel
+    room.parallax = -1
+    room.para_img = LLSystem_ImageLoad(rel)
+    st.dirty = True
+    _flash(st, f"Parallax {files[idx]}")
 
 
 def _draw_sidebar(canvas: pygame.Surface, st: GmapState, font: pygame.font.Font) -> None:
@@ -283,6 +311,13 @@ def _draw_sidebar(canvas: pygame.Surface, st: GmapState, font: pygame.font.Font)
             name = Path(str(e.id).replace("\\", "/")).stem
             lines.append(f"  {name} @ {e.x_origin},{e.y_origin}")
             lines.append(f"  dir {e.direction} ({DIR_NAMES[e.direction & 3]})")
+        lines.append("  Ins add object · Del remove")
+    elif st.mode == "entry":
+        lines.append(f"Entry {st.entry_sel}/{max(0, st.game_map.entries - 1)}")
+        if 0 <= st.entry_sel < len(st.game_map.entry):
+            en = st.game_map.entry[st.entry_sel]
+            lines.append(f"  room {en.room} @ {en.x},{en.y} dir {en.direction}")
+        lines.append("  click place · [/] dir · Ins/Del")
     elif st.mode == "tele":
         lines.append(f"Teleport {st.tele_sel}/{max(0, room.teleports - 1)}  phase {st.tele_phase}")
         if 0 <= st.tele_sel < len(room.teleport):
@@ -310,20 +345,28 @@ def _draw_sidebar(canvas: pygame.Surface, st: GmapState, font: pygame.font.Font)
                     lines.append(f"  blk[{st.seq_block_sel}] {preview!r}")
                     lines.append(f"  -> {block.to_map}:{block.to_entry}")
         lines.append("  X src  Ins/Del seq  ;/' cmd")
-        lines.append("  B edit block field")
+        lines.append("  B edit any block field")
     elif st.mode == "macro":
         lines.append(f"Macros {len(st.macros)}  sel {st.macro_sel}")
         lines.append("  Ins new · C capture 6x6 · click stamp")
     elif st.mode == "flood":
         lines.append("Flood fill with brush (click map)")
+    elif st.mode == "walk":
+        lines.append("Walkables: click 8x8 quads to toggle")
+        lines.append(f"  active layer {st.layer}")
+    elif st.mode == "ice":
+        lines.append("Ice: click tiles to toggle (layer 0)")
+        lines.append("  Shift+I clear · Ctrl+I fill all")
 
+    lines.append(f"Para:{'Y' if room.parallax else 'N'} {Path(room.para_filename).name if room.para_filename else ''}")
     lines.extend(
         [
             "",
-            "P paint O flood E enemy T tele",
-            "Q seq M macro D redim H layer-fill",
-            "[ ] room/sel  1-3 layer  Z zoom",
-            "Tab cycle modes  Ctrl+S save  L load",
+            "P paint O flood K walk I ice",
+            "E enemy N entry T tele Q seq M macro",
+            "D redim H fill U tileset Y parallax",
+            "Shift+R add room  Shift+Del del room",
+            "[ ] room/sel  Tab modes  Ctrl+S save",
         ]
     )
     y = panel.y + 4
@@ -373,19 +416,46 @@ def _draw_view(canvas: pygame.Surface, st: GmapState) -> None:
         for y in range(oy, view.get_height() + 16, 16):
             pygame.draw.line(view, (40, 40, 50), (0, y), (view.get_width(), y))
 
-    if st.show_walk and st.room.layout:
+    show_walk = st.show_walk or st.mode == "walk"
+    walk_layer = st.layer if st.mode == "walk" else 0
+    if show_walk and walk_layer < len(st.room.layout):
+        layout = st.room.layout[walk_layer]
+        for ty in range(st.room.y):
+            for tx in range(st.room.x):
+                idx = ty * st.room.x + tx
+                if idx >= len(layout):
+                    continue
+                bits = layout[idx]
+                sx = tx * 16 - st.cam_x
+                sy = ty * 16 - st.cam_y
+                if not (-16 <= sx < view.get_width() and -16 <= sy < view.get_height()):
+                    continue
+                # Quad overlays (UL/UR/LL/LR) matching FB walkable bits.
+                quads = (
+                    (ops.UPPER_LEFT, 0, 0),
+                    (ops.UPPER_RIGHT, 8, 0),
+                    (ops.LOWER_LEFT, 0, 8),
+                    (ops.LOWER_RIGHT, 8, 8),
+                )
+                for mask, ox, oy in quads:
+                    if bits & mask:
+                        s = pygame.Surface((8, 8), pygame.SRCALPHA)
+                        s.fill((255, 60, 60, 110))
+                        view.blit(s, (sx + ox, sy + oy))
+
+    if (st.show_walk or st.mode == "ice") and st.room.layout:
         layout = st.room.layout[0]
         for ty in range(st.room.y):
             for tx in range(st.room.x):
                 idx = ty * st.room.x + tx
                 if idx >= len(layout):
                     continue
-                if layout[idx] & 0xF000:
+                if layout[idx] & ops.TILE_ICE:
                     sx = tx * 16 - st.cam_x
                     sy = ty * 16 - st.cam_y
                     if -16 <= sx < view.get_width() and -16 <= sy < view.get_height():
                         s = pygame.Surface((16, 16), pygame.SRCALPHA)
-                        s.fill((255, 60, 60, 70))
+                        s.fill((120, 200, 255, 80))
                         view.blit(s, (sx, sy))
 
     for i, e in enumerate(st.room.enemy):
@@ -532,8 +602,17 @@ def _handle_keydown(st: GmapState, event: pygame.event.Event) -> GmapState | str
     if key == pygame.K_o:
         st.mode = "flood"
         return None
+    if key == pygame.K_k:
+        st.mode = "walk"
+        return None
+    if key == pygame.K_i and not (mods & (pygame.KMOD_SHIFT | pygame.KMOD_CTRL)):
+        st.mode = "ice"
+        return None
     if key == pygame.K_e:
         st.mode = "enemy"
+        return None
+    if key == pygame.K_n:
+        st.mode = "entry"
         return None
     if key == pygame.K_t:
         st.mode = "tele"
@@ -553,12 +632,49 @@ def _handle_keydown(st: GmapState, event: pygame.event.Event) -> GmapState | str
         st.dirty = True
         _flash(st, f"Layer {st.layer} filled with {st.brush}")
         return None
+    if key == pygame.K_u:
+        _pick_tileset(st)
+        return None
+    if key == pygame.K_y:
+        _pick_parallax(st)
+        return None
+    if key == pygame.K_i and (mods & pygame.KMOD_SHIFT):
+        ops.clear_layer_ice(st.room, fill=False)
+        st.dirty = True
+        _flash(st, "Ice cleared")
+        return None
+    if key == pygame.K_i and (mods & pygame.KMOD_CTRL):
+        ops.clear_layer_ice(st.room, fill=True)
+        st.dirty = True
+        _flash(st, "Ice filled")
+        return None
+    if key == pygame.K_r and (mods & pygame.KMOD_SHIFT):
+        ops.add_room(st.game_map)
+        st.room_i = st.game_map.rooms - 1
+        st.dirty = True
+        _clamp_cam(st)
+        _flash(st, f"Room {st.room_i} added")
+        return None
+    if key == pygame.K_DELETE and (mods & pygame.KMOD_SHIFT):
+        if st.game_map.rooms <= 1:
+            _flash(st, "Cannot delete last room")
+        else:
+            ops.delete_room(st.game_map, st.room_i)
+            st.room_i = min(st.room_i, st.game_map.rooms - 1)
+            st.dirty = True
+            _clamp_cam(st)
+            _flash(st, "Room deleted")
+        return None
 
     if key == pygame.K_LEFTBRACKET:
         if st.mode == "enemy" and st.room.enemy:
             st.room.enemy[st.enemy_sel].direction = (
                 st.room.enemy[st.enemy_sel].direction - 1
             ) & 3
+            st.dirty = True
+        elif st.mode == "entry" and st.game_map.entry:
+            en = st.game_map.entry[st.entry_sel]
+            en.direction = (en.direction - 1) & 7
             st.dirty = True
         elif st.mode == "tele" and st.room.teleport:
             st.tele_sel = (st.tele_sel - 1) % st.room.teleports
@@ -580,6 +696,10 @@ def _handle_keydown(st: GmapState, event: pygame.event.Event) -> GmapState | str
             st.room.enemy[st.enemy_sel].direction = (
                 st.room.enemy[st.enemy_sel].direction + 1
             ) & 3
+            st.dirty = True
+        elif st.mode == "entry" and st.game_map.entry:
+            en = st.game_map.entry[st.entry_sel]
+            en.direction = (en.direction + 1) & 7
             st.dirty = True
         elif st.mode == "tele" and st.room.teleport:
             st.tele_sel = (st.tele_sel + 1) % st.room.teleports
@@ -632,25 +752,77 @@ def _handle_keydown(st: GmapState, event: pygame.event.Event) -> GmapState | str
         return None
 
     # Mode-specific.
-    if st.mode == "enemy" and st.room.enemy:
-        e = st.room.enemy[st.enemy_sel]
-        step = 16 if mods & pygame.KMOD_SHIFT else 1
-        if key == pygame.K_UP:
-            e.y_origin -= step
+    if st.mode == "enemy":
+        if key == pygame.K_INSERT:
+            oid = _pick_object_xml()
+            if oid is not None:
+                ops.add_enemy(st.room, oid, st.cam_x + 16, st.cam_y + 16)
+                st.enemy_sel = st.room.enemies - 1
+                st.dirty = True
+                _flash(st, f"Added {Path(oid).stem}")
+        elif key == pygame.K_DELETE and st.room.enemy:
+            ops.delete_enemy(st.room, st.enemy_sel)
+            st.enemy_sel = max(0, min(st.enemy_sel, st.room.enemies - 1))
             st.dirty = True
-        elif key == pygame.K_DOWN:
-            e.y_origin += step
+        elif st.room.enemy:
+            e = st.room.enemy[st.enemy_sel]
+            step = 16 if mods & pygame.KMOD_SHIFT else 1
+            if key == pygame.K_UP:
+                e.y_origin -= step
+                st.dirty = True
+            elif key == pygame.K_DOWN:
+                e.y_origin += step
+                st.dirty = True
+            elif key == pygame.K_LEFT:
+                e.x_origin -= step
+                st.dirty = True
+            elif key == pygame.K_RIGHT:
+                e.x_origin += step
+                st.dirty = True
+            elif key == pygame.K_EQUALS or key == pygame.K_PLUS:
+                st.enemy_sel = (st.enemy_sel + 1) % st.room.enemies
+            elif key == pygame.K_MINUS:
+                st.enemy_sel = (st.enemy_sel - 1) % st.room.enemies
+
+    elif st.mode == "entry":
+        if key == pygame.K_INSERT:
+            ops.add_entry(st.game_map, st.room_i)
+            st.entry_sel = st.game_map.entries - 1
             st.dirty = True
-        elif key == pygame.K_LEFT:
-            e.x_origin -= step
+            _flash(st, "Entry added")
+        elif key == pygame.K_DELETE and st.game_map.entry:
+            ops.delete_entry(st.game_map, st.entry_sel)
+            st.entry_sel = max(0, min(st.entry_sel, st.game_map.entries - 1))
             st.dirty = True
-        elif key == pygame.K_RIGHT:
-            e.x_origin += step
+        elif key in (pygame.K_EQUALS, pygame.K_PLUS) and st.game_map.entries:
+            st.entry_sel = (st.entry_sel + 1) % st.game_map.entries
+            en = st.game_map.entry[st.entry_sel]
+            if en.room != st.room_i:
+                st.room_i = en.room
+                _clamp_cam(st)
+        elif key == pygame.K_MINUS and st.game_map.entries:
+            st.entry_sel = (st.entry_sel - 1) % st.game_map.entries
+            en = st.game_map.entry[st.entry_sel]
+            if en.room != st.room_i:
+                st.room_i = en.room
+                _clamp_cam(st)
+        elif st.game_map.entry and key in (
+            pygame.K_UP,
+            pygame.K_DOWN,
+            pygame.K_LEFT,
+            pygame.K_RIGHT,
+        ):
+            en = st.game_map.entry[st.entry_sel]
+            step = 16 if mods & pygame.KMOD_SHIFT else 8
+            if key == pygame.K_UP:
+                en.y -= step
+            elif key == pygame.K_DOWN:
+                en.y += step
+            elif key == pygame.K_LEFT:
+                en.x -= step
+            elif key == pygame.K_RIGHT:
+                en.x += step
             st.dirty = True
-        elif key == pygame.K_EQUALS or key == pygame.K_PLUS:
-            st.enemy_sel = (st.enemy_sel + 1) % st.room.enemies
-        elif key == pygame.K_MINUS:
-            st.enemy_sel = (st.enemy_sel - 1) % st.room.enemies
 
     elif st.mode == "tele":
         if key == pygame.K_INSERT:
@@ -834,10 +1006,25 @@ def _handle_map_click(st: GmapState, wx: int, wy: int, button: int, mods: int) -
         if n:
             st.dirty = True
             _flash(st, f"Flood filled {n} tiles")
+    elif st.mode == "walk":
+        ops.toggle_quad(st.room, st.layer, wx // 8, wy // 8)
+        st.dirty = True
+    elif st.mode == "ice":
+        ops.toggle_ice(st.room, wx // 16, wy // 16)
+        st.dirty = True
     elif st.mode == "enemy":
         hit_e = _enemy_at(st, wx, wy)
         if hit_e >= 0:
             st.enemy_sel = hit_e
+    elif st.mode == "entry":
+        if not st.game_map.entry:
+            ops.add_entry(st.game_map, st.room_i)
+            st.entry_sel = 0
+        en = st.game_map.entry[st.entry_sel]
+        en.x = (wx // 8) * 8
+        en.y = (wy // 8) * 8
+        en.room = st.room_i
+        st.dirty = True
     elif st.mode == "tele":
         if st.tele_phase == 2:
             prev = st.game_map.room[st.tele_prev_room]
@@ -948,7 +1135,7 @@ def run_gmap(map_spec: str | None = None) -> int:
 
         keys = pygame.key.get_pressed()
         pan = 8 if keys[pygame.K_LSHIFT] or keys[pygame.K_RSHIFT] else 4
-        if st.mode not in ("enemy", "tele", "seq"):
+        if st.mode not in ("enemy", "tele", "seq", "entry"):
             if keys[pygame.K_LEFT] or keys[pygame.K_a]:
                 st.cam_x -= pan
             if keys[pygame.K_RIGHT] or keys[pygame.K_d]:

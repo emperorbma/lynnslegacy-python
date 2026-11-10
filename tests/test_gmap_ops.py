@@ -88,3 +88,48 @@ def test_sequence_add_command_block():
     assert seq.commands == 0
     ops.delete_sequence(room, 0)
     assert room.seq_here == 0
+
+
+def test_toggle_quad_corners():
+    room = _room(4, 4, fill=0)
+    # Half-tile (0,0) → upper-left of tile 0,0
+    ops.toggle_quad(room, 0, 0, 0)
+    assert room.layout[0][0] & ops.UPPER_LEFT
+    ops.toggle_quad(room, 0, 1, 0)
+    assert room.layout[0][0] & ops.UPPER_RIGHT
+    ops.toggle_quad(room, 0, 0, 1)
+    assert room.layout[0][0] & ops.LOWER_LEFT
+    ops.toggle_quad(room, 0, 1, 1)
+    assert room.layout[0][0] & ops.LOWER_RIGHT
+    # Toggle off.
+    ops.toggle_quad(room, 0, 0, 0)
+    assert room.layout[0][0] & ops.UPPER_LEFT == 0
+
+
+def test_toggle_and_clear_ice():
+    room = _room(4, 4, fill=3)
+    ops.toggle_ice(room, 1, 1)
+    assert room.layout[0][1 * 4 + 1] & ops.TILE_ICE
+    ops.clear_layer_ice(room, fill=True)
+    assert all(v & ops.TILE_ICE for v in room.layout[0][: room.x * room.y])
+    ops.clear_layer_ice(room, fill=False)
+    assert all(v & ops.TILE_ICE == 0 for v in room.layout[0])
+
+
+def test_add_enemy_and_room():
+    from lynn.map.types import MapType
+
+    room = _room()
+    stub = ops.add_enemy(room, "statue", 32, 48)
+    assert room.enemies == 1
+    assert "statue" in stub.id.replace("\\", "/")
+    assert stub.x_origin == 32
+    ops.delete_enemy(room, 0)
+    assert room.enemies == 0
+
+    m = MapType(rooms=1, room=[room])
+    ops.add_room(m, x=10, y=8)
+    assert m.rooms == 2
+    assert m.room[1].x == 10 and m.room[1].y == 8
+    ops.delete_room(m, 1)
+    assert m.rooms == 1

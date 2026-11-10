@@ -5,11 +5,48 @@ from __future__ import annotations
 from lynn.map.types import (
     CommandData,
     CommandType,
+    MapEnemyStub,
     MapEntryType,
     MapType,
     RoomType,
     SequenceType,
     TeleportType,
+)
+
+# FB gmap_structs.bi
+TILE_ICE = 1 << 8  # 256
+LOWER_RIGHT = 1 << 12  # 4096
+LOWER_LEFT = 1 << 13  # 8192
+UPPER_RIGHT = 1 << 14  # 16384
+UPPER_LEFT = 1 << 15  # 32768
+
+COMMAND_DATA_FIELDS: tuple[str, ...] = (
+    "active_ent",
+    "ent_state",
+    "text",
+    "walk_speed",
+    "dest_y",
+    "dest_x",
+    "abs_x",
+    "abs_y",
+    "mod_y",
+    "mod_x",
+    "to_map",
+    "to_entry",
+    "jump_count",
+    "water_align",
+    "chap",
+    "carries_all",
+    "nocam",
+    "modify_direction",
+    "seq_pause",
+    "reserved_3",
+    "reserved_4",
+    "free_to_move",
+    "display_hud",
+    "fadeTime",
+    "reserved_9",
+    "reserved_10",
 )
 
 
@@ -191,8 +228,97 @@ def delete_command_block(cmd: CommandType, index: int) -> None:
         cmd.ents = len(cmd.ent)
 
 
-def add_entry(m: MapType) -> MapEntryType:
-    entry = MapEntryType(reserved=b"\x00" * 84)
+def add_entry(m: MapType, room_i: int = 0) -> MapEntryType:
+    entry = MapEntryType(room=room_i, reserved=b"\x00" * 84)
     m.entry.append(entry)
     m.entries = len(m.entry)
     return entry
+
+
+def delete_entry(m: MapType, index: int) -> None:
+    if 0 <= index < len(m.entry):
+        del m.entry[index]
+        m.entries = len(m.entry)
+
+
+def toggle_quad(room: RoomType, layer: int, half_x: int, half_y: int) -> None:
+    """FB map_ToggleQuad: half-tile (8px) coords toggle one walkable corner bit."""
+    if layer < 0 or layer >= len(room.layout):
+        return
+    if half_x < 0 or half_y < 0 or half_x >= (room.x << 1) or half_y >= (room.y << 1):
+        return
+    tx = half_x >> 1
+    ty = half_y >> 1
+    if (half_y & 1) == 0:
+        q = UPPER_RIGHT if (half_x & 1) else UPPER_LEFT
+    else:
+        q = LOWER_RIGHT if (half_x & 1) else LOWER_LEFT
+    idx = ty * room.x + tx
+    layout = room.layout[layer]
+    if idx < len(layout):
+        layout[idx] ^= q
+
+
+def toggle_ice(room: RoomType, tx: int, ty: int) -> None:
+    """FB handle_ice: xor tile_ice on layer 0."""
+    if tx < 0 or ty < 0 or tx >= room.x or ty >= room.y or not room.layout:
+        return
+    idx = ty * room.x + tx
+    layout = room.layout[0]
+    if idx < len(layout):
+        layout[idx] ^= TILE_ICE
+
+
+def clear_layer_ice(room: RoomType, fill: bool = False) -> None:
+    """FB clear_layer_ice: clear (fill=False) or set (fill=True) ice on layer 0."""
+    if not room.layout:
+        return
+    layout = room.layout[0]
+    for i in range(len(layout)):
+        if fill:
+            layout[i] |= TILE_ICE
+        else:
+            layout[i] &= ~TILE_ICE
+
+
+def add_enemy(room: RoomType, object_id: str, x: int = 0, y: int = 0) -> MapEnemyStub:
+    oid = object_id.replace("/", "\\")
+    if not oid.lower().endswith(".xml"):
+        oid = f"data\\object\\{oid}.xml"
+    elif not oid.lower().startswith("data"):
+        oid = f"data\\object\\{oid}"
+    stub = MapEnemyStub(x_origin=x, y_origin=y, id=oid)
+    room.enemy.append(stub)
+    room.enemies = len(room.enemy)
+    return stub
+
+
+def delete_enemy(room: RoomType, index: int) -> None:
+    if 0 <= index < len(room.enemy):
+        del room.enemy[index]
+        room.enemies = len(room.enemy)
+
+
+def add_room(m: MapType, x: int = 20, y: int = 15, fill_tile: int = 0) -> RoomType:
+    room = RoomType(x=x, y=y)
+    n = layer_len(x, y)
+    low = fill_tile & 0xFF
+    room.layout = [[low] * n for _ in range(3)]
+    room.room_elem = x * (y + 1) + 1
+    room.reserved = [0] * 18
+    m.room.append(room)
+    m.rooms = len(m.room)
+    return room
+
+
+def delete_room(m: MapType, index: int) -> None:
+    if m.rooms <= 1:
+        return
+    if 0 <= index < len(m.room):
+        del m.room[index]
+        m.rooms = len(m.room)
+        for entry in m.entry:
+            if entry.room == index:
+                entry.room = 0
+            elif entry.room > index:
+                entry.room -= 1
