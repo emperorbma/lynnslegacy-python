@@ -15,6 +15,8 @@ from lynn.gfx.blit import blit_room_tiles
 from lynn.gfx.image import LLSystem_ImageLoad, frame_surfaces
 from lynn.gfx.palette import load_pal
 from lynn.gmap import ops
+from lynn.gmap.actions import make_actions
+from lynn.gmap.panel import build_rows, draw_panel, hit_panel
 from lynn.gmap.prompt import pick_list, prompt_int, prompt_text
 from lynn.map.loader import load_mapV
 from lynn.map.saver import save_mapV
@@ -31,6 +33,7 @@ GMAP_H = 600
 VIEW_W = 512
 VIEW_H = 384
 TILE_PANEL = (520, 8, 272, 272)
+PANEL_RECT = (520, 286, 272, 306)
 DIR_NAMES = ("up", "right", "down", "left")
 MODES = ("paint", "flood", "walk", "ice", "enemy", "entry", "tele", "seq", "macro")
 SEQ_SOURCES = ("room", "enemy", "entry")
@@ -71,6 +74,7 @@ class GmapState:
     message: str = ""
     message_until: float = 0.0
     walk_line_start: tuple[int, int] | None = None  # half-tile coords
+    panel_scroll: int = 0
 
     @property
     def room(self) -> RoomType:
@@ -402,100 +406,23 @@ def _edit_enemy_stub(st: GmapState) -> None:
         st.dirty = True
 
 
-def _draw_sidebar(canvas: pygame.Surface, st: GmapState, font: pygame.font.Font) -> None:
-    panel = pygame.Rect(VIEW_W + 8, 290, GMAP_W - VIEW_W - 16, GMAP_H - 298)
-    pygame.draw.rect(canvas, (24, 24, 32), panel)
-    pygame.draw.rect(canvas, (80, 80, 100), panel, 1)
-
-    room = st.room
-    lines = [
-        f"Map: {st.map_path.name}{' *' if st.dirty else ''}",
-        f"Room {st.room_i}/{max(0, st.game_map.rooms - 1)}  {room.x}x{room.y}",
-        f"Layer {st.layer}  Zoom {st.zoom}x  Brush {st.brush}",
-        f"Mode: {st.mode}  Grid:{int(st.show_grid)} Walk:{int(st.show_walk)} Solo:{int(st.solo)}",
-    ]
-
-    if st.mode == "enemy":
-        lines.append(f"Enemy {st.enemy_sel}/{max(0, room.enemies - 1)}")
-        if 0 <= st.enemy_sel < len(room.enemy):
-            e = room.enemy[st.enemy_sel]
-            name = Path(str(e.id).replace("\\", "/")).stem
-            lines.append(f"  {name} @ {e.x_origin},{e.y_origin}")
-            lines.append(f"  dir {e.direction} ({DIR_NAMES[e.direction & 3]})")
-        lines.append("  Ins add · Del remove · B stub fields")
-    elif st.mode == "entry":
-        lines.append(f"Entry {st.entry_sel}/{max(0, st.game_map.entries - 1)}")
-        if 0 <= st.entry_sel < len(st.game_map.entry):
-            en = st.game_map.entry[st.entry_sel]
-            lines.append(f"  room {en.room} @ {en.x},{en.y} dir {en.direction}")
-        lines.append("  click place · [/] dir · Enter room#")
-        lines.append("  Ins/Del")
-    elif st.mode == "tele":
-        lines.append(f"Teleport {st.tele_sel}/{max(0, room.teleports - 1)}  phase {st.tele_phase}")
-        if 0 <= st.tele_sel < len(room.teleport):
-            tp = room.teleport[st.tele_sel]
-            lines.append(f"  box {tp.x},{tp.y} {tp.w}x{tp.h}")
-            lines.append(f"  to_room {tp.to_room}  dest {tp.dx},{tp.dy} dd {tp.dd}")
-            lines.append(f"  to_map {tp.to_map!r} song {tp.to_song}")
-            lines.append("  click set xy · Ctrl+click size")
-            lines.append("  Enter phase · Ins/Del add/remove")
-    elif st.mode == "seq":
-        owner = _seq_owner(st)
-        lines.append(f"Seq src {st.seq_src}  #{st.seq_sel}/{max(0, owner.seq_here - 1)}")
-        seq = _selected_seq(st)
-        if seq is not None:
-            lines.append(f"  ents {seq.ents} cmds {seq.commands}")
-            if seq.ent_code:
-                code = seq.ent_code[min(st.seq_ent_sel, len(seq.ent_code) - 1)]
-                lines.append(f"  ent[{st.seq_ent_sel}] code {code}")
-            cmd = _selected_cmd(st)
-            if cmd is not None:
-                lines.append(f"  cmd[{st.seq_cmd_sel}] blocks {cmd.ents}")
-                block = _selected_block(st)
-                if block is not None:
-                    preview = (block.text or "")[:28]
-                    lines.append(f"  blk[{st.seq_block_sel}] {preview!r}")
-                    lines.append(f"  -> {block.to_map}:{block.to_entry}")
-        lines.append("  X src  Ins/Del seq  ;/' cmd")
-        lines.append("  B edit any block field")
-    elif st.mode == "macro":
-        lines.append(f"Macros {len(st.macros)}  sel {st.macro_sel}")
-        lines.append("  Ins new · C capture 6x6 · click stamp")
-    elif st.mode == "flood":
-        lines.append("Flood fill with brush (click map)")
-    elif st.mode == "walk":
-        lines.append("Walkables: click 8x8 quads to toggle")
-        lines.append(f"  active layer {st.layer}")
-        if st.walk_line_start is not None:
-            lines.append(f"  line start {st.walk_line_start} (mid-click end)")
-        else:
-            lines.append("  mid-click start/end walk line")
-    elif st.mode == "ice":
-        lines.append("Ice: click tiles to toggle (layer 0)")
-        lines.append("  Shift+I clear · Ctrl+I fill all")
-
-    lines.append(
-        f"song={room.song} dark={room.dark} para={'Y' if room.parallax else 'N'}"
+def _draw_sidebar(
+    canvas: pygame.Surface,
+    st: GmapState,
+    font: pygame.font.Font,
+    actions: dict,
+    hover: tuple[int, int] | None,
+):
+    """FB-style clickable property panel (box_handling + mode strip)."""
+    panel_rect = pygame.Rect(*PANEL_RECT)
+    rows = build_rows(st, actions)
+    layout = draw_panel(
+        canvas, font, panel_rect, st, rows, scroll=st.panel_scroll, hover=hover
     )
-    lines.extend(
-        [
-            "",
-            "P paint O flood K walk I ice",
-            "E enemy N entry T tele Q seq M macro",
-            "J room props  D redim  H fill",
-            "U tileset  Y parallax  Alt+click eyedrop",
-            "Shift+R/+Del room  Tab modes  Ctrl+S",
-        ]
-    )
-    y = panel.y + 4
-    for line in lines:
-        canvas.blit(font.render(line, True, (220, 220, 230)), (panel.x + 6, y))
-        y += 13
-        if y > GMAP_H - 22:
-            break
-
+    st.panel_scroll = layout.scroll
     if st.message and pygame.time.get_ticks() / 1000.0 < st.message_until:
         canvas.blit(font.render(st.message, True, (255, 220, 120)), (8, GMAP_H - 18))
+    return layout
 
 
 def _draw_tileset(canvas: pygame.Surface, st: GmapState) -> None:
@@ -1262,22 +1189,89 @@ def run_gmap(map_spec: str | None = None) -> int:
     pygame.display.set_caption(f"gMap Editor - {st.map_path.name}")
     running = True
     painting = False
+    panel_layout = None
+    prev_mode = st.mode
+
+    ctx: dict = {"st": st}
+
+    def flash(msg: str) -> None:
+        _flash(ctx["st"], msg)
+
+    def save() -> None:
+        _save(ctx["st"])
+
+    def load() -> None:
+        cur = ctx["st"]
+        if cur.dirty:
+            _flash(cur, "Unsaved changes — Ctrl+S first")
+            return
+        loaded = _prompt_load(cur)
+        if loaded is not None:
+            ctx["st"] = loaded
+            pygame.display.set_caption(f"gMap Editor - {loaded.map_path.name}")
+
+    ctx.update(
+        {
+            "flash": flash,
+            "save": save,
+            "load": load,
+            "pick_object": _pick_object_xml,
+            "pick_tileset": lambda: _pick_tileset(ctx["st"]),
+            "pick_parallax": lambda: _pick_parallax(ctx["st"]),
+            "redim": lambda: _do_redimension(ctx["st"]),
+        }
+    )
+    actions = make_actions(ctx)
 
     while running:
+        st = ctx["st"]
+        if st.mode != prev_mode:
+            st.panel_scroll = 0
+            prev_mode = st.mode
+        hover = _scale_mouse(pygame.mouse.get_pos())
+
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
             elif event.type == pygame.KEYDOWN:
+                # Panel scroll shortcuts (Ctrl+PgUp/PgDn); bare Pg* still tileset.
+                mods = pygame.key.get_mods()
+                if event.key == pygame.K_PAGEUP and (mods & pygame.KMOD_CTRL):
+                    st.panel_scroll = max(0, st.panel_scroll - 5)
+                    continue
+                if event.key == pygame.K_PAGEDOWN and (mods & pygame.KMOD_CTRL):
+                    st.panel_scroll += 5
+                    continue
                 result = _handle_keydown(st, event)
                 if result == "quit":
                     running = False
                 elif isinstance(result, GmapState):
+                    ctx["st"] = result
                     st = result
                     pygame.display.set_caption(f"gMap Editor - {st.map_path.name}")
             elif event.type == pygame.MOUSEWHEEL:
-                st.tileset_scroll = max(0, st.tileset_scroll - event.y)
+                mx, my = hover
+                if pygame.Rect(*PANEL_RECT).collidepoint(mx, my):
+                    st.panel_scroll = max(0, st.panel_scroll - event.y * 3)
+                else:
+                    st.tileset_scroll = max(0, st.tileset_scroll - event.y)
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 mx, my = _scale_mouse(event.pos)
+                # FB click_bounds: property panel first.
+                if panel_layout is not None and event.button == 1:
+                    hit = hit_panel(panel_layout, mx, my)
+                    if isinstance(hit, str):
+                        st.mode = hit
+                        if hit == "tele":
+                            st.tele_phase = 0
+                        st.panel_scroll = 0
+                        continue
+                    if isinstance(hit, int):
+                        row = panel_layout.rows[hit]
+                        if row.action is not None:
+                            row.action()
+                            st = ctx["st"]
+                        continue
                 hit = _hit_tileset(mx, my, st)
                 if hit is not None and event.button == 1:
                     st.brush = hit
@@ -1301,6 +1295,7 @@ def run_gmap(map_spec: str | None = None) -> int:
                     if world is not None:
                         _paint_at(st, *world)
 
+        st = ctx["st"]
         keys = pygame.key.get_pressed()
         pan = 8 if keys[pygame.K_LSHIFT] or keys[pygame.K_RSHIFT] else 4
         if st.mode not in ("enemy", "tele", "seq", "entry"):
@@ -1318,7 +1313,7 @@ def run_gmap(map_spec: str | None = None) -> int:
         canvas.fill((12, 12, 18))
         _draw_view(canvas, st)
         _draw_tileset(canvas, st)
-        _draw_sidebar(canvas, st, font)
+        panel_layout = _draw_sidebar(canvas, st, font, actions, hover)
 
         win = pygame.display.get_surface()
         assert win is not None
