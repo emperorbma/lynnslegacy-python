@@ -70,6 +70,7 @@ class GmapState:
     tileset_scroll: int = 0
     message: str = ""
     message_until: float = 0.0
+    walk_line_start: tuple[int, int] | None = None  # half-tile coords
 
     @property
     def room(self) -> RoomType:
@@ -291,6 +292,116 @@ def _pick_parallax(st: GmapState) -> None:
     _flash(st, f"Parallax {files[idx]}")
 
 
+def _edit_room_props(st: GmapState) -> None:
+    room = st.room
+    labels = [f"{name} = {getattr(room, name)}" for name in ops.ROOM_PROP_FIELDS]
+    picked = pick_list(f"Room {st.room_i} properties", labels)
+    if picked is None:
+        return
+    field = ops.ROOM_PROP_FIELDS[picked]
+    cur = int(getattr(room, field))
+    val = prompt_int(field, cur)
+    if val is not None:
+        setattr(room, field, val)
+        st.dirty = True
+        _flash(st, f"room.{field} = {val}")
+
+
+def _edit_spawn_lists(st: GmapState, enemy) -> None:
+    info = ops.ensure_spawn_info(enemy)
+    which = pick_list(
+        "Spawn lists",
+        [
+            f"wait_n = {info.wait_n}",
+            f"kill_n = {info.kill_n}",
+            f"active_n = {info.active_n}",
+            "edit wait pair",
+            "edit kill pair",
+            "edit active pair",
+        ],
+    )
+    if which is None:
+        return
+    if which == 0:
+        n = prompt_int("wait_n", info.wait_n, minimum=0, maximum=64)
+        if n is not None:
+            info.wait_spawn = ops.resize_spawn_list(info.wait_spawn, n)
+            info.wait_n = n
+            st.dirty = True
+    elif which == 1:
+        n = prompt_int("kill_n", info.kill_n, minimum=0, maximum=64)
+        if n is not None:
+            info.kill_spawn = ops.resize_spawn_list(info.kill_spawn, n)
+            info.kill_n = n
+            st.dirty = True
+    elif which == 2:
+        n = prompt_int("active_n", info.active_n, minimum=0, maximum=64)
+        if n is not None:
+            info.active_spawn = ops.resize_spawn_list(info.active_spawn, n)
+            info.active_n = n
+            st.dirty = True
+    else:
+        attr = ("wait_spawn", "kill_spawn", "active_spawn")[which - 3]
+        pairs = getattr(info, attr)
+        if not pairs:
+            _flash(st, f"{attr} empty — set count first")
+            return
+        pi = prompt_int(f"{attr} index", 0, minimum=0, maximum=len(pairs) - 1)
+        if pi is None:
+            return
+        pair = pairs[pi]
+        ci = prompt_int("code_index", pair.code_index)
+        if ci is None:
+            return
+        cs = prompt_int("code_state", pair.code_state)
+        if cs is None:
+            return
+        pair.code_index = ci & 0xFFFF
+        pair.code_state = cs
+        st.dirty = True
+
+
+def _edit_enemy_stub(st: GmapState) -> None:
+    if not st.room.enemy:
+        _flash(st, "No enemies")
+        return
+    enemy = st.room.enemy[st.enemy_sel]
+    labels = []
+    for name in ops.ENEMY_STUB_FIELDS:
+        cur = getattr(enemy, name)
+        labels.append(f"{name} = {cur}")
+    labels.append("id (object xml)")
+    labels.append("spawn lists…")
+    picked = pick_list(f"Enemy {st.enemy_sel} stub fields", labels)
+    if picked is None:
+        return
+    if picked == len(ops.ENEMY_STUB_FIELDS):
+        oid = _pick_object_xml()
+        if oid is not None:
+            enemy.id = oid.replace("/", "\\")
+            st.dirty = True
+        return
+    if picked == len(ops.ENEMY_STUB_FIELDS) + 1:
+        _edit_spawn_lists(st, enemy)
+        return
+    field = ops.ENEMY_STUB_FIELDS[picked]
+    cur = int(getattr(enemy, field))
+    if field == "spawn_cond":
+        # Toggle like FB yes/no.
+        if cur == 0:
+            ops.ensure_spawn_info(enemy)
+            _flash(st, "spawn_cond on")
+        else:
+            ops.clear_spawn_info(enemy)
+            _flash(st, "spawn_cond off")
+        st.dirty = True
+        return
+    val = prompt_int(field, cur)
+    if val is not None:
+        setattr(enemy, field, val)
+        st.dirty = True
+
+
 def _draw_sidebar(canvas: pygame.Surface, st: GmapState, font: pygame.font.Font) -> None:
     panel = pygame.Rect(VIEW_W + 8, 290, GMAP_W - VIEW_W - 16, GMAP_H - 298)
     pygame.draw.rect(canvas, (24, 24, 32), panel)
@@ -311,13 +422,14 @@ def _draw_sidebar(canvas: pygame.Surface, st: GmapState, font: pygame.font.Font)
             name = Path(str(e.id).replace("\\", "/")).stem
             lines.append(f"  {name} @ {e.x_origin},{e.y_origin}")
             lines.append(f"  dir {e.direction} ({DIR_NAMES[e.direction & 3]})")
-        lines.append("  Ins add object · Del remove")
+        lines.append("  Ins add · Del remove · B stub fields")
     elif st.mode == "entry":
         lines.append(f"Entry {st.entry_sel}/{max(0, st.game_map.entries - 1)}")
         if 0 <= st.entry_sel < len(st.game_map.entry):
             en = st.game_map.entry[st.entry_sel]
             lines.append(f"  room {en.room} @ {en.x},{en.y} dir {en.direction}")
-        lines.append("  click place · [/] dir · Ins/Del")
+        lines.append("  click place · [/] dir · Enter room#")
+        lines.append("  Ins/Del")
     elif st.mode == "tele":
         lines.append(f"Teleport {st.tele_sel}/{max(0, room.teleports - 1)}  phase {st.tele_phase}")
         if 0 <= st.tele_sel < len(room.teleport):
@@ -354,19 +466,25 @@ def _draw_sidebar(canvas: pygame.Surface, st: GmapState, font: pygame.font.Font)
     elif st.mode == "walk":
         lines.append("Walkables: click 8x8 quads to toggle")
         lines.append(f"  active layer {st.layer}")
+        if st.walk_line_start is not None:
+            lines.append(f"  line start {st.walk_line_start} (mid-click end)")
+        else:
+            lines.append("  mid-click start/end walk line")
     elif st.mode == "ice":
         lines.append("Ice: click tiles to toggle (layer 0)")
         lines.append("  Shift+I clear · Ctrl+I fill all")
 
-    lines.append(f"Para:{'Y' if room.parallax else 'N'} {Path(room.para_filename).name if room.para_filename else ''}")
+    lines.append(
+        f"song={room.song} dark={room.dark} para={'Y' if room.parallax else 'N'}"
+    )
     lines.extend(
         [
             "",
             "P paint O flood K walk I ice",
             "E enemy N entry T tele Q seq M macro",
-            "D redim H fill U tileset Y parallax",
-            "Shift+R add room  Shift+Del del room",
-            "[ ] room/sel  Tab modes  Ctrl+S save",
+            "J room props  D redim  H fill",
+            "U tileset  Y parallax  Alt+click eyedrop",
+            "Shift+R/+Del room  Tab modes  Ctrl+S",
         ]
     )
     y = panel.y + 4
@@ -627,6 +745,9 @@ def _handle_keydown(st: GmapState, event: pygame.event.Event) -> GmapState | str
     if key == pygame.K_d:
         _do_redimension(st)
         return None
+    if key == pygame.K_j:
+        _edit_room_props(st)
+        return None
     if key == pygame.K_h:
         ops.layer_fill(st.room, st.layer, st.brush)
         st.dirty = True
@@ -637,6 +758,9 @@ def _handle_keydown(st: GmapState, event: pygame.event.Event) -> GmapState | str
         return None
     if key == pygame.K_y:
         _pick_parallax(st)
+        return None
+    if key == pygame.K_b and st.mode == "enemy":
+        _edit_enemy_stub(st)
         return None
     if key == pygame.K_i and (mods & pygame.KMOD_SHIFT):
         ops.clear_layer_ice(st.room, fill=False)
@@ -794,6 +918,20 @@ def _handle_keydown(st: GmapState, event: pygame.event.Event) -> GmapState | str
             ops.delete_entry(st.game_map, st.entry_sel)
             st.entry_sel = max(0, min(st.entry_sel, st.game_map.entries - 1))
             st.dirty = True
+        elif key == pygame.K_RETURN and st.game_map.entry:
+            en = st.game_map.entry[st.entry_sel]
+            room = prompt_int(
+                "entry.room",
+                en.room,
+                minimum=0,
+                maximum=max(0, st.game_map.rooms - 1),
+            )
+            if room is not None:
+                en.room = room
+                st.dirty = True
+                if room != st.room_i:
+                    st.room_i = room
+                    _clamp_cam(st)
         elif key in (pygame.K_EQUALS, pygame.K_PLUS) and st.game_map.entries:
             st.entry_sel = (st.entry_sel + 1) % st.game_map.entries
             en = st.game_map.entry[st.entry_sel]
@@ -989,7 +1127,37 @@ def _handle_keydown(st: GmapState, event: pygame.event.Event) -> GmapState | str
 
 
 def _handle_map_click(st: GmapState, wx: int, wy: int, button: int, mods: int) -> None:
+    # Alt+click: eyedropper (FB tile pick from map).
+    if button == 1 and (mods & pygame.KMOD_ALT):
+        tile = ops.eyedrop_tile(st.room, st.layer, wx // 16, wy // 16)
+        if tile is not None and tile > 0:
+            st.brush = tile
+            _flash(st, f"Brush {tile}")
+        return
+
+    # Middle-click: walkable line start/end (FB line_hold).
+    if button == 2:
+        hx, hy = wx // 8, wy // 8
+        if st.walk_line_start is None:
+            st.walk_line_start = (hx, hy)
+            st.mode = "walk"
+            _flash(st, f"Walk line start {hx},{hy}")
+        else:
+            x0, y0 = st.walk_line_start
+            n = ops.toggle_walkable_line(st.room, st.layer, x0, y0, hx, hy)
+            st.walk_line_start = None
+            st.dirty = True
+            _flash(st, f"Walk line toggled {n} quads")
+        return
+
     if button == 3:
+        # Right-click: eyedrop in paint/flood, else select enemy.
+        if st.mode in ("paint", "flood"):
+            tile = ops.eyedrop_tile(st.room, st.layer, wx // 16, wy // 16)
+            if tile is not None:
+                st.brush = max(1, tile)
+                _flash(st, f"Brush {st.brush}")
+            return
         hit_e = _enemy_at(st, wx, wy)
         if hit_e >= 0:
             st.mode = "enemy"

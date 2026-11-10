@@ -5,11 +5,13 @@ from __future__ import annotations
 from lynn.map.types import (
     CommandData,
     CommandType,
+    ConditionalSpawn,
     MapEnemyStub,
     MapEntryType,
     MapType,
     RoomType,
     SequenceType,
+    SpawnPair,
     TeleportType,
 )
 
@@ -312,13 +314,94 @@ def add_room(m: MapType, x: int = 20, y: int = 15, fill_tile: int = 0) -> RoomTy
 
 
 def delete_room(m: MapType, index: int) -> None:
+    """FB handle_rooms delete: drop entries targeting the room, then renumber."""
     if m.rooms <= 1:
         return
-    if 0 <= index < len(m.room):
-        del m.room[index]
-        m.rooms = len(m.room)
-        for entry in m.entry:
-            if entry.room == index:
-                entry.room = 0
-            elif entry.room > index:
-                entry.room -= 1
+    if not (0 <= index < len(m.room)):
+        return
+    m.entry = [e for e in m.entry if e.room != index]
+    m.entries = len(m.entry)
+    del m.room[index]
+    m.rooms = len(m.room)
+    for entry in m.entry:
+        if entry.room > index:
+            entry.room -= 1
+
+
+def eyedrop_tile(room: RoomType, layer: int, tx: int, ty: int) -> int | None:
+    if layer < 0 or layer >= len(room.layout):
+        return None
+    if tx < 0 or ty < 0 or tx >= room.x or ty >= room.y:
+        return None
+    idx = ty * room.x + tx
+    layout = room.layout[layer]
+    if idx >= len(layout):
+        return None
+    return layout[idx] & 0xFF
+
+
+def toggle_walkable_line(
+    room: RoomType, layer: int, x0: int, y0: int, x1: int, y1: int
+) -> int:
+    """FB toggle_walkable_line: toggle quads along a half-tile line (Bresenham)."""
+    dx = abs(x1 - x0)
+    dy = abs(y1 - y0)
+    sx = 1 if x0 < x1 else -1
+    sy = 1 if y0 < y1 else -1
+    err = dx - dy
+    x, y = x0, y0
+    count = 0
+    while True:
+        toggle_quad(room, layer, x, y)
+        count += 1
+        if x == x1 and y == y1:
+            break
+        e2 = 2 * err
+        if e2 > -dy:
+            err -= dy
+            x += sx
+        if e2 < dx:
+            err += dx
+            y += sy
+    return count
+
+
+def ensure_spawn_info(enemy: MapEnemyStub) -> ConditionalSpawn:
+    if enemy.spawn_info is None:
+        enemy.spawn_info = ConditionalSpawn()
+    enemy.spawn_cond = -1
+    return enemy.spawn_info
+
+
+def clear_spawn_info(enemy: MapEnemyStub) -> None:
+    enemy.spawn_cond = 0
+    enemy.spawn_info = None
+
+
+def resize_spawn_list(pairs: list[SpawnPair], n: int) -> list[SpawnPair]:
+    n = max(0, n)
+    if len(pairs) < n:
+        pairs = list(pairs) + [SpawnPair() for _ in range(n - len(pairs))]
+    else:
+        pairs = list(pairs[:n])
+    return pairs
+
+
+ENEMY_STUB_FIELDS: tuple[str, ...] = (
+    "direction",
+    "chap",
+    "spawn_h",
+    "is_h_set",
+    "spawn_d",
+    "is_d_set",
+    "reserved_5",
+    "spawn_cond",
+)
+
+ROOM_PROP_FIELDS: tuple[str, ...] = (
+    "song",
+    "dark",
+    "song_changes",
+    "changes_to",
+    "parallax",
+)

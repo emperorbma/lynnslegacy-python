@@ -108,14 +108,15 @@ run.bat gmap / ./run.sh gmap valley
 Coverage:
 
 - Load/save uncompressed `.map` files (same payload `load_mapV` reads)
-- Rooms (add/delete), layers, tileset load (`U`), paint, flood fill, layer fill, zoom/grid/solo
-- Walkables (`K`): toggle 8×8 quads on the active layer; ice (`I`) on layer 0
-- Enemies: select/move/facing; Ins picks `data/object/*.xml`
-- Entries (`N`): add/remove, place, direction
+- Rooms (add/delete; deleting a room drops its entries), layers, tileset (`U`), paint, flood/layer fill, zoom/grid/solo
+- Room props (`J`): song, dark, song_changes, changes_to, parallax flag
+- Walkables (`K`): 8×8 quads; middle-click walkable line; ice (`I`) on layer 0
+- Eyedropper: Alt+click or right-click in paint/flood
+- Enemies: select/move/facing; Ins object XML; `B` stub fields + spawn_cond lists
+- Entries (`N`): add/remove, place, direction, Enter sets `entry.room`
 - Teleports: add/remove, place/size, `to_room` / `to_map`, dest `dx/dy/dd`, song
 - Sequences (room / enemy / entry): seqs, commands, blocks; edit every `command_data` field
-- Parallax image (`Y`); session 6×6 tile macros (`M`)
-- Room redimension (`D`)
+- Parallax image (`Y`); session 6×6 tile macros (`M`); room redimension (`D`)
 
 
 Room `.it` music plays through pygame-ce `mixer.music` (no extra library). Title boot starts `title.it`; map changes start the dest room song.
