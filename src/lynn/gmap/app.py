@@ -34,11 +34,14 @@ VIEW_W = 512
 VIEW_H = 384
 TILE_PANEL = (520, 8, 272, 272)
 PANEL_RECT = (520, 286, 272, 306)
+# FB mac_loc: 6×6 macro editor in the empty area under the map view.
+MACRO_PANEL = (8, 400, 96, 96)
 DIR_NAMES = ("up", "right", "down", "left")
 MODES = ("paint", "flood", "walk", "ice", "enemy", "entry", "tele", "seq", "macro")
 SEQ_SOURCES = ("room", "enemy", "entry")
 FLOAT_FIELDS = frozenset({"walk_speed", "fadeTime"})
 STRING_FIELDS = frozenset({"text", "to_map"})
+DEFAULT_TILESET = "data/pictures/tiles/ruins.spr"
 
 
 @dataclass
@@ -75,6 +78,17 @@ class GmapState:
     message_until: float = 0.0
     walk_line_start: tuple[int, int] | None = None  # half-tile coords
     panel_scroll: int = 0
+    # FB blockshift / shifted tileset rect selection (panel cell coords).
+    tile_shifted: bool = False
+    block_shift: bool = False
+    tile_grasp: tuple[int, int] | None = None  # (col, row) in tileset panel cells
+    block_smaller: tuple[int, int] | None = None
+    block_bigger: tuple[int, int] | None = None
+    # Cached 2D tile indices for the active block (rows of cols).
+    block_tiles: list[list[int]] = field(default_factory=list)
+    macro_walk_edit: bool = False  # FB handle_macros(-1) walk_state
+    para_surf: object | None = None  # cached parallax frame surface
+    last_enemy_sel: int = -1
 
     @property
     def room(self) -> RoomType:
@@ -93,12 +107,29 @@ def _load_tiles(game_map: MapType) -> list:
 def _open_map(spec: str | None) -> GmapState:
     path = resolve_map_path(spec or DEFAULT_MAP)
     game_map = load_mapV(str(path), load_tileset=True)
-    return GmapState(
+    st = GmapState(
         game_map=game_map,
         map_path=path,
         tile_surfs=_load_tiles(game_map),
         status=str(path),
     )
+    _refresh_parallax_surf(st)
+    return st
+
+
+def _new_blank_map() -> GmapState:
+    """FB make_null_map — unsaved blank room with ruins tileset."""
+    game_map = ops.make_null_map(DEFAULT_TILESET)
+    path = data_root() / "map" / "untitled.map"
+    st = GmapState(
+        game_map=game_map,
+        map_path=path,
+        tile_surfs=_load_tiles(game_map),
+        status="untitled",
+        dirty=True,
+    )
+    _flash(st, "New blank map — Save As to name it")
+    return st
 
 
 def _flash(st: GmapState, text: str, seconds: float = 2.0) -> None:
@@ -109,7 +140,28 @@ def _flash(st: GmapState, text: str, seconds: float = 2.0) -> None:
 def _save(st: GmapState) -> None:
     save_mapV(st.map_path, st.game_map)
     st.dirty = False
+    st.game_map.filename = str(st.map_path)
     _flash(st, f"Saved {st.map_path.name}")
+
+
+def _save_as(st: GmapState) -> None:
+    """FB handle_save Input 'Save map as' (blank keeps current name)."""
+    cur = st.map_path.stem if st.map_path.name != "untitled.map" else ""
+    name = prompt_text("Save map as (blank = current name)", cur, allow_empty=True)
+    if name is None:
+        return
+    name = name.strip()
+    if not name:
+        name = st.map_path.name
+    if not name.lower().endswith(".map"):
+        name += ".map"
+    path = data_root() / "map" / Path(name).name
+    st.map_path = path
+    st.game_map.filename = str(path)
+    save_mapV(path, st.game_map)
+    st.dirty = False
+    pygame.display.set_caption(f"gMap Editor - {path.name}")
+    _flash(st, f"Saved as {path.name}")
 
 
 def _clamp_cam(st: GmapState) -> None:
@@ -118,6 +170,62 @@ def _clamp_cam(st: GmapState) -> None:
     max_y = max(0, room.y * 16 - VIEW_H // st.zoom)
     st.cam_x = max(0, min(st.cam_x, max_x))
     st.cam_y = max(0, min(st.cam_y, max_y))
+
+
+def _align_cam(st: GmapState, wx: int, wy: int, ww: int = 16, wh: int = 16) -> None:
+    """FB align_gcam: center view on a world-space box."""
+    st.cam_x = wx + ww // 2 - (VIEW_W // st.zoom) // 2
+    st.cam_y = wy + wh // 2 - (VIEW_H // st.zoom) // 2
+    _clamp_cam(st)
+
+
+def _refresh_parallax_surf(st: GmapState) -> None:
+    room = st.room
+    st.para_surf = None
+    if not room.parallax or not room.para_filename:
+        return
+    try:
+        if room.para_img is None:
+            room.para_img = LLSystem_ImageLoad(room.para_filename)
+        if room.para_img is None or room.para_img.frames <= 0:
+            return
+        pal = load_pal("data/palette/ll.pal")
+        st.para_surf = frame_surfaces(room.para_img, pal)[0]
+    except Exception:
+        st.para_surf = None
+
+
+def _tileset_cols() -> int:
+    return TILE_PANEL[2] // 16
+
+
+def _cell_to_tile_index(st: GmapState, col: int, row: int) -> int:
+    cols = _tileset_cols()
+    return st.tileset_scroll * cols + row * cols + col
+
+
+def _build_block_tiles(st: GmapState) -> list[list[int]]:
+    if not st.block_shift or st.block_smaller is None or st.block_bigger is None:
+        return []
+    sx, sy = st.block_smaller
+    bx, by = st.block_bigger
+    rows: list[list[int]] = []
+    for row in range(sy, by + 1):
+        line = []
+        for col in range(sx, bx + 1):
+            idx = _cell_to_tile_index(st, col, row)
+            line.append(idx if 0 < idx < len(st.tile_surfs) else 0)
+        rows.append(line)
+    return rows
+
+
+def _clear_block_sel(st: GmapState) -> None:
+    st.tile_shifted = False
+    st.block_shift = False
+    st.tile_grasp = None
+    st.block_smaller = None
+    st.block_bigger = None
+    st.block_tiles = []
 
 
 def _view_to_world(st: GmapState, mx: int, my: int) -> tuple[int, int] | None:
@@ -139,6 +247,11 @@ def _scale_mouse(pos: tuple[int, int]) -> tuple[int, int]:
 def _paint_at(st: GmapState, wx: int, wy: int) -> None:
     room = st.room
     tx, ty = wx // 16, wy // 16
+    if st.block_shift and st.block_tiles:
+        n = ops.stamp_tile_block(room, st.layer, tx, ty, st.block_tiles)
+        if n:
+            st.dirty = True
+        return
     if tx < 0 or ty < 0 or tx >= room.x or ty >= room.y:
         return
     idx = ty * room.x + tx
@@ -285,6 +398,7 @@ def _pick_parallax(st: GmapState) -> None:
         room.parallax = 0
         room.para_filename = ""
         room.para_img = None
+        st.para_surf = None
         st.dirty = True
         _flash(st, "Parallax cleared")
         return
@@ -293,6 +407,7 @@ def _pick_parallax(st: GmapState) -> None:
     room.parallax = -1
     room.para_img = LLSystem_ImageLoad(rel)
     st.dirty = True
+    _refresh_parallax_surf(st)
     _flash(st, f"Parallax {files[idx]}")
 
 
@@ -444,13 +559,69 @@ def _draw_tileset(canvas: pygame.Surface, st: GmapState) -> None:
         cx = x0 + (n % cols) * 16
         cy = y0 + (n // cols) * 16
         canvas.blit(surf, (cx, cy))
-        if idx == st.brush:
+        if idx == st.brush and not st.block_shift:
             pygame.draw.rect(canvas, (255, 255, 0), (cx, cy, 16, 16), 1)
+    # FB blockshift selection outline on the tileset.
+    if st.tile_shifted and st.tile_grasp is not None:
+        if st.block_shift and st.block_smaller and st.block_bigger:
+            sx, sy = st.block_smaller
+            bx, by = st.block_bigger
+        else:
+            sx = bx = st.tile_grasp[0]
+            sy = by = st.tile_grasp[1]
+        rect = pygame.Rect(
+            x0 + sx * 16,
+            y0 + sy * 16,
+            (bx - sx + 1) * 16,
+            (by - sy + 1) * 16,
+        )
+        pygame.draw.rect(canvas, (255, 255, 255), rect, 1)
+
+
+def _draw_macro_panel(canvas: pygame.Surface, st: GmapState) -> None:
+    """FB mac_loc 6×6 editor under the map view (macro mode only)."""
+    if st.mode != "macro":
+        return
+    x0, y0, w, h = MACRO_PANEL
+    pygame.draw.rect(canvas, (18, 18, 24), (x0, y0, w, h))
+    pygame.draw.rect(canvas, (200, 200, 220), (x0, y0, w, h), 1)
+    label = "Macro walk" if st.macro_walk_edit else "Macro edit"
+    font = pygame.font.SysFont("consolas", 12)
+    canvas.blit(font.render(label, True, (200, 200, 210)), (x0, y0 - 14))
+    if not st.macros:
+        canvas.blit(font.render("Ins to add", True, (160, 160, 170)), (x0 + 8, y0 + 40))
+        return
+    cells = st.macros[st.macro_sel]
+    for row in range(6):
+        for col in range(6):
+            cell = cells[row * 6 + col] if row * 6 + col < len(cells) else 0
+            tile = cell & 0xFF
+            cx, cy = x0 + col * 16, y0 + row * 16
+            if 0 < tile < len(st.tile_surfs) and st.tile_surfs[tile] is not None:
+                canvas.blit(st.tile_surfs[tile], (cx, cy))
+            # Walk quad overlays when editing walk bits.
+            quads = (
+                (ops.UPPER_LEFT, 0, 0),
+                (ops.UPPER_RIGHT, 8, 0),
+                (ops.LOWER_LEFT, 0, 8),
+                (ops.LOWER_RIGHT, 8, 8),
+            )
+            for mask, ox, oy in quads:
+                if cell & mask:
+                    s = pygame.Surface((8, 8), pygame.SRCALPHA)
+                    s.fill((255, 60, 60, 120))
+                    canvas.blit(s, (cx + ox, cy + oy))
+            pygame.draw.rect(canvas, (60, 60, 80), (cx, cy, 16, 16), 1)
 
 
 def _draw_view(canvas: pygame.Surface, st: GmapState) -> None:
     view = pygame.Surface((VIEW_W // st.zoom, VIEW_H // st.zoom)).convert()
     view.fill((0, 0, 0))
+    # FB blit_para_img: parallax under tiles, offset by cam/12.
+    if st.room.parallax and st.para_surf is not None:
+        px = -(st.cam_x // 12)
+        py = -(st.cam_y // 12)
+        view.blit(st.para_surf, (px, py))
     layers = (st.layer,) if st.solo else (0, 1, 2)
     blit_room_tiles(view, st.room, st.tile_surfs, st.cam_x, st.cam_y, layers=layers)
 
@@ -549,16 +720,83 @@ def _draw_view(canvas: pygame.Surface, st: GmapState) -> None:
 
 
 def _hit_tileset(mx: int, my: int, st: GmapState) -> int | None:
-    x0, y0, tw, th = TILE_PANEL
-    if not (x0 <= mx < x0 + tw and y0 <= my < y0 + th):
+    cell = _tileset_cell(mx, my)
+    if cell is None:
         return None
-    cols = tw // 16
-    tx = (mx - x0) // 16
-    ty = (my - y0) // 16
-    idx = st.tileset_scroll * cols + ty * cols + tx
+    idx = _cell_to_tile_index(st, cell[0], cell[1])
     if idx <= 0 or idx >= len(st.tile_surfs):
         return None
     return idx
+
+
+def _tileset_cell(mx: int, my: int) -> tuple[int, int] | None:
+    x0, y0, tw, th = TILE_PANEL
+    if not (x0 <= mx < x0 + tw and y0 <= my < y0 + th):
+        return None
+    return (mx - x0) // 16, (my - y0) // 16
+
+
+def _hit_macro_panel(mx: int, my: int) -> tuple[int, int] | None:
+    """Return (pixel offset into panel) or None."""
+    x0, y0, w, h = MACRO_PANEL
+    if x0 <= mx < x0 + w and y0 <= my < y0 + h:
+        return mx - x0, my - y0
+    return None
+
+
+def _handle_tileset_click(st: GmapState, mx: int, my: int, mods: int) -> bool:
+    """FB tileset pick / Shift blockshift. Returns True if handled."""
+    cell = _tileset_cell(mx, my)
+    if cell is None:
+        return False
+    col, row = cell
+    if mods & pygame.KMOD_SHIFT:
+        if not st.tile_shifted:
+            st.tile_shifted = True
+            st.tile_grasp = (col, row)
+            st.block_shift = False
+            st.block_smaller = (col, row)
+            st.block_bigger = (col, row)
+            st.block_tiles = []
+        else:
+            gx, gy = st.tile_grasp
+            st.block_shift = True
+            st.block_smaller = (min(gx, col), min(gy, row))
+            st.block_bigger = (max(gx, col), max(gy, row))
+            st.block_tiles = _build_block_tiles(st)
+            if st.block_tiles and st.block_tiles[0]:
+                st.brush = st.block_tiles[0][0] or st.brush
+        if st.mode not in ("flood", "macro"):
+            st.mode = "paint"
+        return True
+    # Plain click: single brush, clear rect selection.
+    idx = _cell_to_tile_index(st, col, row)
+    if idx <= 0 or idx >= len(st.tile_surfs):
+        return True
+    st.brush = idx
+    _clear_block_sel(st)
+    if st.mode not in ("flood", "macro"):
+        st.mode = "paint"
+    return True
+
+
+def _handle_macro_panel_click(st: GmapState, mx: int, my: int) -> bool:
+    """Edit selected macro cell or walk quad (FB mac_loc)."""
+    hit = _hit_macro_panel(mx, my)
+    if hit is None or st.mode != "macro":
+        return False
+    if not st.macros:
+        st.macros.append([0] * 36)
+        st.macro_sel = 0
+    cells = st.macros[st.macro_sel]
+    ox, oy = hit
+    if st.macro_walk_edit:
+        ops.toggle_macro_quad(cells, ox // 8, oy // 8)
+    elif st.block_shift and st.block_tiles:
+        ops.stamp_macro_block(cells, ox // 16, oy // 16, st.block_tiles)
+    else:
+        ops.set_macro_cell(cells, ox // 16, oy // 16, st.brush)
+    return True
 
 
 def _list_maps() -> list[Path]:
@@ -626,10 +864,40 @@ def _handle_keydown(st: GmapState, event: pygame.event.Event) -> GmapState | str
         return "quit"
 
     if key == pygame.K_s and (mods & pygame.KMOD_CTRL):
-        _save(st)
+        if mods & pygame.KMOD_SHIFT:
+            _save_as(st)
+        else:
+            _save(st)
         return None
 
-    if key == pygame.K_l:
+    if key == pygame.K_n and (mods & pygame.KMOD_CTRL):
+        if st.dirty:
+            _flash(st, "Unsaved changes — Ctrl+S first")
+            return None
+        return _new_blank_map()
+
+    if key == pygame.K_l and not (mods & (pygame.KMOD_CTRL | pygame.KMOD_ALT)):
+        # Bare L: FB cam-align on selected enemy/tele; Shift+L unused.
+        if st.mode == "enemy" and st.room.enemy:
+            e = st.room.enemy[st.enemy_sel]
+            _align_cam(st, e.x_origin, e.y_origin)
+            _flash(st, f"Cam → enemy {st.enemy_sel}")
+            return None
+        if st.mode == "tele" and st.room.teleport:
+            tp = st.room.teleport[st.tele_sel]
+            _align_cam(st, tp.x, tp.y, tp.w, tp.h)
+            _flash(st, f"Cam → tele {st.tele_sel}")
+            return None
+        # Fall through to load when not aligning.
+        if st.dirty:
+            _flash(st, "Unsaved changes — Ctrl+S first")
+        else:
+            loaded = _prompt_load(st)
+            if loaded is not None:
+                return loaded
+        return None
+
+    if key == pygame.K_l and (mods & pygame.KMOD_CTRL):
         if st.dirty:
             _flash(st, "Unsaved changes — Ctrl+S first")
         else:
@@ -648,6 +916,11 @@ def _handle_keydown(st: GmapState, event: pygame.event.Event) -> GmapState | str
         st.mode = "flood"
         return None
     if key == pygame.K_k:
+        if st.mode == "macro":
+            # FB handle_macros(-1): toggle walk-bit editing on the macro grid.
+            st.macro_walk_edit = not st.macro_walk_edit
+            _flash(st, "Macro walk edit ON" if st.macro_walk_edit else "Macro walk edit OFF")
+            return None
         st.mode = "walk"
         return None
     if key == pygame.K_i and not (mods & (pygame.KMOD_SHIFT | pygame.KMOD_CTRL)):
@@ -1108,9 +1381,18 @@ def _handle_map_click(st: GmapState, wx: int, wy: int, button: int, mods: int) -
         ops.toggle_ice(st.room, wx // 16, wy // 16)
         st.dirty = True
     elif st.mode == "enemy":
-        hit_e = _enemy_at(st, wx, wy)
-        if hit_e >= 0:
-            st.enemy_sel = hit_e
+        # FB handle_enemies: LMB places selected enemy (8px snap; Shift = free).
+        if not st.room.enemy:
+            _flash(st, "Ins to add an enemy first")
+            return
+        if mods & pygame.KMOD_SHIFT:
+            x, y = wx, wy
+        else:
+            x, y = (wx // 8) * 8, (wy // 8) * 8
+        e = st.room.enemy[st.enemy_sel]
+        e.x_origin = x
+        e.y_origin = y
+        st.dirty = True
     elif st.mode == "entry":
         if not st.game_map.entry:
             ops.add_entry(st.game_map, st.room_i)
@@ -1191,14 +1473,23 @@ def run_gmap(map_spec: str | None = None) -> int:
     painting = False
     panel_layout = None
     prev_mode = st.mode
+    prev_room_i = st.room_i
 
     ctx: dict = {"st": st}
+
+    def bind_para(state: GmapState) -> None:
+        state._refresh_para = lambda: _refresh_parallax_surf(ctx["st"])  # type: ignore[attr-defined]
+
+    bind_para(st)
 
     def flash(msg: str) -> None:
         _flash(ctx["st"], msg)
 
     def save() -> None:
         _save(ctx["st"])
+
+    def save_as() -> None:
+        _save_as(ctx["st"])
 
     def load() -> None:
         cur = ctx["st"]
@@ -1208,13 +1499,26 @@ def run_gmap(map_spec: str | None = None) -> int:
         loaded = _prompt_load(cur)
         if loaded is not None:
             ctx["st"] = loaded
+            bind_para(loaded)
             pygame.display.set_caption(f"gMap Editor - {loaded.map_path.name}")
+
+    def new_map() -> None:
+        cur = ctx["st"]
+        if cur.dirty:
+            _flash(cur, "Unsaved changes — Ctrl+S first")
+            return
+        blank = _new_blank_map()
+        ctx["st"] = blank
+        bind_para(blank)
+        pygame.display.set_caption(f"gMap Editor - {blank.map_path.name}")
 
     ctx.update(
         {
             "flash": flash,
             "save": save,
+            "save_as": save_as,
             "load": load,
+            "new_map": new_map,
             "pick_object": _pick_object_xml,
             "pick_tileset": lambda: _pick_tileset(ctx["st"]),
             "pick_parallax": lambda: _pick_parallax(ctx["st"]),
@@ -1227,7 +1531,18 @@ def run_gmap(map_spec: str | None = None) -> int:
         st = ctx["st"]
         if st.mode != prev_mode:
             st.panel_scroll = 0
+            if st.mode != "macro":
+                st.macro_walk_edit = False
             prev_mode = st.mode
+        if st.room_i != prev_room_i:
+            _refresh_parallax_surf(st)
+            prev_room_i = st.room_i
+        # FB: cam-align when enemy selection changes.
+        if st.mode == "enemy" and st.enemy_sel != st.last_enemy_sel and st.room.enemy:
+            e = st.room.enemy[st.enemy_sel]
+            if e.x_origin or e.y_origin:
+                _align_cam(st, e.x_origin, e.y_origin)
+            st.last_enemy_sel = st.enemy_sel
         hover = _scale_mouse(pygame.mouse.get_pos())
 
         for event in pygame.event.get():
@@ -1247,6 +1562,7 @@ def run_gmap(map_spec: str | None = None) -> int:
                     running = False
                 elif isinstance(result, GmapState):
                     ctx["st"] = result
+                    bind_para(result)
                     st = result
                     pygame.display.set_caption(f"gMap Editor - {st.map_path.name}")
             elif event.type == pygame.MOUSEWHEEL:
@@ -1257,6 +1573,7 @@ def run_gmap(map_spec: str | None = None) -> int:
                     st.tileset_scroll = max(0, st.tileset_scroll - event.y)
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 mx, my = _scale_mouse(event.pos)
+                mods = pygame.key.get_mods()
                 # FB click_bounds: property panel first.
                 if panel_layout is not None and event.button == 1:
                     hit = hit_panel(panel_layout, mx, my)
@@ -1272,28 +1589,44 @@ def run_gmap(map_spec: str | None = None) -> int:
                             row.action()
                             st = ctx["st"]
                         continue
-                hit = _hit_tileset(mx, my, st)
-                if hit is not None and event.button == 1:
-                    st.brush = hit
-                    if st.mode not in ("flood", "macro"):
-                        st.mode = "paint"
-                elif mx < VIEW_W and my < VIEW_H:
+                if event.button == 1 and _handle_macro_panel_click(st, mx, my):
+                    continue
+                if event.button == 1 and _handle_tileset_click(st, mx, my, mods):
+                    continue
+                if mx < VIEW_W and my < VIEW_H:
                     world = _view_to_world(st, mx, my)
                     if world is not None:
-                        if st.mode == "paint" and event.button == 1:
+                        if st.mode in ("paint", "enemy") and event.button == 1:
                             painting = True
                         _handle_map_click(
-                            st, world[0], world[1], event.button, pygame.key.get_mods()
+                            st, world[0], world[1], event.button, mods
                         )
             elif event.type == pygame.MOUSEBUTTONUP:
                 if event.button == 1:
                     painting = False
             elif event.type == pygame.MOUSEMOTION:
-                if painting and st.mode == "paint":
+                if painting and st.mode in ("paint", "enemy"):
                     mx, my = _scale_mouse(event.pos)
                     world = _view_to_world(st, mx, my)
                     if world is not None:
-                        _paint_at(st, *world)
+                        if st.mode == "paint":
+                            _paint_at(st, *world)
+                        else:
+                            _handle_map_click(
+                                st, world[0], world[1], 1, pygame.key.get_mods()
+                            )
+                # Live update Shift-drag block on tileset.
+                elif pygame.mouse.get_pressed()[0] and (pygame.key.get_mods() & pygame.KMOD_SHIFT):
+                    mx, my = _scale_mouse(event.pos)
+                    if st.tile_shifted and st.tile_grasp is not None:
+                        cell = _tileset_cell(mx, my)
+                        if cell is not None:
+                            gx, gy = st.tile_grasp
+                            col, row = cell
+                            st.block_shift = True
+                            st.block_smaller = (min(gx, col), min(gy, row))
+                            st.block_bigger = (max(gx, col), max(gy, row))
+                            st.block_tiles = _build_block_tiles(st)
 
         st = ctx["st"]
         keys = pygame.key.get_pressed()
@@ -1313,6 +1646,7 @@ def run_gmap(map_spec: str | None = None) -> int:
         canvas.fill((12, 12, 18))
         _draw_view(canvas, st)
         _draw_tileset(canvas, st)
+        _draw_macro_panel(canvas, st)
         panel_layout = _draw_sidebar(canvas, st, font, actions, hover)
 
         win = pygame.display.get_surface()

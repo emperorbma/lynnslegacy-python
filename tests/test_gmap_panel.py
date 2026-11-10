@@ -52,6 +52,7 @@ def _state(mode="paint"):
         walk_line_start=None,
         macros=[],
         macro_sel=0,
+        macro_walk_edit=False,
         panel_scroll=0,
     )
 
@@ -135,7 +136,9 @@ def test_make_actions_registers_panel_keys():
         "st": st,
         "flash": lambda _m: None,
         "save": lambda: None,
+        "save_as": lambda: None,
         "load": lambda: None,
+        "new_map": lambda: None,
         "pick_object": lambda: None,
         "pick_tileset": lambda: None,
         "pick_parallax": lambda: None,
@@ -152,9 +155,13 @@ def test_make_actions_registers_panel_keys():
         "seq_add",
         "macro_clear",
         "macro_wall",
+        "macro_walk_toggle",
         "toggle_zoom",
+        "parallax_toggle",
         "save",
+        "save_as",
         "load",
+        "new_map",
     ):
         assert key in actions
         assert callable(actions[key])

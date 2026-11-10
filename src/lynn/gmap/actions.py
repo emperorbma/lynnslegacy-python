@@ -258,10 +258,14 @@ def make_actions(ctx: dict[str, Any]) -> dict[str, Callable[[], None]]:
         "macro_del": lambda: _macro_del(st()),
         "macro_clear": do_macro_clear,
         "macro_wall": do_macro_wall,
+        "macro_walk_toggle": lambda: _macro_walk_toggle(st(), flash),
         "save": lambda: ctx["save"](),
+        "save_as": lambda: ctx["save_as"](),
         "load": lambda: ctx["load"](),
+        "new_map": lambda: ctx["new_map"](),
         "room_add": do_room_add,
         "room_del": lambda: _room_del(st(), dirty, flash),
+        "parallax_toggle": lambda: _parallax_toggle(st(), dirty, flash),
     }
     for field in ops.COMMAND_DATA_FIELDS:
         actions[f"block:{field}"] = (lambda f=field: edit_block_field(f))
@@ -540,6 +544,26 @@ def _macro_del(state) -> None:
     if state.macros:
         del state.macros[state.macro_sel]
         state.macro_sel = max(0, min(state.macro_sel, len(state.macros) - 1))
+
+
+def _macro_walk_toggle(state, flash) -> None:
+    state.macro_walk_edit = not state.macro_walk_edit
+    flash("Macro walk edit ON" if state.macro_walk_edit else "Macro walk edit OFF")
+
+
+def _parallax_toggle(state, dirty, flash) -> None:
+    """FB s_parallax bare XOR of room.parallax flag."""
+    room = state.room
+    if room.parallax:
+        room.parallax = 0
+        flash("Parallax off")
+    else:
+        room.parallax = -1
+        flash("Parallax on")
+    dirty()
+    refresh = getattr(state, "_refresh_para", None)
+    if callable(refresh):
+        refresh()
 
 
 def _room_del(state, dirty, flash) -> None:
