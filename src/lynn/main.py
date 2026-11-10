@@ -1,4 +1,4 @@
-"""Window loop. `python -m lynn [objects|map|palette|audio|config|credits|test]`."""
+"""Window loop. `python -m lynn [objects|map|palette|audio|config|credits|gmap|test]`."""
 
 from __future__ import annotations
 
@@ -81,6 +81,11 @@ def main(argv: list[str] | None = None) -> int:
         code = run_config(canvas, lambda: _present(canvas, 0), frame_clock, 0)
         pygame.quit()
         return code
+    if mode == "gmap":
+        from lynn.gmap import run_gmap
+
+        map_arg = rest[0] if rest else map_spec
+        return run_gmap(map_arg)
     if mode == "audio":
         chdir_project_root()
         from lynn.audio import init_mixer, init_snd
@@ -203,7 +208,7 @@ def parse_cli(argv: list[str]) -> tuple[str, str | None, list[str], str | None, 
     rest = args[1:]
     if mode in ("test", "--test", "-t"):
         return "test", None, rest, save_spec, debug_god
-    if mode in ("map", "objects") and rest:
+    if mode in ("map", "objects", "gmap") and rest:
         return mode, rest[0], rest[1:], save_spec, debug_god
     return mode, None, rest, save_spec, debug_god
 
@@ -221,13 +226,14 @@ def resolve_boot_map(mode: str, map_spec: str | None, save) -> tuple[str | None,
 
 def _usage() -> str:
     return (
-        "Usage: python -m lynn [objects|map|palette|audio|config|credits|test] [map] [--save spec] [--godmode]\n"
+        "Usage: python -m lynn [objects|map|palette|audio|config|credits|gmap|test] [map] [--save spec] [--godmode]\n"
         f"  objects [map]  walk Lynn (default: splash + {START_MAP})\n"
         f"  map [map]      tiles only (default: {DEFAULT_MAP})\n"
         "  palette        256-color ramp + lynn24.spr\n"
         "  config         key setup (writes data/controls.xml and ll.ini)\n"
         "  audio          live sound check (title.it + a sample); Esc quits\n"
         "  credits        ending roll, then exit; Esc quits\n"
+        f"  gmap [map]     Python map editor (default: {DEFAULT_MAP})\n"
         "  test           pytest (extra args forwarded, including --map; silent audio)\n"
         "  --save spec    load a save (path, N for ll_saveN.sav, or example name)\n"
         "  --godmode      no damage (F8 toggles; F9 opens cheat commands)\n"

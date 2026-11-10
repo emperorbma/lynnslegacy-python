@@ -61,3 +61,39 @@ class VFile:
         n = self.u16()
         text = self.raw(n).decode("latin-1")
         return text.replace("\\", "/")
+
+
+class VFileWriter:
+    """Mirror of VFile puts used by FB save_mapV / save_seqV."""
+
+    def __init__(self) -> None:
+        self._buf = bytearray()
+
+    def getvalue(self) -> bytes:
+        return bytes(self._buf)
+
+    def i32(self, v: int) -> None:
+        self._buf += struct.pack("<i", int(v))
+
+    def u16(self, v: int) -> None:
+        self._buf += struct.pack("<H", int(v) & 0xFFFF)
+
+    def s16(self, v: int) -> None:
+        self._buf += struct.pack("<h", int(v))
+
+    def u8(self, v: int) -> None:
+        self._buf += struct.pack("<B", int(v) & 0xFF)
+
+    def f64(self, v: float) -> None:
+        self._buf += struct.pack("<d", float(v))
+
+    def raw(self, data: bytes) -> None:
+        self._buf += data
+
+    def hstring(self, text: str) -> None:
+        # Disk paths use backslashes like FB.
+        encoded = str(text).replace("/", "\\").encode("latin-1")
+        if len(encoded) > 0xFFFF:
+            raise ValueError(f"hstring too long: {len(encoded)}")
+        self.u16(len(encoded))
+        self.raw(encoded)
