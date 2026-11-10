@@ -74,3 +74,50 @@ def prompt_int(title: str, initial: int = 0, minimum: int | None = None, maximum
     if maximum is not None and value > maximum:
         value = maximum
     return value
+
+
+def pick_list(title: str, items: list[str], initial: int = 0) -> int | None:
+    """Modal list picker. Returns selected index, or None on cancel."""
+    if not items:
+        return None
+    font = pygame.font.SysFont("consolas", 14)
+    clock = pygame.time.Clock()
+    sel = max(0, min(initial, len(items) - 1))
+    while True:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                return None
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    return None
+                if event.key in (pygame.K_UP, pygame.K_LEFT):
+                    sel = (sel - 1) % len(items)
+                if event.key in (pygame.K_DOWN, pygame.K_RIGHT):
+                    sel = (sel + 1) % len(items)
+                if event.key == pygame.K_PAGEUP:
+                    sel = max(0, sel - 12)
+                if event.key == pygame.K_PAGEDOWN:
+                    sel = min(len(items) - 1, sel + 12)
+                if event.key in (pygame.K_RETURN, pygame.K_SPACE):
+                    return sel
+        win = pygame.display.get_surface()
+        if win is None:
+            return None
+        overlay = pygame.Surface((GMAP_W, GMAP_H))
+        overlay.fill((8, 8, 14))
+        overlay.blit(font.render(title, True, (240, 240, 245)), (20, 12))
+        overlay.blit(
+            font.render("Enter select · Esc cancel", True, (160, 160, 180)),
+            (20, 32),
+        )
+        top = max(0, sel - 12)
+        for i, label in enumerate(items[top : top + 28]):
+            y = 56 + i * 18
+            color = (255, 230, 120) if top + i == sel else (200, 200, 210)
+            mark = ">" if top + i == sel else " "
+            overlay.blit(font.render(f"{mark} {label}", True, color), (24, y))
+        scaled = pygame.transform.smoothscale(overlay, win.get_size())
+        win.fill((0, 0, 0))
+        win.blit(scaled, (0, 0))
+        pygame.display.flip()
+        clock.tick(30)

@@ -108,13 +108,14 @@ run.bat gmap / ./run.sh gmap valley
 Coverage:
 
 - Load/save uncompressed `.map` files (same payload `load_mapV` reads)
-- Rooms, layers, tileset picker, paint, flood fill, layer fill, zoom/grid/walk/solo
-- Enemies: select, move, facing
+- Rooms (add/delete), layers, tileset load (`U`), paint, flood fill, layer fill, zoom/grid/solo
+- Walkables (`K`): toggle 8×8 quads on the active layer; ice (`I`) on layer 0
+- Enemies: select/move/facing; Ins picks `data/object/*.xml`
+- Entries (`N`): add/remove, place, direction
 - Teleports: add/remove, place/size, `to_room` / `to_map`, dest `dx/dy/dd`, song
-- Sequences (room / enemy / entry): add/remove seqs, commands, blocks; edit block fields
-- Session tile macros (6×6 capture/stamp; not stored in the map file)
-- Room redimension (resize + fill + copy overlap)
+- Sequences (room / enemy / entry): seqs, commands, blocks; edit every `command_data` field
+- Parallax image (`Y`); session 6×6 tile macros (`M`)
+- Room redimension (`D`)
 
-FB still has a denser control-panel UI for every sequence flag; the Python editor exposes the fields used most when wiring maps.
 
 Room `.it` music plays through pygame-ce `mixer.music` (no extra library). Title boot starts `title.it`; map changes start the dest room song.
