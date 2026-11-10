@@ -62,8 +62,37 @@ def _stem(path: str) -> str:
     return Path(str(path).replace("\\", "/")).stem or path
 
 
+def _regular_box_rows(st: Any, actions: dict[str, ActionFn]) -> list[PanelRow]:
+    """FB regular_box — room props + view toggles (shown in paint, or after mode box)."""
+    room = st.room
+    return [
+        PanelRow(f"├ Song: {room.song}", actions.get("room_song")),
+        PanelRow(f"├ Darkness: {room.dark}", actions.get("room_dark")),
+        PanelRow(f"├ Changes song: {room.song_changes}", actions.get("room_song_changes")),
+        PanelRow(f"├ Changes to: {room.changes_to}", actions.get("room_changes_to")),
+        PanelRow(
+            f"├ Parallax: {'yes' if room.parallax else 'no'}"
+            + (f" ({_stem(room.para_filename)})" if room.para_filename else ""),
+            actions.get("room_parallax"),
+        ),
+        PanelRow(f"├ Layer: {st.layer}  (click cycle)", actions.get("layer_cycle")),
+        PanelRow(
+            f"├ Zoom: {st.zoom}x  Grid:{int(st.show_grid)} "
+            f"Walk:{int(st.show_walk)} Solo:{int(st.solo)}",
+            actions.get("toggle_zoom"),
+        ),
+        PanelRow("│  Toggle tile grid", actions.get("toggle_grid")),
+        PanelRow("│  Toggle walk grid", actions.get("toggle_walk")),
+        PanelRow("│  Toggle layer solo", actions.get("toggle_solo")),
+    ]
+
+
 def build_rows(st: Any, actions: dict[str, ActionFn]) -> list[PanelRow]:
-    """Build the FB box contents for the current mode."""
+    """Build the FB box contents for the current mode.
+
+    Like FB current_box, mode-specific fields come first so they fit without scrolling.
+    regular_box room fields follow (always reachable via scroll / paint mode).
+    """
     room = st.room
     rows: list[PanelRow] = [
         PanelRow(f"Map: {st.map_path.name}{' *' if st.dirty else ''}", muted=True),
@@ -75,38 +104,12 @@ def build_rows(st: Any, actions: dict[str, ActionFn]) -> list[PanelRow]:
         PanelRow("", muted=True),
     ]
 
-    # Always show regular_box room fields (FB default box).
-    rows.extend(
-        [
-            PanelRow(f"├ Song: {room.song}", actions.get("room_song")),
-            PanelRow(f"├ Darkness: {room.dark}", actions.get("room_dark")),
-            PanelRow(f"├ Changes song: {room.song_changes}", actions.get("room_song_changes")),
-            PanelRow(f"├ Changes to: {room.changes_to}", actions.get("room_changes_to")),
-            PanelRow(
-                f"├ Parallax: {'yes' if room.parallax else 'no'}"
-                + (f" ({_stem(room.para_filename)})" if room.para_filename else ""),
-                actions.get("room_parallax"),
-            ),
-            PanelRow(
-                f"├ Layer: {st.layer}  (click cycle)",
-                actions.get("layer_cycle"),
-            ),
-            PanelRow(
-                f"├ Zoom: {st.zoom}x  Grid:{int(st.show_grid)} "
-                f"Walk:{int(st.show_walk)} Solo:{int(st.solo)}",
-                actions.get("toggle_zoom"),
-            ),
-            PanelRow("│  Toggle tile grid", actions.get("toggle_grid")),
-            PanelRow("│  Toggle walk grid", actions.get("toggle_walk")),
-            PanelRow("│  Toggle layer solo", actions.get("toggle_solo")),
-            PanelRow("", muted=True),
-        ]
-    )
-
     mode = st.mode
     if mode == "paint":
+        rows.extend(_regular_box_rows(st, actions))
         rows.extend(
             [
+                PanelRow("", muted=True),
                 PanelRow("Paint layer with brush", muted=True),
                 PanelRow("├ Eyedrop (Alt / RMB)", muted=True),
                 PanelRow("├ Layer fill", actions.get("layer_fill")),
@@ -313,6 +316,12 @@ def build_rows(st: Any, actions: dict[str, ActionFn]) -> list[PanelRow]:
             ]
         )
 
+    # Room props reachable from non-paint modes via scroll (FB still has regular_box).
+    if mode != "paint":
+        rows.append(PanelRow("", muted=True))
+        rows.append(PanelRow("[Room props]", muted=True))
+        rows.extend(_regular_box_rows(st, actions))
+
     rows.extend(
         [
             PanelRow("", muted=True),
@@ -375,7 +384,7 @@ def draw_panel(
 
     if scroll > 0 or scroll + visible < len(rows):
         hint = font.render(
-            f"[{scroll + 1}-{min(len(rows), scroll + visible)}/{len(rows)}] PgUp/Dn",
+            f"[{scroll + 1}-{min(len(rows), scroll + visible)}/{len(rows)}] wheel/Ctrl+Pg",
             True,
             (150, 150, 170),
         )

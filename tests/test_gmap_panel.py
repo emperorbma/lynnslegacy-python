@@ -107,9 +107,26 @@ def test_build_rows_enemy_and_seq_modes():
     st = _state("enemy")
     rows = build_rows(st, {})
     assert any("Enemy #" in r.label for r in rows)
+    # Mode box precedes room props so it fits without scrolling.
+    labels = [r.label for r in rows]
+    assert labels.index(next(l for l in labels if "Enemy #" in l)) < labels.index(
+        next(l for l in labels if l.startswith("├ Song:"))
+    )
     st.mode = "seq"
     rows = build_rows(st, {})
     assert any("Sequence source" in r.label for r in rows)
+
+
+def test_macro_mode_shows_clear_and_wall_near_top():
+    st = _state("macro")
+    rows = build_rows(st, {"macro_clear": lambda: None, "macro_wall": lambda: None})
+    labels = [r.label for r in rows]
+    assert any("Clear macro" in l for l in labels)
+    assert any("Wall macro" in l for l in labels)
+    # First ~12 rows should include macro actions (visible without scroll).
+    top = "\n".join(labels[:12])
+    assert "Clear macro" in top
+    assert "Wall macro" in top
 
 
 def test_make_actions_registers_panel_keys():
