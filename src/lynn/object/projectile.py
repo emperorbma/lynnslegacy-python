@@ -31,6 +31,7 @@ from lynn.constants import (
     u_fbug,
     u_grult,
     u_ibug,
+    u_statue,
     u_steelstrider,
 )
 
@@ -72,11 +73,15 @@ def LLObject_InitializeProjectiles(obj: CharType) -> None:
     if proj is None or not proj.coords:
         return
     # Logosta's faces always fire inward. The saved facing is not the beam.
+    # Statues: gmap places enemies with direction 0 (calloc); XML's 2 is not
+    # kept. FB Case u_statue supersedes that stub default to fire down.
     if obj.unique_id == u_boss5_left:
         proj.direction = 3
     elif obj.unique_id == u_boss5_right:
         proj.direction = 1
     elif obj.unique_id == u_boss5_down:
+        proj.direction = 2
+    elif obj.unique_id == u_statue:
         proj.direction = 2
     elif proj.saveDirection == 0:
         proj.direction = int(obj.direction) & 3
