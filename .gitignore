@@ -25,3 +25,8 @@ ll_save*.sav
 tests/fixtures/*
 !tests/fixtures/.gitkeep
 ref/
+# FreeBASIC map editor binary (built by build_gmap.*; lives next to data/)
+/gmap.exe
+/gmap
+/fbsrc/gmap.exe
+/fbsrc/src/gmap/obj/

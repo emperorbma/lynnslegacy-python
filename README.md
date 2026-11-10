@@ -6,7 +6,9 @@ Original project: [https://sourceforge.net/projects/lynn/](https://sourceforge.n
 
 LÖVE port: [https://github.com/gradualgames/lynnslegacy](https://github.com/gradualgames/lynnslegacy)
 
-The FreeBASIC source is in `fbsrc/`, the same snapshot the LÖVE port ships. This is not a rewrite and not a map-editor port. Function names, field names, and binary layouts follow that engine.
+The FreeBASIC source is in `fbsrc/`, the same snapshot the LÖVE port ships. This is not a rewrite. Function names, field names, and binary layouts follow that engine.
+
+The original FreeBASIC map editor (**gmap**) is included from `fbsrc/src/gmap/`. Build it with `build_gmap.bat` / `./build_gmap.sh`, then launch with `gmap.bat` / `./gmap.sh` (same root-level wrapper pattern as `ll.bat` / `ll.sh`). The editor is not reimplemented in Python.
 
 ## License
 
@@ -34,7 +36,7 @@ Runtime data lives in `data/` (uncompressed maps, sprites, objects, sounds, musi
 
 ## Run
 
-Same names as the original Windows build: double-click `ll.bat` / `./ll.sh` for the game (`ll.exe`), or `Configure LL.bat` / `./Configure LL.sh` for key setup (`Configure LL.exe`). Those call `run.bat` / `run.sh`.
+Same names as the original Windows build: double-click `ll.bat` / `./ll.sh` for the game (`ll.exe`), or `Configure LL.bat` / `./Configure LL.sh` for key setup (`Configure LL.exe`). Those call `run.bat` / `run.sh`. For the FreeBASIC map editor, use `gmap.bat` / `./gmap.sh` after `build_gmap.bat` / `./build_gmap.sh` (needs `fbc` and GNU make).
 
 Or run `run.bat` / `./run.sh` from the project root:
 
@@ -89,6 +91,16 @@ Implemented: walking, collisions, camera, HUD, pause menu and items (including A
 
 Fidelity: all 219 FreeBASIC object functions are registered, including `__change_room`. Room and map hops run the FreeBASIC `change_room` fade FSM (invincible → fade out → swap → fade in → vulnerable), including `fadeStyle` white/gray arrivals, `tele.to_song` / house-town song hacks, and deferred room/entry sequences. Ongoing work is auditing behaviour against the FreeBASIC source; no content beyond the original is being added.
 
-Port-only additions (not in the original): godmode (`--godmode`; F8 toggles no damage, F9 opens cheat commands), the pytest suite, the debug tools (`--save`, `[` `]` room stepping), `ItemSwitch=Original` as the default comma/period wiring, Gelidus minimap visit stash across maps with no `.mni`, and the Ignia maceget-return landing nudge.
+Port-only additions (not in the original): godmode (`--godmode`; F8 toggles no damage, F9 opens cheat commands), the pytest suite, the debug tools (`--save`, `[` `]` room stepping), `ItemSwitch=Original` as the default comma/period wiring, Gelidus minimap visit stash across maps with no `.mni`, the Ignia maceget-return landing nudge, and the root `gmap.bat` / `gmap.sh` (plus `build_gmap.*`) wrappers that build and launch the stock FreeBASIC editor against this tree's `data/`.
+
+## Map editor (gmap)
+
+`gmap` is the original FreeBASIC room/object editor (`fbsrc/src/gmap/`). It is not part of the Python runtime; the wrappers only build and invoke it.
+
+1. Install [FreeBASIC](https://www.freebasic.net/) (`fbc` on `PATH`) and GNU make.
+2. From the project root: `build_gmap.bat` or `./build_gmap.sh` — compiles `fbsrc/src/gmap` and copies `gmap.exe` next to `data/` (gmap does `ChDir ExePath`, so the binary must sit beside `data/`).
+3. Launch: `gmap.bat` or `./gmap.sh`. On Unix, a Windows PE build is run through `wine` when needed.
+
+Built binaries (`gmap.exe`, `fbsrc/gmap.exe`, `fbsrc/src/gmap/obj/`) are gitignored.
 
 Room `.it` music plays through pygame-ce `mixer.music` (no extra library). Title boot starts `title.it`; map changes start the dest room song.
