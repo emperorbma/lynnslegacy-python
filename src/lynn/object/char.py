@@ -266,3 +266,13 @@ class CharType:
     proj_style: int = 0
     proj_anim: int = 0
     projectile: EntityProjectile | None = None
+
+
+@dataclass
+class LLObject_FrameConcurrent:
+    """FB LLObject_FrameConcurrent — attachment shown on a specific anim frame."""
+
+    is_relative: int = 0
+    origin_x: int = 0
+    origin_y: int = 0
+    char: CharType | None = None

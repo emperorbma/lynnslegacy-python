@@ -369,6 +369,10 @@ def tick_objects(objs: list[CharType], cam: tuple[int, int] | None = None) -> No
 
             LLObject_ProjectileDamage(objs, obj)
         tick_object(obj)
+        # FB act_enemies: LLEngine_ExecuteConcurrents when this frame has attachments.
+        from lynn.object.concurrent import execute_concurrents
+
+        execute_concurrents(obj)
         proj = obj.projectile
         if proj is not None and proj.active != 0:
             lookup_func("__do_proj")(obj)
