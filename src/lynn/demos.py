@@ -713,6 +713,13 @@ def _blit_y_sorted(canvas, demo: MapDemo, room_i: int, cam_x: int, cam_y: int, s
                 events.box_entity = obj
                 continue
             sprites.append(("obj", obj, _sort_y(obj)))
+            # FB blit_y_sorted: add current-frame concurrent chars to the sort list.
+            from lynn.object.concurrent import current_frame_concurrents
+
+            for conc in current_frame_concurrents(obj):
+                child = conc.char
+                if child is not None and getattr(child, "invisible", 0) == 0:
+                    sprites.append(("obj", child, _sort_y(child)))
             if is_corpse_drop(obj):
                 sprites.append(("drop", obj, drop_sort_y(obj)))
             proj = getattr(obj, "projectile", None)

@@ -8,7 +8,14 @@ from pathlib import Path
 from lynn.audio import sound_enemyhit, sound_enemykill, sound_from_name
 from lynn.constants import PROJ_STYLE_COUNTS
 from lynn.gfx.image import LLSystem_ImageHeader, LLSystem_ImageLoad
-from lynn.object.char import CharType, EFuncs, EntityProjectile, LLObject_FrameControl, LLObject_ImageHeader
+from lynn.object.char import (
+    CharType,
+    EFuncs,
+    EntityProjectile,
+    LLObject_FrameConcurrent,
+    LLObject_FrameControl,
+    LLObject_ImageHeader,
+)
 from lynn.object.dispatch import BLOCK_MACROS, lookup_func
 from lynn.paths import project_root, resolve_data_path
 
@@ -157,6 +164,7 @@ def LLSystem_ObjectFromXML(obj: CharType, load_images: bool = True) -> CharType:
     obj.funcs.active_state = 0
     obj.maxhp = int(obj.hp)
     _assign_unique_id(obj)
+    _materialize_concurrents(obj, load_images=load_images)
     return obj
 
 
@@ -282,6 +290,8 @@ def _sprite_text(obj: CharType, path: list[str], text: str, load_images: bool) -
             obj.proj_anim = obj.current_anim
         elif text == "expl_anim":
             obj.expl_anim = obj.current_anim
+    elif len(path) >= 4 and path[2] == "concurrent":
+        _concurrent_text(ctrl, path[3], text)
     elif len(path) >= 4 and path[2] == "sound":
         kind = path[3]
         if kind == "frame":
@@ -292,6 +302,58 @@ def _sprite_text(obj: CharType, path: list[str], text: str, load_images: bool) -
             _stamp_frame_sound(anim, ctrl, obj.frame_sound, "sound", sound_from_name(text), uni=True)
         elif kind == "vol":
             _stamp_frame_sound(anim, ctrl, obj.frame_sound, "vol", int(_xml_number(text) or 0), uni=True)
+
+
+def _ensure_frame_controls(ctrl: LLObject_ImageHeader, frame_i: int) -> LLObject_FrameControl:
+    while len(ctrl.frame) <= frame_i:
+        ctrl.frame.append(LLObject_FrameControl())
+    return ctrl.frame[frame_i]
+
+
+def _concurrent_text(ctrl: LLObject_ImageHeader, kind: str, text: str) -> None:
+    """FB object_XML.bas concurrent-> frame/x/y/id."""
+    if kind == "frame":
+        fi = int(_xml_number(text) or 0)
+        fc = _ensure_frame_controls(ctrl, fi)
+        fc.concurrent.append(LLObject_FrameConcurrent())
+        fc.concurrents = len(fc.concurrent)
+        ctrl._parse_conc_frame = fi  # type: ignore[attr-defined]
+        return
+    if not ctrl.frame:
+        return
+    fi = int(getattr(ctrl, "_parse_conc_frame", 0) or 0)
+    fi = min(max(fi, 0), len(ctrl.frame) - 1)
+    fc = ctrl.frame[fi]
+    if not fc.concurrent:
+        return
+    conc = fc.concurrent[-1]
+    if kind == "x":
+        conc.origin_x = int(_xml_number(text) or 0)
+    elif kind == "y":
+        conc.origin_y = int(_xml_number(text) or 0)
+    elif kind == "id":
+        child = CharType()
+        child.id = text.replace("\\", "/")
+        conc.char = child
+
+
+def _materialize_concurrents(obj: CharType, load_images: bool = True) -> None:
+    """FB ObjectDeepCopy: LLSystem_CopyNewObject on each concurrent.char."""
+    for ctrl in obj.animControl:
+        for fc in ctrl.frame:
+            for conc in fc.concurrent:
+                if conc.char is None or not conc.char.id:
+                    continue
+                # Skip if already fully loaded (nested resolve).
+                if conc.char.anim:
+                    continue
+                cid = conc.char.id
+                child = CharType()
+                child.id = cid
+                # Load without re-entering materialize recursion via ObjectFromXML —
+                # icecloud has no concurrents; still safe if it did.
+                LLSystem_ObjectFromXML(child, load_images=load_images)
+                conc.char = child
 
 
 def _proj_style(obj: CharType, text: str) -> None:
